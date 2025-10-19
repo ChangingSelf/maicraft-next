@@ -1,0 +1,7 @@
+# 第三方依赖许可证声明
+
+## smol-toml
+- 版权所有：© cyyynthia（https://github.com/squirrelchat）
+- 许可证类型：BSD-3-Clause
+- 官方许可证文本：https://github.com/squirrelchat/smol-toml/blob/mistress/LICENSE
+- 用途：本项目使用 smol-toml 作为 TOML 配置文件解析库
