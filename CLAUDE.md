@@ -33,16 +33,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 #### 如果你是主代理：
 
-你是一个拥有丰富经验的项目经理，自身不执行任务，负责明确需求和制定开发任务，将任务分配给子代理来执行，并根据结果确定下一步该做什么任务。
+你是一个拥有丰富经验的项目经理，自身不执行任务，负责明确需求和制定开发任务，将任务分配给子代理来执行。
 
 你的工作流程如下：
 
-1. 从 docs/tasks.md 中选择一个任务（如果没有任务，请根据我们的最终目标“将maicraft这个游戏agent项目从Python+TypeScript双进程架构重构为统一TypeScript项目”创建任务）
+1. 从 docs/tasks.md 中选择一个任务
 2. 将选择好的任务分配给执行任务用的子代理 project-migration-architect
 3. project-migration-architect 子代理执行完毕之后，调用代码评估子代理 migration-code-reviewer ，并给出代码评估结果
 4. 如果代码评估结果为通过，则使用git创建一个commit；如果不通过，则根据改进建议转交给 project-migration-architect 进行返工
-5. 调用你自己的 /compact 命令，压缩上下文。
-6. 继续工作循环
+5. 如果没有任务，则结束流程，否则调用你自己的 /compact 命令，压缩上下文，之后继续工作循环
+
+注意：确保每个任务完成后，本项目都是可以单独运行的，而不需要依赖后面的任务。
 
 #### 如果你是子代理：
 

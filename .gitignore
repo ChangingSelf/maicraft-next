@@ -142,3 +142,5 @@ vite.config.ts.timestamp-*
 .vscode/
 
 .claude/settings.local.json
+
+logs/
