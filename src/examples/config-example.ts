@@ -11,7 +11,7 @@ import {
   getSection,
   updateConfig
 } from '../utils/Config';
-import { createConfiguredLogger } from '../utils/ConfiguredLogger';
+import { createConfiguredLogger } from '../utils/Logger';
 
 async function basicUsageExample() {
   console.log('=== 基本使用示例 ===');

@@ -4,6 +4,7 @@ import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { z } from 'zod';
 import { EventEmitter } from 'events';
 import { createModuleLogger, LogLevel } from './Logger';
+import { LLMConfigSchema } from '../llm/types';
 
 /**
  * 应用配置接口
@@ -236,7 +237,7 @@ export class ConfigManager extends EventEmitter {
   private backupPath: string;
   private logger = createModuleLogger('Config');
   private isWatching = false;
-  private watchDebounceTimer: NodeJS.Timeout | null = null;
+  private watchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly WATCH_DEBOUNCE_DELAY = 1000; // 1秒防抖
 
   constructor(configPath: string = './config.toml', templatePath: string = './config-template.toml') {
@@ -523,7 +524,7 @@ export class ConfigManager extends EventEmitter {
     // 清除防抖定时器
     if (this.watchDebounceTimer) {
       clearTimeout(this.watchDebounceTimer);
-      this.watchDebounceTimer = undefined;
+      this.watchDebounceTimer = null;
     }
     this.removeAllListeners();
     this.logger.info('配置管理器已关闭');
@@ -575,4 +576,24 @@ export function getSection<T extends keyof AppConfig>(section: T): AppConfig[T] 
 export async function updateConfig(updates: DeepPartial<AppConfig>): Promise<void> {
   const manager = getConfigManager();
   await manager.updateConfig(updates);
+}
+
+/**
+ * 获取日志配置（延迟导入避免循环依赖）
+ */
+export function getLoggingConfig() {
+  try {
+    const loggingSection = getSection('logging');
+    return loggingSection;
+  } catch (error) {
+    console.warn('无法获取日志配置，使用默认值:', error);
+    return {
+      level: 'info' as const,
+      console: true,
+      file: true,
+      max_file_size: 10 * 1024 * 1024,
+      max_files: 5,
+      log_dir: './logs',
+    };
+  }
 }

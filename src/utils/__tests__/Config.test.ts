@@ -1,7 +1,7 @@
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { ConfigManager, ConfigError, initializeConfig, getConfig, getSection, updateConfig, DeepPartial } from '../Config';
-import { createConfiguredLogger } from '../ConfiguredLogger';
+import { createConfiguredLogger } from '../Logger';
 import { AppConfig } from '../Config';
 
 // 测试用的配置文件路径
@@ -47,6 +47,52 @@ safe_mode = true
 allow_destructive_actions = false
 memory_limit = 500
 save_memory_interval = 30000
+
+[llm]
+default_provider = "openai"
+
+[llm.openai]
+enabled = false
+api_key = ""
+model = "gpt-4"
+max_tokens = 4096
+temperature = 0.7
+timeout = 30000
+
+[llm.azure]
+enabled = false
+api_key = ""
+endpoint = "https://example.openai.azure.com/"
+deployment_name = ""
+api_version = "2023-05-15"
+model = "gpt-4"
+max_tokens = 4096
+temperature = 0.7
+timeout = 30000
+
+[llm.anthropic]
+enabled = false
+api_key = ""
+model = "claude-2"
+max_tokens = 4096
+temperature = 0.7
+timeout = 30000
+
+[llm.retry]
+max_attempts = 3
+delay = 1000
+backoff_factor = 2
+
+[llm.usage_tracking]
+enabled = true
+persist_interval = 60000
+stats_file = "./llm_usage.json"
+daily_limit_warning = 0.8
+
+[llm.pricing]
+openai = { gpt_4_input = 0.03, gpt_4_output = 0.06, gpt_35_turbo_input = 0.0015, gpt_35_turbo_output = 0.002 }
+anthropic = { claude_instant_input = 0.00163, claude_instant_output = 0.00551, claude_2_input = 0.01102, claude_2_output = 0.03268 }
+azure = { gpt_4_input = 0.03, gpt_4_output = 0.06, gpt_35_turbo_input = 0.0015, gpt_35_turbo_output = 0.002 }
 
 [plugins]
 enabled = ["pathfinder", "tool"]
@@ -386,7 +432,7 @@ name = "missing-bracket"
   });
 });
 
-describe('ConfiguredLogger', () => {
+describe('Logger Integration', () => {
   beforeEach(() => {
     // 创建测试用的模板文件
     writeFileSync(TEST_TEMPLATE_PATH, TEST_TEMPLATE_CONTENT);

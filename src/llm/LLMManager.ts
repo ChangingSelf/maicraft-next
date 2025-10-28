@@ -7,7 +7,6 @@
 import { EventEmitter } from 'events';
 import { Logger } from '../utils/Logger.js';
 import { ConfigManager } from '../utils/Config.js';
-import { ConfiguredLogger } from '../utils/ConfiguredLogger.js';
 import {
   LLMConfig,
   LLMResponse,
@@ -36,7 +35,7 @@ export class LLMManager extends EventEmitter {
     super();
 
     this.config = config;
-    this.logger = logger || new ConfiguredLogger('LLMManager').logger;
+    this.logger = logger || new Logger().child('LLMManager');
 
     this.logger.info('LLM管理器初始化', {
       default_provider: config.default_provider,

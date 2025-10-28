@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, appendFileSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { z } from 'zod';
+import { getSection } from './Config';
 
 /**
  * 日志级别枚举
@@ -85,8 +86,9 @@ export class Logger {
   private currentFilePath: string;
 
   constructor(config: Partial<LoggerConfig> = {}) {
-    // 验证并设置默认配置
-    const validatedConfig = LoggerConfigSchema.parse(config);
+    // 如果没有传入配置，尝试从全局配置中读取
+    const configFromApp = config || Logger.getConfigFromApp();
+    const validatedConfig = LoggerConfigSchema.parse(configFromApp);
     this.config = validatedConfig;
 
     // 初始化日志轮转信息
@@ -199,6 +201,66 @@ export class Logger {
    */
   close(): void {
     // 目前没有需要清理的资源，但保留接口以备将来扩展
+  }
+
+  /**
+   * 从应用配置中获取日志配置
+   */
+  private static getConfigFromApp(): Partial<LoggerConfig> {
+    try {
+      const loggingSection = getSection('logging');
+
+      return {
+        level: Logger.parseLogLevel(loggingSection.level),
+        console: loggingSection.console,
+        file: loggingSection.file,
+        maxFileSize: loggingSection.max_file_size,
+        maxFiles: loggingSection.max_files,
+        logDir: loggingSection.log_dir,
+      };
+    } catch (error) {
+      // 如果无法获取配置，使用默认值
+      console.warn('无法从配置文件读取日志配置，使用默认配置:', error);
+      return {
+        level: LogLevel.INFO,
+        console: true,
+        file: true,
+        maxFileSize: 10 * 1024 * 1024,
+        maxFiles: 5,
+        logDir: './logs',
+      };
+    }
+  }
+
+  /**
+   * 解析日志级别字符串
+   */
+  private static parseLogLevel(level: string): LogLevel {
+    switch (level.toLowerCase()) {
+      case 'error':
+        return LogLevel.ERROR;
+      case 'warn':
+        return LogLevel.WARN;
+      case 'info':
+        return LogLevel.INFO;
+      case 'debug':
+        return LogLevel.DEBUG;
+      default:
+        console.warn(`未知的日志级别: ${level}，使用默认级别 INFO`);
+        return LogLevel.INFO;
+    }
+  }
+
+  /**
+   * 根据应用配置更新日志器配置
+   */
+  updateFromAppConfig(): void {
+    try {
+      const newConfig = Logger.getConfigFromApp();
+      this.updateConfig(newConfig);
+    } catch (error) {
+      this.warn('更新日志配置失败', { error: error instanceof Error ? error.message : String(error) });
+    }
   }
 
   /**
@@ -378,6 +440,19 @@ export function createLogger(config?: Partial<LoggerConfig>): Logger {
  * 创建模块专用日志器的便捷函数
  */
 export function createModuleLogger(moduleName: string, config?: Partial<LoggerConfig>): Logger {
+  const logger = new Logger(config);
+  const originalLog = logger.log.bind(logger);
+  logger.log = (level: LogLevel, message: string, context?: Record<string, unknown>, error?: Error) => {
+    originalLog(level, message, { ...context, module: moduleName }, error);
+  };
+  return logger;
+}
+
+/**
+ * 创建配置化的日志器（兼容ConfiguredLogger）
+ * 这个函数会自动从配置文件读取日志配置
+ */
+export function createConfiguredLogger(moduleName: string, config?: Partial<LoggerConfig>): Logger {
   const logger = new Logger(config);
   const originalLog = logger.log.bind(logger);
   logger.log = (level: LogLevel, message: string, context?: Record<string, unknown>, error?: Error) => {
