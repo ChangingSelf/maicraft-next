@@ -50,6 +50,83 @@ allow_destructive_actions = false
 memory_limit = 1000  # 最大记忆条目数
 save_memory_interval = 60000  # 毫秒
 
+[llm]
+# LLM 服务配置
+default_provider = "openai"  # openai, anthropic, azure
+
+# OpenAI 配置
+[llm.openai]
+enabled = true
+api_key = ""  # 在此处填入你的 OpenAI API key
+base_url = "https://api.openai.com/v1"
+model = "gpt-4"
+max_tokens = 4096
+temperature = 0.7
+timeout = 30000  # 毫秒
+
+# Azure OpenAI 配置
+[llm.azure]
+enabled = false
+api_key = ""  # Azure API key
+endpoint = ""  # Azure endpoint URL
+deployment_name = ""  # Azure deployment name
+api_version = "2023-12-01-preview"
+model = "gpt-4"
+max_tokens = 4096
+temperature = 0.7
+timeout = 30000
+
+# Anthropic Claude 配置
+[llm.anthropic]
+enabled = false
+api_key = ""  # Anthropic API key
+model = "claude-3-sonnet-20240229"
+max_tokens = 4096
+temperature = 0.7
+timeout = 30000
+
+# 重试配置
+[llm.retry]
+max_attempts = 3
+initial_delay = 1000  # 毫秒
+max_delay = 30000  # 毫秒
+backoff_multiplier = 2
+
+# 用量统计配置
+[llm.usage_tracking]
+enabled = true
+persist_interval = 60000  # 毫秒
+stats_file = "./data/usage_stats.json"
+daily_limit_warning = 0.8  # 80% 时警告
+monthly_budget_warning = 0.8  # 80% 时警告
+
+# 价格配置 (USD per 1K tokens)
+[llm.pricing]
+# OpenAI 定价
+[llm.pricing.openai]
+gpt_4_input = 0.03
+gpt_4_output = 0.06
+gpt_35_turbo_input = 0.0015
+gpt_35_turbo_output = 0.002
+gpt_4_turbo_input = 0.01
+gpt_4_turbo_output = 0.03
+
+# Anthropic 定价
+[llm.pricing.anthropic]
+claude_3_opus_input = 0.015
+claude_3_opus_output = 0.075
+claude_3_sonnet_input = 0.003
+claude_3_sonnet_output = 0.015
+claude_3_haiku_input = 0.00025
+claude_3_haiku_output = 0.00125
+
+# Azure 定价 (通常与 OpenAI 相同)
+[llm.pricing.azure]
+gpt_4_input = 0.03
+gpt_4_output = 0.06
+gpt_35_turbo_input = 0.0015
+gpt_35_turbo_output = 0.002
+
 [plugins]
 # 插件配置
 enabled = [

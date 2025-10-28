@@ -117,6 +117,7 @@ export interface AppConfig {
   logging: LoggingSection;
   minecraft: MinecraftSection;
   agent: AgentSection;
+  llm: import('../llm/types.js').LLMConfig;
   plugins: PluginsSection;
   advanced: AdvancedSection;
 }
@@ -210,6 +211,7 @@ const AppConfigSchema = z.object({
   logging: LoggingSectionSchema,
   minecraft: MinecraftSectionSchema,
   agent: AgentSectionSchema,
+  llm: LLMConfigSchema,
   plugins: PluginsSectionSchema,
   advanced: AdvancedSectionSchema,
 });
