@@ -17,6 +17,7 @@ color: blue
 
 ### 第一步：设计阶段
 - 分析现有项目的架构和功能
+- 分析需要迁移的maicraft和maicraft-mcp-server项目的架构和功能
 - 设计新的统一架构方案
 - 创建设计文档: `docs/design/task_name_design.md`
 - 设计文档应包含：

@@ -1,0 +1,8 @@
+
+[app]
+name = "old-maicraft"
+debug = true
+
+[minecraft]
+server = "localhost"
+port = 25565
