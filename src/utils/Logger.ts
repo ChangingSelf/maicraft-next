@@ -419,15 +419,69 @@ export class Logger {
 }
 
 /**
- * 默认日志器实例
+ * 全局日志管理器
+ *
+ * 提供统一的日志器管理，避免重复配置读取和内存开销
  */
-export const logger = new Logger({
-  level: LogLevel.INFO,
-  console: true,
-  file: true,
-  maxFileSize: 10 * 1024 * 1024, // 10MB
-  maxFiles: 5,
-});
+export class GlobalLoggerManager {
+  private static instance: GlobalLoggerManager;
+  private rootLogger: Logger;
+  private childLoggers: Map<string, Logger> = new Map();
+
+  private constructor() {
+    this.rootLogger = new Logger();
+  }
+
+  /**
+   * 获取全局日志管理器实例
+   */
+  static getInstance(): GlobalLoggerManager {
+    if (!GlobalLoggerManager.instance) {
+      GlobalLoggerManager.instance = new GlobalLoggerManager();
+    }
+    return GlobalLoggerManager.instance;
+  }
+
+  /**
+   * 获取指定模块的日志器
+   * @param moduleName 模块名称
+   * @returns 模块专用日志器
+   */
+  getLogger(moduleName: string): Logger {
+    if (!this.childLoggers.has(moduleName)) {
+      const childLogger = this.rootLogger.child(moduleName);
+      this.childLoggers.set(moduleName, childLogger);
+    }
+    return this.childLoggers.get(moduleName)!;
+  }
+
+  /**
+   * 更新所有日志器的配置
+   */
+  updateAllConfigs(): void {
+    this.rootLogger.updateFromAppConfig();
+    // 子日志器会自动继承新的配置
+  }
+
+  /**
+   * 获取根日志器（用于全局日志）
+   */
+  getRootLogger(): Logger {
+    return this.rootLogger;
+  }
+}
+
+/**
+ * 默认日志器实例（向后兼容）
+ */
+export const logger = GlobalLoggerManager.getInstance().getRootLogger();
+
+/**
+ * 获取模块日志器的便捷函数
+ */
+export function getModuleLogger(moduleName: string): Logger {
+  return GlobalLoggerManager.getInstance().getLogger(moduleName);
+}
 
 /**
  * 创建日志器的便捷函数

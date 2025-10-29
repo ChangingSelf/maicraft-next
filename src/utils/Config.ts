@@ -3,7 +3,7 @@ import { join, dirname, basename } from 'path';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { z } from 'zod';
 import { EventEmitter } from 'events';
-import { createModuleLogger, LogLevel } from './Logger';
+import { getModuleLogger, LogLevel } from './Logger';
 import { LLMConfigSchema } from '../llm/types';
 
 /**
@@ -235,7 +235,7 @@ export class ConfigManager extends EventEmitter {
   private configPath: string;
   private templatePath: string;
   private backupPath: string;
-  private logger = createModuleLogger('Config');
+  private logger = getModuleLogger('Config');
   private isWatching = false;
   private watchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly WATCH_DEBOUNCE_DELAY = 1000; // 1秒防抖
