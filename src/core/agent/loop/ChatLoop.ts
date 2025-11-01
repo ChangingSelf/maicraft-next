@@ -6,13 +6,12 @@ import type { AgentState } from '../types';
 import type { ConversationEntry } from '../memory/types';
 import { LLMManager } from '@/llm/LLMManager';
 import type { LLMResponse } from '@/llm/types';
-import { PromptManager } from '../prompt/PromptManager';
+import { promptManager } from '../prompt';
 import { ActionIds } from '@/core/actions/ActionIds';
 import { BaseLoop } from './BaseLoop';
 
 export class ChatLoop extends BaseLoop<AgentState> {
   private llmManager: any; // LLMManager type
-  private promptManager: PromptManager;
 
   private activeValue: number = 5;
   private selfTriggered: boolean = false;
@@ -22,7 +21,6 @@ export class ChatLoop extends BaseLoop<AgentState> {
 
     // 使用传入的 llmManager 或创建新实例
     this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
-    this.promptManager = new PromptManager();
 
     // 监听聊天事件
     this.setupChatListener();
@@ -93,19 +91,15 @@ export class ChatLoop extends BaseLoop<AgentState> {
    */
   private async respondToChat(): Promise<void> {
     try {
-      const memoryContext = this.state.memory.buildContextSummary({
-        includeThoughts: 2,
-        includeConversations: 10,
-        includeDecisions: 3,
+      const recentConversations = this.state.memory.conversation.getRecent(10);
+      const conversationText = recentConversations.map(c => `[${c.speaker}]: ${c.message}`).join('\n');
+
+      const prompt = promptManager.generatePrompt('chat_response', {
+        player_name: this.state.context.gameState.playerName || 'Bot',
+        recent_conversations: conversationText,
+        current_activity: this.state.planningManager.getCurrentTask()?.title || '空闲中',
+        position: `位置: (${this.state.context.gameState.blockPosition.x}, ${this.state.context.gameState.blockPosition.y}, ${this.state.context.gameState.blockPosition.z})`,
       });
-
-      const environmentData = {
-        position: this.state.context.gameState.getPositionDescription?.() || '未知位置',
-        currentActivity: this.state.planningManager.getCurrentTask()?.title || '空闲中',
-        memoryContext,
-      };
-
-      const prompt = this.promptManager.generateChatResponsePrompt(environmentData);
 
       // 将字符串提示词转换为 ChatMessage 格式
       const messages = [
@@ -134,19 +128,15 @@ export class ChatLoop extends BaseLoop<AgentState> {
    */
   private async initiateChat(): Promise<void> {
     try {
-      const memoryContext = this.state.memory.buildContextSummary({
-        includeThoughts: 2,
-        includeConversations: 5,
-        includeDecisions: 3,
+      const recentConversations = this.state.memory.conversation.getRecent(5);
+      const conversationText = recentConversations.map(c => `[${c.speaker}]: ${c.message}`).join('\n');
+
+      const prompt = promptManager.generatePrompt('chat_initiate', {
+        player_name: this.state.context.gameState.playerName || 'Bot',
+        recent_conversations: conversationText,
+        current_activity: this.state.planningManager.getCurrentTask()?.title || '空闲中',
+        position: `位置: (${this.state.context.gameState.blockPosition.x}, ${this.state.context.gameState.blockPosition.y}, ${this.state.context.gameState.blockPosition.z})`,
       });
-
-      const environmentData = {
-        position: this.state.context.gameState.getPositionDescription?.() || '未知位置',
-        currentActivity: this.state.planningManager.getCurrentTask()?.title || '空闲中',
-        memoryContext,
-      };
-
-      const prompt = this.promptManager.generateChatInitiatePrompt(environmentData);
 
       // 将字符串提示词转换为 ChatMessage 格式
       const messages = [
