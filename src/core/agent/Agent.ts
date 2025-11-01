@@ -136,7 +136,7 @@ export class Agent {
 
       this.logger.info('✅ Agent 初始化完成');
     } catch (error) {
-      this.logger.error('❌ Agent 初始化失败:', error);
+      this.logger.error('❌ Agent 初始化失败:', undefined, error as Error);
       throw error;
     }
   }
@@ -151,7 +151,7 @@ export class Agent {
     }
 
     this.isRunning = true;
-    (this.state as any).isRunning = true;
+    this.state.isRunning = true;
 
     this.logger.info('🚀 Agent 启动中...');
 
@@ -165,9 +165,9 @@ export class Agent {
 
       this.logger.info('✅ Agent 启动完成');
     } catch (error) {
-      this.logger.error('❌ Agent 启动失败:', error);
+      this.logger.error('❌ Agent 启动失败:', undefined, error as Error);
       this.isRunning = false;
-      (this.state as any).isRunning = false;
+      this.state.isRunning = false;
       throw error;
     }
   }
@@ -184,7 +184,7 @@ export class Agent {
     this.logger.info('🛑 Agent 停止中...');
 
     this.isRunning = false;
-    (this.state as any).isRunning = false;
+    this.state.isRunning = false;
 
     // 停止决策循环
     this.mainLoop.stop();

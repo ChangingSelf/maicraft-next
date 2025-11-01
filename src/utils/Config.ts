@@ -23,6 +23,7 @@ export interface LoggingSection {
   level: 'error' | 'warn' | 'info' | 'debug';
   console: boolean;
   file: boolean;
+  colors: boolean;
   max_file_size: number;
   max_files: number;
   log_dir: string;
@@ -57,6 +58,7 @@ export interface AgentSection {
   allow_destructive_actions: boolean;
   memory_limit: number;
   save_memory_interval: number;
+  goal?: string;
 }
 
 /**
@@ -134,6 +136,7 @@ const LoggingSectionSchema = z.object({
   level: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   console: z.boolean().default(true),
   file: z.boolean().default(true),
+  colors: z.boolean().default(true),
   max_file_size: z
     .number()
     .positive()
@@ -165,6 +168,7 @@ const AgentSectionSchema = z.object({
   allow_destructive_actions: z.boolean().default(false),
   memory_limit: z.number().positive().default(1000),
   save_memory_interval: z.number().positive().default(60000),
+  goal: z.string().optional(),
 });
 
 const PluginsSectionSchema = z.object({

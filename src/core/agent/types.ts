@@ -16,7 +16,7 @@ import type { AppConfig as Config } from '@/utils/Config';
 export interface AgentState {
   // 基础信息
   readonly goal: string;
-  readonly isRunning: boolean;
+  isRunning: boolean;
 
   // 运行时上下文
   readonly context: RuntimeContext;
