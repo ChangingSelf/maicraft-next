@@ -45,6 +45,7 @@ export interface LoggerConfig {
   level: LogLevel; // 最小日志级别
   console: boolean; // 是否输出到控制台
   file: boolean; // 是否输出到文件
+  colors?: boolean; // 是否启用控制台彩色输出（默认true）
   maxFileSize?: number; // 最大文件大小（字节，默认10MB）
   maxFiles?: number; // 最大文件数量（默认5）
   dateFormat?: string; // 时间格式（默认ISO）
@@ -58,6 +59,7 @@ const LoggerConfigSchema = z.object({
   level: z.nativeEnum(LogLevel).default(LogLevel.INFO),
   console: z.boolean().default(true),
   file: z.boolean().default(true),
+  colors: z.boolean().default(true), // 默认启用彩色输出
   maxFileSize: z
     .number()
     .positive()
@@ -83,12 +85,14 @@ export class Logger {
   private config: LoggerConfig;
   private rotationInfo: LogRotationInfo;
   private currentFilePath: string;
+  private colors: boolean;
 
   constructor(config: Partial<LoggerConfig> = {}) {
     // 如果没有传入配置或传入空配置，尝试从全局配置中读取
     const configFromApp = Object.keys(config).length === 0 ? Logger.getConfigFromApp() : config;
     const validatedConfig = LoggerConfigSchema.parse(configFromApp);
     this.config = validatedConfig;
+    this.colors = validatedConfig.colors;
 
     // 初始化日志轮转信息
     this.rotationInfo = {
@@ -222,6 +226,7 @@ export class Logger {
             level: Logger.parseLogLevel(logging.level || 'info'),
             console: logging.console !== false, // 默认true
             file: logging.file !== false, // 默认true
+            colors: logging.colors !== false, // 默认true
             maxFileSize: logging.max_file_size || 10 * 1024 * 1024,
             maxFiles: logging.max_files || 5,
             logDir: logging.log_dir || './logs',
@@ -238,6 +243,7 @@ export class Logger {
       level: LogLevel.INFO,
       console: true,
       file: true,
+      colors: true,
       maxFileSize: 10 * 1024 * 1024,
       maxFiles: 5,
       logDir: './logs',
@@ -276,6 +282,39 @@ export class Logger {
   }
 
   /**
+   * 将日期格式化为 "YYYY-MM-DD HH:mm:ss" 字符串
+   */
+  private formatTimestamp(date: Date): string {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return (
+      `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+      `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+    );
+  }
+
+  /**
+   * 根据日志级别获取 ANSI 颜色代码
+   */
+  private getColor(level: LogLevel): string {
+    if (!this.colors) {
+      return '';
+    }
+
+    switch (level) {
+      case LogLevel.DEBUG:
+        return '\x1b[90m'; // 灰色
+      case LogLevel.INFO:
+        return '\x1b[32m'; // 绿色
+      case LogLevel.WARN:
+        return '\x1b[33m'; // 黄色
+      case LogLevel.ERROR:
+        return '\x1b[31m'; // 红色
+      default:
+        return '';
+    }
+  }
+
+  /**
    * 输出到控制台
    */
   private writeToConsole(entry: LogEntry): void {
@@ -283,24 +322,47 @@ export class Logger {
     const moduleInfo = entry.context?.module ? `[${entry.context.module}] ` : '';
     const contextStr = entry.context ? ` ${JSON.stringify(entry.context, null, 0)}` : '';
 
-    const consoleMessage = `${entry.timestamp} ${levelName} ${moduleInfo}${entry.message}${contextStr}`;
+    // 构建彩色消息
+    const rawParts: string[] = [];
+    const coloredParts: string[] = [];
 
-    // 根据日志级别使用不同的颜色（简化版本，不依赖chalk）
+    // 时间戳
+    const timestamp = `[${this.formatTimestamp(new Date(entry.timestamp))}]`;
+    rawParts.push(timestamp);
+    coloredParts.push(this.colors ? `\x1b[90m${timestamp}\x1b[0m` : timestamp); // 灰色
+
+    // 日志级别
+    const levelPart = `[${levelName}]`;
+    rawParts.push(levelPart);
+    coloredParts.push(this.colors ? `${this.getColor(entry.level)}${levelPart}\x1b[0m` : levelPart);
+
+    // 模块前缀
+    if (entry.context?.module) {
+      rawParts.push(`[${entry.context.module}]`);
+      coloredParts.push(this.colors ? `\x1b[34m[${entry.context.module}]\x1b[0m` : `[${entry.context.module}]`); // 蓝色
+    }
+
+    // 构建完整消息
+    const prefix = (this.colors ? coloredParts : rawParts).join(' ');
+    const message = `${entry.message}${contextStr}`;
+    const fullMessage = `${prefix} ${message}`;
+
+    // 根据日志级别输出到控制台
     switch (entry.level) {
       case LogLevel.ERROR:
-        console.error(consoleMessage);
+        console.error(fullMessage);
         if (entry.error?.stack) {
           console.error(entry.error.stack);
         }
         break;
       case LogLevel.WARN:
-        console.warn(consoleMessage);
+        console.warn(fullMessage);
         break;
       case LogLevel.INFO:
-        console.log(consoleMessage);
+        console.log(fullMessage);
         break;
       case LogLevel.DEBUG:
-        console.debug(consoleMessage);
+        console.debug(fullMessage);
         break;
     }
   }
