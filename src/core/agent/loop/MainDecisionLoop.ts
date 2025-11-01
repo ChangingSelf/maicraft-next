@@ -3,28 +3,20 @@
  * 不再持有 Agent 引用，只访问共享状态
  */
 
-import { getLogger } from '@/utils/Logger';
-import type { Logger } from '@/utils/Logger';
 import type { AgentState, ActionCall } from '../types';
 import type { ActionId } from '@/core/actions/ActionIds';
 import { LLMManager } from '@/llm/LLMManager';
 import type { LLMResponse } from '@/llm/types';
 import { PromptManager } from '../prompt/PromptManager';
+import { BaseLoop } from './BaseLoop';
 
-export class MainDecisionLoop {
-  private state: AgentState;
-  private isRunning: boolean = false;
-  private loopTask: Promise<void> | null = null;
-  private logger: Logger;
-
+export class MainDecisionLoop extends BaseLoop<AgentState> {
   private llmManager: any; // LLMManager type
   private promptManager: PromptManager;
-
   private evaluationCounter: number = 0;
 
   constructor(state: AgentState, llmManager?: any) {
-    this.state = state;
-    this.logger = getLogger('MainDecisionLoop');
+    super(state, 'MainDecisionLoop');
 
     // 使用传入的 llmManager 或创建新实例
     this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
@@ -32,67 +24,34 @@ export class MainDecisionLoop {
   }
 
   /**
-   * 启动循环
+   * 执行一次循环迭代
    */
-  start(): void {
-    if (this.isRunning) {
-      this.logger.warn('决策循环已在运行');
+  protected async runLoopIteration(): Promise<void> {
+    // 检查中断
+    if (this.state.interrupt.isInterrupted()) {
+      const reason = this.state.interrupt.getReason();
+      this.state.interrupt.clear();
+      this.logger.warn(`⚠️ 决策循环被中断: ${reason}`);
+      await this.sleep(1000);
       return;
     }
 
-    this.isRunning = true;
-    this.loopTask = this.runLoop();
-    this.logger.info('🚀 主决策循环已启动');
-  }
-
-  /**
-   * 停止循环
-   */
-  stop(): void {
-    if (!this.isRunning) {
-      return;
-    }
-
-    this.isRunning = false;
-    this.logger.info('🛑 主决策循环已停止');
-  }
-
-  /**
-   * 主循环
-   */
-  private async runLoop(): Promise<void> {
-    while (this.isRunning && this.state.isRunning) {
-      try {
-        // 检查中断
-        if (this.state.interrupt.isInterrupted()) {
-          const reason = this.state.interrupt.getReason();
-          this.state.interrupt.clear();
-          this.logger.warn(`⚠️ 决策循环被中断: ${reason}`);
-          await this.sleep(1000);
-          continue;
-        }
-
-        // 检查是否允许 LLM 决策
-        if (!this.state.modeManager.canUseLLMDecision()) {
-          const autoSwitched = await this.state.modeManager.checkAutoTransitions();
-          if (!autoSwitched) {
-            await this.sleep(1000);
-          }
-          continue;
-        }
-
-        // 执行决策
-        await this.executeDecisionCycle();
-
-        // 定期评估
-        this.evaluationCounter++;
-        if (this.evaluationCounter % 5 === 0) {
-          await this.evaluateTask();
-        }
-      } catch (error) {
-        this.logger.error('❌ 决策循环异常', undefined, error as Error);
+    // 检查是否允许 LLM 决策
+    if (!this.state.modeManager.canUseLLMDecision()) {
+      const autoSwitched = await this.state.modeManager.checkAutoTransitions();
+      if (!autoSwitched) {
         await this.sleep(1000);
       }
+      return;
+    }
+
+    // 执行决策
+    await this.executeDecisionCycle();
+
+    // 定期评估
+    this.evaluationCounter++;
+    if (this.evaluationCounter % 5 === 0) {
+      await this.evaluateTask();
     }
   }
 
@@ -277,9 +236,5 @@ export class MainDecisionLoop {
     } catch (error) {
       this.logger.error('❌ 任务评估异常', undefined, error as Error);
     }
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

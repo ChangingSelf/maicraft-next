@@ -2,21 +2,15 @@
  * 聊天循环
  */
 
-import { getLogger } from '@/utils/Logger';
-import type { Logger } from '@/utils/Logger';
 import type { AgentState } from '../types';
 import type { ConversationEntry } from '../memory/types';
 import { LLMManager } from '@/llm/LLMManager';
 import type { LLMResponse } from '@/llm/types';
 import { PromptManager } from '../prompt/PromptManager';
 import { ActionIds } from '@/core/actions/ActionIds';
+import { BaseLoop } from './BaseLoop';
 
-export class ChatLoop {
-  private state: AgentState;
-  private isRunning: boolean = false;
-  private loopTask: Promise<void> | null = null;
-  private logger: Logger;
-
+export class ChatLoop extends BaseLoop<AgentState> {
   private llmManager: any; // LLMManager type
   private promptManager: PromptManager;
 
@@ -24,8 +18,7 @@ export class ChatLoop {
   private selfTriggered: boolean = false;
 
   constructor(state: AgentState, llmManager?: any) {
-    this.state = state;
-    this.logger = getLogger('ChatLoop');
+    super(state, 'ChatLoop');
 
     // 使用传入的 llmManager 或创建新实例
     this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
@@ -33,32 +26,6 @@ export class ChatLoop {
 
     // 监听聊天事件
     this.setupChatListener();
-  }
-
-  /**
-   * 启动循环
-   */
-  start(): void {
-    if (this.isRunning) {
-      this.logger.warn('聊天循环已在运行');
-      return;
-    }
-
-    this.isRunning = true;
-    this.loopTask = this.runLoop();
-    this.logger.info('🚀 聊天循环已启动');
-  }
-
-  /**
-   * 停止循环
-   */
-  stop(): void {
-    if (!this.isRunning) {
-      return;
-    }
-
-    this.isRunning = false;
-    this.logger.info('🛑 聊天循环已停止');
   }
 
   /**
@@ -80,34 +47,28 @@ export class ChatLoop {
   }
 
   /**
-   * 主循环
+   * 执行一次循环迭代
    */
-  private async runLoop(): Promise<void> {
-    while (this.isRunning && this.state.isRunning) {
-      await this.sleep(500);
+  protected async runLoopIteration(): Promise<void> {
+    await this.sleep(500);
 
-      try {
-        // 获取最近的对话
-        const recentConversations = this.state.memory.conversation.getRecent(1);
+    // 获取最近的对话
+    const recentConversations = this.state.memory.conversation.getRecent(1);
 
-        if (recentConversations.length === 0) {
-          continue;
-        }
+    if (recentConversations.length === 0) {
+      return;
+    }
 
-        const lastConversation = recentConversations[0];
+    const lastConversation = recentConversations[0];
 
-        // 检查是否应该响应
-        if (this.shouldRespond(lastConversation)) {
-          await this.respondToChat();
-          this.activeValue -= 1;
-        } else if (Math.random() < 0.02 && !this.selfTriggered) {
-          // 随机自发聊天
-          await this.initiateChat();
-          this.selfTriggered = true;
-        }
-      } catch (error) {
-        this.logger.error('❌ 聊天循环异常:', error);
-      }
+    // 检查是否应该响应
+    if (this.shouldRespond(lastConversation)) {
+      await this.respondToChat();
+      this.activeValue -= 1;
+    } else if (Math.random() < 0.02 && !this.selfTriggered) {
+      // 随机自发聊天
+      await this.initiateChat();
+      this.selfTriggered = true;
     }
   }
 
@@ -234,9 +195,5 @@ export class ChatLoop {
       // 如果都不是，直接返回原文
       return content.trim();
     }
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
