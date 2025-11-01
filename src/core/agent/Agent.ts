@@ -200,37 +200,49 @@ export class Agent {
   }
 
   /**
-   * 设置事件监听
+   * 设置事件监听（游戏逻辑相关）
    */
   private setupEventListeners(): void {
     const { context, interrupt, modeManager } = this.state;
 
-    // 受伤事件
+    // 受伤事件 - 切换到战斗模式
     context.events.on('entityHurt', async (data: any) => {
-      if (data.source) {
-        // 尝试切换到战斗模式
+      if (data.entity?.id === context.bot.entity?.id) {
+        // 只有当受伤的是自己时才切换模式
         await modeManager.trySetMode(ModeType.COMBAT, '受到攻击');
+        this.state.memory.recordThought('⚔️ 受到攻击，切换到战斗模式', { entity: data.entity });
       }
     });
 
-    // 死亡事件
+    // 死亡事件 - 触发中断
     context.events.on('death', () => {
       interrupt.trigger('玩家死亡');
       this.logger.warn('💀 玩家死亡');
+      this.state.memory.recordThought('💀 玩家死亡，需要重生', {});
     });
 
-    // 低血量警告
+    // 重生事件 - 恢复正常状态
+    context.events.on('spawn', () => {
+      this.logger.info('🎮 玩家重生');
+      this.state.memory.recordThought('🎮 玩家重生，恢复正常活动', {});
+    });
+
+    // 健康和饥饿状态变化 - AI决策相关
     context.events.on('health', (data: any) => {
-      if (data.health < 6) {
-        this.state.memory.recordThought('⚠️ 生命值过低，需要回血或进食', { health: data.health });
-      }
-    });
+      const { health, food } = data;
 
-    // 低饥饿值警告
-    context.events.on('food', (data: any) => {
-      if (data.food < 6) {
-        this.state.memory.recordThought('⚠️ 饥饿值过低，需要进食', { food: data.food });
+      // 低血量警告
+      if (health < 6) {
+        this.state.memory.recordThought('⚠️ 生命值过低，需要回血或进食', { health });
       }
+
+      // 低饥饿值警告
+      if (food < 6) {
+        this.state.memory.recordThought('⚠️ 饥饿值过低，需要进食', { food });
+      }
+
+      // 记录健康状态变化
+      this.logger.debug(`健康状态更新: 生命值 ${health}/20, 饥饿值 ${food}/20`);
     });
   }
 

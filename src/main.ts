@@ -282,14 +282,14 @@ class MaicraftNext {
   }
 
   /**
-   * 设置Bot事件监听
+   * 设置Bot事件监听（仅连接相关）
    */
   private setupBotEvents(): void {
     if (!this.bot || !this.logger) {
       return;
     }
 
-    // 连接状态事件
+    // 连接状态事件（main.ts 只负责连接管理，不处理游戏逻辑）
     this.bot.on('error', error => {
       this.logger.error('Bot错误', undefined, error as Error);
     });
@@ -304,23 +304,7 @@ class MaicraftNext {
       this.handleDisconnect('ended');
     });
 
-    // 游戏事件
-    this.bot.on('death', () => {
-      this.logger.error('💀 Agent死亡');
-    });
-
-    this.bot.on('respawn', () => {
-      this.logger.info('🎮 Agent重生');
-    });
-
-    this.bot.on('health', () => {
-      if (this.bot!.health < 6) {
-        this.logger.warn(`⚠️ 生命值低: ${this.bot!.health}/20`);
-      }
-      if (this.bot!.food < 6) {
-        this.logger.warn(`⚠️ 饥饿值低: ${this.bot!.food}/20`);
-      }
-    });
+    // 游戏事件监听已移至 Agent.ts，由 Agent 统一处理游戏逻辑
   }
 
   /**
