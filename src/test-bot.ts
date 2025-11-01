@@ -20,8 +20,16 @@ import {
   FindBlockAction,
   MineBlockAction,
   MineBlockByPositionAction,
+  MineInDirectionAction,
   PlaceBlockAction,
   CraftItemAction,
+  UseChestAction,
+  UseFurnaceAction,
+  EatAction,
+  TossItemAction,
+  KillMobAction,
+  SwimToLandAction,
+  SetLocationAction,
 } from './core/actions/implementations';
 import { initializeConfig, getSection } from './utils/Config';
 
@@ -196,6 +204,7 @@ class MaicraftTestBot {
     logger.info('注册动作...');
 
     const actions = [
+      // P0 核心动作
       new ChatAction(),
       new MoveAction(),
       new FindBlockAction(),
@@ -203,6 +212,22 @@ class MaicraftTestBot {
       new MineBlockByPositionAction(),
       new PlaceBlockAction(),
       new CraftItemAction(),
+      new MineInDirectionAction(),
+      
+      // 容器操作
+      new UseChestAction(),
+      new UseFurnaceAction(),
+      
+      // 生存相关
+      new EatAction(),
+      new TossItemAction(),
+      new KillMobAction(),
+      
+      // 移动和探索
+      new SwimToLandAction(),
+      
+      // 地标管理
+      new SetLocationAction(),
     ];
 
     this.executor.registerAll(actions);
