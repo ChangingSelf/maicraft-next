@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, appendFileSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { z } from 'zod';
-import { getSection } from './Config';
 
 /**
  * 日志级别枚举
@@ -208,6 +207,8 @@ export class Logger {
    */
   private static getConfigFromApp(): Partial<LoggerConfig> {
     try {
+      // 懒加载 Config 模块以避免循环依赖
+      const { getSection } = require('./Config');
       const loggingSection = getSection('logging');
 
       return {

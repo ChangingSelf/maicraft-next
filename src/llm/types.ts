@@ -245,7 +245,7 @@ export class LLMError extends Error {
     public readonly code: string,
     public readonly provider?: LLMProvider,
     public readonly statusCode?: number,
-    public readonly retryable: boolean = false
+    public readonly retryable: boolean = false,
   ) {
     super(message);
     this.name = 'LLMError';
@@ -271,7 +271,12 @@ const OpenAIConfigSchema = z.object({
 const AzureConfigSchema = z.object({
   enabled: z.boolean().default(false),
   api_key: z.string().default(''),
-  endpoint: z.string().url().default(''),
+  endpoint: z
+    .string()
+    .refine(val => val === '' || z.string().url().safeParse(val).success, {
+      message: 'endpoint must be a valid URL or empty string',
+    })
+    .default(''),
   deployment_name: z.string().default(''),
   api_version: z.string().default('2023-12-01-preview'),
   model: z.string().default('gpt-4'),
