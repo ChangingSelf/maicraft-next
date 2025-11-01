@@ -5,7 +5,7 @@
  */
 
 import { BaseAction } from '../Action';
-import { RuntimeContext } from '../../context/RuntimeContext';
+import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, FindBlockParams } from '../types';
 import { ActionIds } from '../ActionIds';
 import { Vec3 } from 'vec3';

@@ -5,10 +5,10 @@
  */
 
 import { BaseAction } from '../Action';
-import { RuntimeContext } from '../../context/RuntimeContext';
+import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, MoveParams } from '../types';
 import { ActionIds } from '../ActionIds';
-import { MovementUtils } from '../../../utils/MovementUtils';
+import { MovementUtils } from '@/utils/MovementUtils';
 
 export class MoveAction extends BaseAction<MoveParams> {
   readonly id = ActionIds.MOVE;

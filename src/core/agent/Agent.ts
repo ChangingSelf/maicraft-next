@@ -6,8 +6,8 @@
 import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
 import type { Bot } from 'mineflayer';
-import type { Config } from '../../utils/config';
-import type { RuntimeContext } from '../RuntimeContext';
+import type { AppConfig as Config } from '@/utils/Config';
+import type { RuntimeContext } from '@/core/context/RuntimeContext';
 import type { AgentState, AgentStatus, GameContext } from './types';
 import { InterruptController } from './InterruptController';
 import { MemoryManager } from './memory/MemoryManager';
@@ -16,13 +16,13 @@ import { ModeManager } from './mode/ModeManager';
 import { ModeType } from './mode/types';
 import { MainDecisionLoop } from './loop/MainDecisionLoop';
 import { ChatLoop } from './loop/ChatLoop';
-import { ActionExecutor } from '../actions/ActionExecutor';
-import { BlockCache } from '../cache/BlockCache';
-import { ContainerCache } from '../cache/ContainerCache';
-import { LocationManager } from '../location/LocationManager';
-import { EventEmitter } from '../events/EventEmitter';
-import { InterruptSignal } from '../interrupt/InterruptSignal';
-import { globalGameState } from '../state/GameState';
+import { ActionExecutor } from '@/core/actions/ActionExecutor';
+import { BlockCache } from '@/core/cache/BlockCache';
+import { ContainerCache } from '@/core/cache/ContainerCache';
+import { LocationManager } from '@/core/location/LocationManager';
+import { EventEmitter } from '@/core/events/EventEmitter';
+import { InterruptSignal } from '@/core/interrupt/InterruptSignal';
+import { globalGameState } from '@/core/state/GameState';
 
 export class Agent {
   // 共享状态（只读）

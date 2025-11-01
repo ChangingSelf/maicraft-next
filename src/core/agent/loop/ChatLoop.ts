@@ -6,10 +6,10 @@ import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
 import type { AgentState } from '../types';
 import type { ConversationEntry } from '../memory/types';
-import { LLMManager } from '../../../llm/LLMManager';
-import type { LLMResponse } from '../../../llm/types';
+import { LLMManager } from '@/llm/LLMManager';
+import type { LLMResponse } from '@/llm/types';
 import { PromptManager } from '../prompt/PromptManager';
-import { ActionIds } from '../../actions/ActionIds';
+import { ActionIds } from '@/core/actions/ActionIds';
 
 export class ChatLoop {
   private state: AgentState;

@@ -2,12 +2,12 @@
  * Agent 相关的类型定义
  */
 
-import type { RuntimeContext } from '../RuntimeContext';
+import type { RuntimeContext } from '@/core/context/RuntimeContext';
 import type { ModeManager } from './mode/ModeManager';
 import type { GoalPlanningManager } from './planning/GoalPlanningManager';
 import type { MemoryManager } from './memory/MemoryManager';
 import type { InterruptController } from './InterruptController';
-import type { Config } from '../../utils/config';
+import type { AppConfig as Config } from '@/utils/Config';
 
 /**
  * Agent 共享状态

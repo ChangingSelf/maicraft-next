@@ -6,10 +6,10 @@
  */
 
 import { BaseAction } from '../Action';
-import { RuntimeContext } from '../../context/RuntimeContext';
+import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, CraftParams } from '../types';
 import { ActionIds } from '../ActionIds';
-import { MovementUtils } from '../../../utils/MovementUtils';
+import { MovementUtils } from '@/utils/MovementUtils';
 
 export class CraftItemAction extends BaseAction<CraftParams> {
   readonly id = ActionIds.CRAFT;

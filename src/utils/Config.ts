@@ -4,7 +4,7 @@ import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { z } from 'zod';
 import { EventEmitter } from 'events';
 import { getLogger, LogLevel } from './Logger';
-import { LLMConfigSchema } from '../llm/types';
+import { LLMConfigSchema } from '@/llm/types';
 
 /**
  * 应用配置接口

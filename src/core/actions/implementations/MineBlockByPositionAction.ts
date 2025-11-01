@@ -5,11 +5,11 @@
  */
 
 import { BaseAction } from '../Action';
-import { RuntimeContext } from '../../context/RuntimeContext';
+import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, MineBlockByPositionParams } from '../types';
 import { ActionIds } from '../ActionIds';
 import { Vec3 } from 'vec3';
-import { MovementUtils } from '../../../utils/MovementUtils';
+import { MovementUtils } from '@/utils/MovementUtils';
 
 export class MineBlockByPositionAction extends BaseAction<MineBlockByPositionParams> {
   readonly id = ActionIds.MINE_BLOCK_BY_POSITION;

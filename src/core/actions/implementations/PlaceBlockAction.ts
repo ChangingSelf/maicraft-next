@@ -5,10 +5,10 @@
  */
 
 import { BaseAction } from '../Action';
-import { RuntimeContext } from '../../context/RuntimeContext';
+import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, PlaceBlockParams } from '../types';
 import { ActionIds } from '../ActionIds';
-import { PlaceBlockUtils } from '../../../utils/PlaceBlockUtils';
+import { PlaceBlockUtils } from '@/utils/PlaceBlockUtils';
 
 export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
   readonly id = ActionIds.PLACE_BLOCK;

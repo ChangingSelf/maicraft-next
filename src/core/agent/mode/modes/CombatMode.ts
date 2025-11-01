@@ -5,8 +5,8 @@
 
 import { Mode } from '../Mode';
 import { ModeType } from '../types';
-import type { RuntimeContext } from '../../../RuntimeContext';
-import { ActionIds } from '../../../actions/ActionIds';
+import type { RuntimeContext } from '@/core/context/RuntimeContext';
+import { ActionIds } from '@/core/actions/ActionIds';
 
 export class CombatMode extends Mode {
   readonly type = ModeType.COMBAT;

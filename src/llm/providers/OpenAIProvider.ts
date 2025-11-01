@@ -6,9 +6,9 @@
 
 import { OpenAI as OpenAIClient } from 'openai';
 import { encoding_for_model, get_encoding } from 'tiktoken';
-import { Logger } from '../../utils/Logger.js';
+import { Logger } from '@/utils/Logger';
 import {
-  ILLMProvider,
+  LLMProvider,
   LLMResponse,
   LLMRequestConfig,
   ChatMessage,
@@ -16,8 +16,8 @@ import {
   LLMProvider as ProviderType,
   TokenUsage,
   ValidatedLLMRequestConfig,
-} from '../types.js';
-import { OpenAIConfig, RetryConfig } from '../types.js';
+} from '@/llm/types';
+import { OpenAIConfig, RetryConfig } from '@/llm/types';
 import { z } from 'zod';
 
 /**

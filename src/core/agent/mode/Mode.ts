@@ -3,7 +3,7 @@
  */
 
 import type { ModeType } from './types';
-import type { RuntimeContext } from '../../RuntimeContext';
+import type { RuntimeContext } from '@/core/context/RuntimeContext';
 
 export abstract class Mode {
   abstract readonly type: ModeType;

@@ -5,7 +5,7 @@
  */
 
 import { BaseAction } from '../Action';
-import { RuntimeContext } from '../../context/RuntimeContext';
+import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, ChatParams } from '../types';
 import { ActionIds } from '../ActionIds';
 

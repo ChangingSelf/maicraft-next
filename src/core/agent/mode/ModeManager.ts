@@ -5,7 +5,7 @@
 
 import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
-import type { RuntimeContext } from '../../RuntimeContext';
+import type { RuntimeContext } from '@/core/context/RuntimeContext';
 import type { AgentState } from '../types';
 import { Mode } from './Mode';
 import { ModeType, type ModeTransitionRule } from './types';

@@ -5,7 +5,7 @@
 
 import { Mode } from '../Mode';
 import { ModeType } from '../types';
-import type { RuntimeContext } from '../../../RuntimeContext';
+import type { RuntimeContext } from '@/core/context/RuntimeContext';
 
 export class MainMode extends Mode {
   readonly type = ModeType.MAIN;

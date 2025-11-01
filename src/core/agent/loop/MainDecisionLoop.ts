@@ -6,9 +6,9 @@
 import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
 import type { AgentState, ActionCall } from '../types';
-import type { ActionId } from '../../actions/ActionIds';
-import { LLMManager } from '../../../llm/LLMManager';
-import type { LLMResponse } from '../../../llm/types';
+import type { ActionId } from '@/core/actions/ActionIds';
+import { LLMManager } from '@/llm/LLMManager';
+import type { LLMResponse } from '@/llm/types';
 import { PromptManager } from '../prompt/PromptManager';
 
 export class MainDecisionLoop {

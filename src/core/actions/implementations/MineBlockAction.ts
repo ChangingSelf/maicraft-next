@@ -4,10 +4,10 @@
  * 使用正确的 collectBlock 插件 API
  */
 
-import { BaseAction } from '../Action';
-import { RuntimeContext } from '../../context/RuntimeContext';
-import { ActionResult, MineBlockParams } from '../types';
-import { ActionIds } from '../ActionIds';
+import { BaseAction } from '@/core/actions/Action';
+import { RuntimeContext } from '@/core/context/RuntimeContext';
+import { ActionResult, MineBlockParams } from '@/core/actions/types';
+import { ActionIds } from '@/core/actions/ActionIds';
 
 export class MineBlockAction extends BaseAction<MineBlockParams> {
   readonly id = ActionIds.MINE_BLOCK;
