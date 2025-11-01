@@ -33,11 +33,6 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         return this.failure(`未知的方块类型: ${name}`);
       }
 
-      // 检查是否有 mineflayer-collectblock 插件
-      if (!(context.bot as any).collectBlock) {
-        return this.failure('collectBlock 插件未加载');
-      }
-
       let minedCount = 0;
       const minedBlocks: string[] = [];
 
@@ -72,9 +67,9 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
           // 使用 collectBlock 插件挖掘，提供正确的选项参数
           await (context.bot as any).collectBlock.collect(targetBlock, {
             ignoreNoPath: false,
-            count: 1
+            count: 1,
           });
-          
+
           minedCount++;
           minedBlocks.push(name);
 

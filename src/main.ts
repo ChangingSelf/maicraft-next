@@ -166,8 +166,7 @@ class MaicraftNext {
       port: mcConfig.port,
       username: mcConfig.username,
       password: mcConfig.password || undefined,
-      auth: mcConfig.auth as any,
-      // version: false 会报错，改为不指定（自动检测）
+      auth: mcConfig.auth,
     });
 
     // 加载插件
@@ -203,41 +202,31 @@ class MaicraftNext {
    * 加载Mineflayer插件
    */
   private loadPlugins(): void {
-    if (!this.bot || !this.config || !this.logger) {
-      throw new Error('Bot或配置未初始化');
+    if (!this.bot || !this.logger) {
+      throw new Error('Bot或日志系统未初始化');
     }
 
-    const enabledPlugins = this.config.plugins.enabled;
+    // 加载所有必需的mineflayer插件
 
     // Pathfinder（必需）
-    if (enabledPlugins.includes('pathfinder')) {
-      this.bot.loadPlugin(pathfinder);
-      this.logger.info('✅ 加载插件: pathfinder');
-    }
+    this.bot.loadPlugin(pathfinder);
+    this.logger.info('✅ 加载插件: pathfinder');
 
     // Armor Manager
-    if (enabledPlugins.includes('armor-manager')) {
-      this.bot.loadPlugin(armorManager);
-      this.logger.info('✅ 加载插件: armor-manager');
-    }
+    this.bot.loadPlugin(armorManager);
+    this.logger.info('✅ 加载插件: armor-manager');
 
     // PvP
-    if (enabledPlugins.includes('pvp')) {
-      this.bot.loadPlugin(pvpPlugin);
-      this.logger.info('✅ 加载插件: pvp');
-    }
+    this.bot.loadPlugin(pvpPlugin);
+    this.logger.info('✅ 加载插件: pvp');
 
     // Tool
-    if (enabledPlugins.includes('tool')) {
-      this.bot.loadPlugin(toolPlugin);
-      this.logger.info('✅ 加载插件: tool');
-    }
+    this.bot.loadPlugin(toolPlugin);
+    this.logger.info('✅ 加载插件: tool');
 
     // CollectBlock
-    if (enabledPlugins.includes('collectblock')) {
-      this.bot.loadPlugin(collectBlock);
-      this.logger.info('✅ 加载插件: collectblock');
-    }
+    this.bot.loadPlugin(collectBlock);
+    this.logger.info('✅ 加载插件: collectblock');
   }
 
   /**
