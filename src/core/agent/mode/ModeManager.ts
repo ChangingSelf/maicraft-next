@@ -167,10 +167,9 @@ export class ModeManager {
         const shouldTransition = await rule.condition(this.state);
 
         if (shouldTransition) {
-          const success = await this.trySetMode(rule.to, rule.description);
-          if (success) {
-            return true;
-          }
+          // 自动转换规则不受优先级限制，直接强制切换
+          await this.setMode(rule.to, rule.description);
+          return true;
         }
       } catch (error) {
         this.logger.error(`❌ 检查转换规则失败: ${rule.description}`, error);
