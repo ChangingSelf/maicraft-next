@@ -5,7 +5,7 @@
  */
 
 import { OpenAI as OpenAIClient } from 'openai';
-import { encoding_for_model } from 'tiktoken';
+import { encoding_for_model, get_encoding } from 'tiktoken';
 import { Logger } from '../../utils/Logger.js';
 import {
   ILLMProvider,
@@ -15,7 +15,7 @@ import {
   LLMError,
   LLMProvider as ProviderType,
   TokenUsage,
-  ValidatedLLMRequestConfig
+  ValidatedLLMRequestConfig,
 } from '../types.js';
 import { OpenAIConfig, RetryConfig } from '../types.js';
 import { z } from 'zod';
@@ -33,11 +33,13 @@ export class OpenAIProvider implements ILLMProvider {
   constructor(config: OpenAIConfig, retryConfig: RetryConfig, logger?: Logger) {
     this.config = config;
     this.retryConfig = retryConfig;
-    this.logger = logger || new Logger({
-      level: (globalThis as any).logLevel || 2, // INFO
-      console: true,
-      file: false,
-    }).child('OpenAIProvider');
+    this.logger =
+      logger ||
+      new Logger({
+        level: (globalThis as any).logLevel || 2, // INFO
+        console: true,
+        file: false,
+      }).child('OpenAIProvider');
 
     // 初始化OpenAI客户端
     this.client = new OpenAIClient({
@@ -60,11 +62,7 @@ export class OpenAIProvider implements ILLMProvider {
 
     // 检查API密钥
     if (!this.config.api_key) {
-      throw new LLMError(
-        'OpenAI API key is required',
-        'API_KEY_MISSING',
-        ProviderType.OPENAI
-      );
+      throw new LLMError('OpenAI API key is required', 'API_KEY_MISSING', ProviderType.OPENAI);
     }
 
     this.logger.debug('发送OpenAI聊天请求', {
@@ -142,7 +140,7 @@ export class OpenAIProvider implements ILLMProvider {
             'REQUEST_FAILED',
             ProviderType.OPENAI,
             error.status,
-            this.isRetryableError(error)
+            this.isRetryableError(error),
           );
         }
       }
@@ -153,11 +151,7 @@ export class OpenAIProvider implements ILLMProvider {
    * 流式聊天（当前不支持）
    */
   async *streamChat(requestConfig: LLMRequestConfig): AsyncGenerator<LLMResponse, void, unknown> {
-    throw new LLMError(
-      'Stream chat not implemented for OpenAI provider',
-      'NOT_IMPLEMENTED',
-      ProviderType.OPENAI
-    );
+    throw new LLMError('Stream chat not implemented for OpenAI provider', 'NOT_IMPLEMENTED', ProviderType.OPENAI);
   }
 
   /**
@@ -179,9 +173,41 @@ export class OpenAIProvider implements ILLMProvider {
    * 计算token数量
    */
   countTokens(messages: ChatMessage[]): number {
-    try {
-      const encoding = encoding_for_model(this.config.model);
+    let encoding;
 
+    try {
+      // 首先尝试使用模型特定的编码
+      encoding = encoding_for_model(this.config.model as any);
+    } catch (error) {
+      this.logger.debug('模型特定编码不可用，使用通用编码', {
+        error: error instanceof Error ? error.message : String(error),
+        model: this.config.model,
+      });
+
+      try {
+        // 对于未知模型，使用cl100k_base编码（GPT-3.5/4使用的编码）
+        encoding = get_encoding('cl100k_base');
+      } catch (fallbackError) {
+        this.logger.warn('tiktoken编码获取失败，使用字符估算方法', {
+          error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+          model: this.config.model,
+        });
+
+        // 如果tiktoken完全失败，使用改进的字符数估算
+        let totalChars = 0;
+        for (const message of messages) {
+          totalChars += message.content.length;
+          if (message.name) {
+            totalChars += message.name.length;
+          }
+        }
+        // 使用更准确的估算：英文约为0.25个token/字符，中文约为0.5个token/字符
+        // 这里使用平均值0.35作为折中
+        return Math.ceil(totalChars * 0.35);
+      }
+    }
+
+    try {
       // 计算每条消息的token数
       let totalTokens = 0;
 
@@ -202,25 +228,10 @@ export class OpenAIProvider implements ILLMProvider {
       // 添加回复的固定token开销
       totalTokens += 3; // 每次回复的固定token开销
 
-      encoding.free();
-
       return totalTokens;
-    } catch (error) {
-      this.logger.warn('使用tiktoken计算token失败，使用估算方法', {
-        error: error instanceof Error ? error.message : String(error),
-        model: this.config.model,
-      });
-
-      // 如果tiktoken失败，使用简单的字符数估算
-      let totalChars = 0;
-      for (const message of messages) {
-        totalChars += message.content.length;
-        if (message.name) {
-          totalChars += message.name.length;
-        }
-      }
-      // 假设平均每个字符0.25个token
-      return Math.ceil(totalChars * 0.25);
+    } finally {
+      // 确保编码器被释放
+      encoding.free();
     }
   }
 
@@ -252,11 +263,15 @@ export class OpenAIProvider implements ILLMProvider {
   private validateWithSchema(config: any): ValidatedLLMRequestConfig {
     const schema = z.object({
       model: z.string().min(1),
-      messages: z.array(z.object({
-        role: z.enum(['system', 'user', 'assistant']),
-        content: z.string().min(1),
-        name: z.string().optional(),
-      })).min(1),
+      messages: z
+        .array(
+          z.object({
+            role: z.enum(['system', 'user', 'assistant']),
+            content: z.string().min(1),
+            name: z.string().optional(),
+          }),
+        )
+        .min(1),
       max_tokens: z.number().int().positive().max(128000).optional(),
       temperature: z.number().min(0).max(2).optional(),
       top_p: z.number().min(0).max(1).optional(),
@@ -382,13 +397,7 @@ export class OpenAIProvider implements ILLMProvider {
       }
     }
 
-    return new LLMError(
-      `OpenAI API error: ${message}`,
-      errorType,
-      ProviderType.OPENAI,
-      status,
-      retryable
-    );
+    return new LLMError(`OpenAI API error: ${message}`, errorType, ProviderType.OPENAI, status, retryable);
   }
 
   /**
@@ -396,9 +405,7 @@ export class OpenAIProvider implements ILLMProvider {
    */
   private isRetryableError(error: any): boolean {
     // 网络错误通常可以重试
-    if (error.code === 'ECONNRESET' ||
-        error.code === 'ETIMEDOUT' ||
-        error.code === 'ENOTFOUND') {
+    if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
       return true;
     }
 

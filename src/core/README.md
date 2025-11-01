@@ -16,14 +16,7 @@ npm install mineflayer vec3 prismarine-block prismarine-item prismarine-entity
 
 ```typescript
 import { createBot } from 'mineflayer';
-import {
-  globalGameState,
-  ActionExecutor,
-  ActionIds,
-  BlockCache,
-  ContainerCache,
-  LocationManager,
-} from './core';
+import { globalGameState, ActionExecutor, ActionIds, BlockCache, ContainerCache, LocationManager } from './core';
 
 // 1. 创建 bot
 const bot = createBot({
@@ -78,16 +71,16 @@ console.log(globalGameState.getInventoryDescription());
 // 订阅事件（保持 mineflayer 原始事件名）
 const events = executor.getEventEmitter();
 
-events.on('entityHurt', (data) => {
+events.on('entityHurt', data => {
   console.log('实体受伤:', data.entity);
 });
 
-events.on('health', (data) => {
+events.on('health', data => {
   console.log('健康变化:', data.health);
 });
 
 // 自定义事件
-events.on('actionComplete', (data) => {
+events.on('actionComplete', data => {
   console.log('动作完成:', data.actionName);
 });
 ```
@@ -161,21 +154,21 @@ console.log(locationManager.getAllLocationsString());
 15 个核心动作 ID：
 
 ```typescript
-ActionIds.MOVE                   // 移动
-ActionIds.FIND_BLOCK             // 寻找方块
-ActionIds.MINE_BLOCK             // 挖掘
-ActionIds.MINE_BLOCK_BY_POSITION // 按坐标挖掘
-ActionIds.MINE_IN_DIRECTION      // 按方向挖掘
-ActionIds.PLACE_BLOCK            // 放置方块
-ActionIds.CRAFT                  // 合成
-ActionIds.USE_CHEST              // 使用箱子
-ActionIds.USE_FURNACE            // 使用熔炉
-ActionIds.EAT                    // 吃食物
-ActionIds.TOSS_ITEM              // 丢弃物品
-ActionIds.KILL_MOB               // 击杀生物
-ActionIds.SET_LOCATION           // 设置地标
-ActionIds.CHAT                   // 发送聊天
-ActionIds.SWIM_TO_LAND           // 游到陆地
+ActionIds.MOVE; // 移动
+ActionIds.FIND_BLOCK; // 寻找方块
+ActionIds.MINE_BLOCK; // 挖掘
+ActionIds.MINE_BLOCK_BY_POSITION; // 按坐标挖掘
+ActionIds.MINE_IN_DIRECTION; // 按方向挖掘
+ActionIds.PLACE_BLOCK; // 放置方块
+ActionIds.CRAFT; // 合成
+ActionIds.USE_CHEST; // 使用箱子
+ActionIds.USE_FURNACE; // 使用熔炉
+ActionIds.EAT; // 吃食物
+ActionIds.TOSS_ITEM; // 丢弃物品
+ActionIds.KILL_MOB; // 击杀生物
+ActionIds.SET_LOCATION; // 设置地标
+ActionIds.CHAT; // 发送聊天
+ActionIds.SWIM_TO_LAND; // 游到陆地
 ```
 
 ---
@@ -206,6 +199,5 @@ Phase 2 将实现 6 个 P0 核心动作：
 
 ---
 
-*版本: 1.0*  
-*状态: ✅ Phase 1 完成*
-
+_版本: 1.0_  
+_状态: ✅ Phase 1 完成_

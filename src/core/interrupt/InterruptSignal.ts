@@ -1,6 +1,6 @@
 /**
  * 中断信号
- * 
+ *
  * 用于在动作执行过程中实现优雅的中断机制
  */
 
@@ -20,7 +20,7 @@ export class InterruptError extends Error {
 export class InterruptSignal {
   private interrupted: boolean = false;
   private reason: string = '';
-  
+
   /**
    * 触发中断
    */
@@ -28,21 +28,21 @@ export class InterruptSignal {
     this.interrupted = true;
     this.reason = reason;
   }
-  
+
   /**
    * 检查是否被中断
    */
   isInterrupted(): boolean {
     return this.interrupted;
   }
-  
+
   /**
    * 获取中断原因
    */
   getReason(): string {
     return this.reason;
   }
-  
+
   /**
    * 重置中断状态
    */
@@ -50,7 +50,7 @@ export class InterruptSignal {
     this.interrupted = false;
     this.reason = '';
   }
-  
+
   /**
    * 如果被中断则抛出错误
    * 用于在动作执行过程中定期检查中断状态
@@ -61,4 +61,3 @@ export class InterruptSignal {
     }
   }
 }
-

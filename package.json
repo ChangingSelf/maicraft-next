@@ -2,10 +2,12 @@
   "name": "maicraft-next",
   "version": "0.1.0",
   "description": "minecraft for maibot，but typescript",
-  "main": "index.js",
+  "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
+    "start": "node dist/main.js",
     "dev": "tsx src/main.ts",
+    "check": "tsx src/check-setup.ts",
     "test-bot": "tsx src/test-bot.ts",
     "test": "jest",
     "test:watch": "jest --watch",

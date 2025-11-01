@@ -1,7 +1,7 @@
 /**
  * 运行时上下文
  * 提供动作执行所需的所有资源和能力
- * 
+ *
  * 设计理念:
  * - 通用的运行时上下文，不仅限于动作
  * - 提供所有核心资源的访问
@@ -67,24 +67,24 @@ export interface RuntimeContext {
   // 核心资源
   bot: Bot;
   executor: ActionExecutor;
-  
+
   // 全局状态（实时可访问）
   gameState: GameState;
-  
+
   // 缓存管理
   blockCache: BlockCache;
   containerCache: ContainerCache;
   locationManager: LocationManager;
-  
+
   // 事件系统
   events: EventEmitter;
-  
+
   // 中断控制
   interruptSignal: InterruptSignal;
-  
+
   // 日志（每个动作自动分配独立的 logger）
   logger: Logger;
-  
+
   // 配置
   config: Config;
 }
@@ -94,14 +94,9 @@ export interface RuntimeContext {
  */
 export function createPrefixedLogger(baseLogger: Logger, prefix: string): Logger {
   return {
-    debug: (message: string, ...args: any[]) => 
-      baseLogger.debug(`[${prefix}] ${message}`, ...args),
-    info: (message: string, ...args: any[]) => 
-      baseLogger.info(`[${prefix}] ${message}`, ...args),
-    warn: (message: string, ...args: any[]) => 
-      baseLogger.warn(`[${prefix}] ${message}`, ...args),
-    error: (message: string, ...args: any[]) => 
-      baseLogger.error(`[${prefix}] ${message}`, ...args),
+    debug: (message: string, ...args: any[]) => baseLogger.debug(`[${prefix}] ${message}`, ...args),
+    info: (message: string, ...args: any[]) => baseLogger.info(`[${prefix}] ${message}`, ...args),
+    warn: (message: string, ...args: any[]) => baseLogger.warn(`[${prefix}] ${message}`, ...args),
+    error: (message: string, ...args: any[]) => baseLogger.error(`[${prefix}] ${message}`, ...args),
   };
 }
-

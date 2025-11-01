@@ -95,6 +95,7 @@ node dist/test-bot.js  # 需要先 build
 ### 场景 1: 基础功能测试
 
 1. **启动 Bot**
+
    ```bash
    npm run test-bot
    ```
@@ -134,6 +135,7 @@ node dist/test-bot.js  # 需要先 build
 ```
 
 **预期结果:**
+
 - ✅ Bot 开始寻路
 - ✅ Bot 移动到目标位置
 - ✅ 控制台显示 "动作完成: MoveAction"
@@ -151,6 +153,7 @@ node dist/test-bot.js  # 需要先 build
 ```
 
 **预期结果:**
+
 - ✅ Bot 回复找到的方块数量
 - ✅ 控制台显示方块位置
 
@@ -167,6 +170,7 @@ node dist/test-bot.js  # 需要先 build
 ```
 
 **预期结果:**
+
 - ✅ Bot 开始移动到方块位置
 - ✅ Bot 开始挖掘
 - ✅ 挖掘完成后物品进入物品栏
@@ -188,6 +192,7 @@ node dist/test-bot.js  # 需要先 build
 ```
 
 **预期结果:**
+
 - ✅ 如果有足够材料，合成成功
 - ✅ 控制台显示 "成功合成 X"
 - ✅ 物品栏中出现合成的物品
@@ -282,13 +287,13 @@ node dist/test-bot.js  # 需要先 build
 
 正常情况下的性能指标：
 
-| 动作 | 平均耗时 | 说明 |
-|------|----------|------|
-| ChatAction | < 50ms | 发送消息 |
-| MoveAction | 1-10s | 取决于距离 |
-| FindBlockAction | < 500ms | 搜索半径 16 |
-| MineBlockAction | 2-5s/块 | 取决于方块类型 |
-| CraftItemAction | 1-3s | 取决于是否需要移动 |
+| 动作            | 平均耗时 | 说明               |
+| --------------- | -------- | ------------------ |
+| ChatAction      | < 50ms   | 发送消息           |
+| MoveAction      | 1-10s    | 取决于距离         |
+| FindBlockAction | < 500ms  | 搜索半径 16        |
+| MineBlockAction | 2-5s/块  | 取决于方块类型     |
+| CraftItemAction | 1-3s     | 取决于是否需要移动 |
 
 ---
 
@@ -300,10 +305,9 @@ node dist/test-bot.js  # 需要先 build
 ✅ 所有命令都能正确响应  
 ✅ 动作执行成功率 > 90%  
 ✅ 无内存泄漏（长时间运行稳定）  
-✅ 日志输出清晰易读  
+✅ 日志输出清晰易读
 
 ---
 
-*测试指南版本: 1.0*  
-*最后更新: 2025-11-01*
-
+_测试指南版本: 1.0_  
+_最后更新: 2025-11-01_

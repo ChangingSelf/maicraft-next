@@ -25,6 +25,7 @@
 ```
 
 **设计原则:**
+
 1. **双模式运行**: 可作为独立 Agent，也可作为 MCP Server
 2. **零依赖切换**: 同一套动作系统，两种调用方式
 3. **性能优先**: 独立模式下无 IPC 开销
@@ -39,22 +40,22 @@
 ```typescript
 export interface ActionContext {
   // 核心组件
-  bot: Bot;                           // Mineflayer bot 实例
-  executor: ActionExecutor;           // 动作执行器
-  
+  bot: Bot; // Mineflayer bot 实例
+  executor: ActionExecutor; // 动作执行器
+
   // 状态管理
-  stateManager: StateManager;         // ✅ 新增
-  
+  stateManager: StateManager; // ✅ 新增
+
   // 事件系统
-  eventBus: EventBus;                 // ✅ 新增
-  
+  eventBus: EventBus; // ✅ 新增
+
   // 工具组件
   logger: Logger;
   config: Config;
-  
+
   // 世界信息
   world: WorldInfo;
-  
+
   // AI 上下文 (可选，仅在 AI Agent 模式下提供)
   ai?: AIContext;
 }
@@ -87,7 +88,7 @@ export abstract class Action<T extends ActionParams> {
 
   // 执行方法
   abstract execute(context: ActionContext, params: T): Promise<ActionResult>;
-  
+
   // AI 描述 (用于生成 LLM 工具定义)
   abstract getAIDescription(): AIDescription;
 
@@ -111,7 +112,7 @@ export abstract class Action<T extends ActionParams> {
 
   // 中断支持
   protected interruptRequested: boolean = false;
-  
+
   interrupt(reason: string): void {
     this.interruptRequested = true;
     this.logger.warn(`动作 ${this.name} 被中断: ${reason}`);
@@ -134,12 +135,12 @@ export class ActionExecutor {
   private history: ActionHistory;
   private metrics: MetricsCollector;
   private errorHandler: ErrorHandler;
-  
+
   constructor(
     private eventBus: EventBus,
     private stateManager: StateManager,
     private logger: Logger,
-    private config: Config
+    private config: Config,
   ) {
     this.history = new ActionHistory();
     this.metrics = new MetricsCollector();
@@ -152,7 +153,7 @@ export class ActionExecutor {
   register(action: Action<any>): void {
     this.actions.set(action.id, action);
     this.logger.info(`已注册动作: ${action.id} - ${action.name}`);
-    
+
     // 订阅动作相关事件
     if (action.subscribeEvents) {
       action.subscribeEvents(this.eventBus);
@@ -162,32 +163,27 @@ export class ActionExecutor {
   /**
    * 执行动作 (带完整错误处理和重试)
    */
-  async execute<T extends ActionParams>(
-    actionId: string,
-    bot: Bot,
-    params: T,
-    options?: ExecuteOptions
-  ): Promise<ActionResult> {
+  async execute<T extends ActionParams>(actionId: string, bot: Bot, params: T, options?: ExecuteOptions): Promise<ActionResult> {
     const action = this.actions.get(actionId);
-    
+
     if (!action) {
       return {
         success: false,
         message: `未找到动作: ${actionId}`,
-        error: ActionErrorType.ACTION_NOT_FOUND
+        error: ActionErrorType.ACTION_NOT_FOUND,
       };
     }
 
     // 创建动作上下文
     const context = this.createContext(bot, options);
-    
+
     // 生成执行ID
     const executionId = this.generateExecutionId();
-    
+
     // 记录开始
     this.history.recordStart(executionId, actionId, params);
     this.eventBus.emit(new ActionStartEvent(executionId, actionId, params));
-    
+
     const startTime = Date.now();
 
     try {
@@ -208,10 +204,7 @@ export class ActionExecutor {
       }
 
       // 执行动作 (带超时和重试)
-      const result = await this.errorHandler.executeWithRetry(
-        () => this.executeWithTimeout(action, context, params, action.timeout),
-        actionId
-      );
+      const result = await this.errorHandler.executeWithRetry(() => this.executeWithTimeout(action, context, params, action.timeout), actionId);
 
       // 执行后钩子
       if (action.onAfterExecute) {
@@ -225,7 +218,6 @@ export class ActionExecutor {
       this.eventBus.emit(new ActionCompleteEvent(executionId, actionId, result));
 
       return result;
-
     } catch (error) {
       // 错误处理钩子
       if (action.onError) {
@@ -250,13 +242,11 @@ export class ActionExecutor {
     action: Action<T>,
     context: ActionContext,
     params: T,
-    timeout: number
+    timeout: number,
   ): Promise<ActionResult> {
     return Promise.race([
       action.execute(context, params),
-      new Promise<ActionResult>((_, reject) =>
-        setTimeout(() => reject(new TimeoutError(`动作 ${action.id} 执行超时 (${timeout}ms)`)), timeout)
-      )
+      new Promise<ActionResult>((_, reject) => setTimeout(() => reject(new TimeoutError(`动作 ${action.id} 执行超时 (${timeout}ms)`)), timeout)),
     ]);
   }
 
@@ -272,7 +262,7 @@ export class ActionExecutor {
       logger: this.logger,
       config: this.config,
       world: this.getWorldInfo(bot),
-      ai: options?.aiContext
+      ai: options?.aiContext,
     };
   }
 
@@ -287,8 +277,8 @@ export class ActionExecutor {
         function: {
           name: action.id,
           description: aiDesc.description,
-          parameters: aiDesc.parameters
-        }
+          parameters: aiDesc.parameters,
+        },
       };
     });
   }
@@ -298,19 +288,19 @@ export class ActionExecutor {
    */
   getMcpTools(): McpToolSpec[] {
     const tools: McpToolSpec[] = [];
-    
+
     for (const action of this.actions.values()) {
       const aiDesc = action.getAIDescription();
-      
+
       tools.push({
         toolName: action.id,
         description: aiDesc.description,
         schema: this.convertToZodSchema(aiDesc.parameters),
         actionName: action.id,
-        mapInputToParams: (input) => input as any
+        mapInputToParams: input => input as any,
       });
     }
-    
+
     return tools;
   }
 
@@ -354,7 +344,7 @@ export class StateManager {
       this.containerCache.load(),
       this.locationManager.load(),
       this.taskList.load(),
-      this.thinkingLog.load()
+      this.thinkingLog.load(),
     ]);
   }
 
@@ -364,7 +354,7 @@ export class StateManager {
       this.containerCache.save(),
       this.locationManager.save(),
       this.taskList.save(),
-      this.thinkingLog.save()
+      this.thinkingLog.save(),
     ]);
   }
 }
@@ -381,7 +371,7 @@ export class BlockCache {
       position,
       blockType,
       metadata,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -418,14 +408,16 @@ export class BlockCache {
 
   async save(): Promise<void> {
     const data = Array.from(this.cache.entries());
-    await fs.promises.writeFile(
-      this.filePath,
-      JSON.stringify(data, null, 2)
-    );
+    await fs.promises.writeFile(this.filePath, JSON.stringify(data, null, 2));
   }
 
   async load(): Promise<void> {
-    if (await fs.promises.access(this.filePath).then(() => true).catch(() => false)) {
+    if (
+      await fs.promises
+        .access(this.filePath)
+        .then(() => true)
+        .catch(() => false)
+    ) {
       const data = JSON.parse(await fs.promises.readFile(this.filePath, 'utf-8'));
       this.cache = new Map(data);
     }
@@ -446,7 +438,7 @@ export class TaskList {
       priority,
       status: 'pending',
       createdAt: Date.now(),
-      metadata
+      metadata,
     });
     return taskId;
   }
@@ -506,7 +498,7 @@ export class EventBus {
     const listener: EventListener = {
       id: this.generateListenerId(),
       handler,
-      once: false
+      once: false,
     };
 
     const listeners = this.listeners.get(eventType) || [];
@@ -515,7 +507,7 @@ export class EventBus {
 
     // 返回取消订阅的句柄
     return {
-      remove: () => this.off(eventType, listener.id)
+      remove: () => this.off(eventType, listener.id),
     };
   }
 
@@ -526,7 +518,7 @@ export class EventBus {
     const listener: EventListener = {
       id: this.generateListenerId(),
       handler,
-      once: true
+      once: true,
     };
 
     const listeners = this.listeners.get(eventType) || [];
@@ -534,7 +526,7 @@ export class EventBus {
     this.listeners.set(eventType, listeners);
 
     return {
-      remove: () => this.off(eventType, listener.id)
+      remove: () => this.off(eventType, listener.id),
     };
   }
 
@@ -560,7 +552,7 @@ export class EventBus {
 
     for (let i = listeners.length - 1; i >= 0; i--) {
       const listener = listeners[i];
-      
+
       try {
         listener.handler(event);
       } catch (error) {
@@ -596,7 +588,7 @@ export class EventBus {
 export abstract class GameEvent {
   abstract readonly type: string;
   readonly timestamp: number = Date.now();
-  
+
   constructor(public readonly data: any) {}
 }
 
@@ -605,7 +597,10 @@ export abstract class GameEvent {
  */
 export class HealthChangeEvent extends GameEvent {
   readonly type = 'health_change';
-  constructor(public readonly oldHealth: number, public readonly newHealth: number) {
+  constructor(
+    public readonly oldHealth: number,
+    public readonly newHealth: number,
+  ) {
     super({ oldHealth, newHealth });
   }
 }
@@ -615,7 +610,7 @@ export class EntityHurtEvent extends GameEvent {
   constructor(
     public readonly entityId: number,
     public readonly damage: number,
-    public readonly attacker?: number
+    public readonly attacker?: number,
   ) {
     super({ entityId, damage, attacker });
   }
@@ -633,7 +628,7 @@ export class ActionStartEvent extends GameEvent {
   constructor(
     public readonly executionId: string,
     public readonly actionId: string,
-    public readonly params: any
+    public readonly params: any,
   ) {
     super({ executionId, actionId, params });
   }
@@ -644,7 +639,7 @@ export class ActionCompleteEvent extends GameEvent {
   constructor(
     public readonly executionId: string,
     public readonly actionId: string,
-    public readonly result: ActionResult
+    public readonly result: ActionResult,
   ) {
     super({ executionId, actionId, result });
   }
@@ -655,7 +650,7 @@ export class ActionErrorEvent extends GameEvent {
   constructor(
     public readonly executionId: string,
     public readonly actionId: string,
-    public readonly error: any
+    public readonly error: any,
   ) {
     super({ executionId, actionId, error });
   }
@@ -672,23 +667,15 @@ export class ErrorHandler {
     this.retryConfig = config.get('actions.retry', {
       maxRetries: 3,
       retryDelay: 1000,
-      retryableErrors: [
-        ActionErrorType.TIMEOUT,
-        ActionErrorType.NETWORK_ERROR,
-        ActionErrorType.PATH_NOT_FOUND,
-        ActionErrorType.RESOURCE_BUSY
-      ],
-      backoffMultiplier: 2
+      retryableErrors: [ActionErrorType.TIMEOUT, ActionErrorType.NETWORK_ERROR, ActionErrorType.PATH_NOT_FOUND, ActionErrorType.RESOURCE_BUSY],
+      backoffMultiplier: 2,
     });
   }
 
   /**
    * 带重试执行
    */
-  async executeWithRetry<T>(
-    fn: () => Promise<T>,
-    actionId: string
-  ): Promise<T> {
+  async executeWithRetry<T>(fn: () => Promise<T>, actionId: string): Promise<T> {
     let lastError: any = null;
 
     for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
@@ -710,10 +697,7 @@ export class ErrorHandler {
 
         // 计算延迟并等待
         const delay = this.calculateDelay(attempt);
-        logger.warn(
-          `动作 ${actionId} 失败 (${errorType})，${delay}ms 后重试 ` +
-          `(${attempt + 1}/${this.retryConfig.maxRetries})`
-        );
+        logger.warn(`动作 ${actionId} 失败 (${errorType})，${delay}ms 后重试 ` + `(${attempt + 1}/${this.retryConfig.maxRetries})`);
         await this.sleep(delay);
       }
     }
@@ -737,7 +721,7 @@ export class ErrorHandler {
 
     // 基于错误消息分类
     const message = error.message?.toLowerCase() || '';
-    
+
     if (message.includes('timeout') || message.includes('超时')) {
       return ActionErrorType.TIMEOUT;
     }
@@ -765,8 +749,7 @@ export class ErrorHandler {
    * 计算重试延迟 (指数退避)
    */
   private calculateDelay(attempt: number): number {
-    return this.retryConfig.retryDelay * 
-      Math.pow(this.retryConfig.backoffMultiplier, attempt);
+    return this.retryConfig.retryDelay * Math.pow(this.retryConfig.backoffMultiplier, attempt);
   }
 
   private sleep(ms: number): Promise<void> {
@@ -805,7 +788,10 @@ export class TimeoutError extends Error {
 }
 
 export class ValidationError extends Error {
-  constructor(message: string, public readonly errors: ValidationErrorDetail[]) {
+  constructor(
+    message: string,
+    public readonly errors: ValidationErrorDetail[],
+  ) {
     super(message);
     this.name = 'ValidationError';
   }
@@ -833,7 +819,7 @@ export class AIActionAdapter {
   constructor(
     private executor: ActionExecutor,
     private bot: Bot,
-    private aiContext: AIContext
+    private aiContext: AIContext,
   ) {}
 
   /**
@@ -845,17 +831,12 @@ export class AIActionAdapter {
     for (const call of toolCalls) {
       try {
         const params = JSON.parse(call.function.arguments);
-        
-        const result = await this.executor.execute(
-          call.function.name,
-          this.bot,
-          params,
-          { aiContext: this.aiContext }
-        );
+
+        const result = await this.executor.execute(call.function.name, this.bot, params, { aiContext: this.aiContext });
 
         results.push({
           tool_call_id: call.id,
-          output: JSON.stringify(result)
+          output: JSON.stringify(result),
         });
 
         // 记录到思考日志
@@ -863,16 +844,15 @@ export class AIActionAdapter {
           action: call.function.name,
           params,
           result,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
-
       } catch (error) {
         results.push({
           tool_call_id: call.id,
           output: JSON.stringify({
             success: false,
-            error: error instanceof Error ? error.message : String(error)
-          })
+            error: error instanceof Error ? error.message : String(error),
+          }),
         });
       }
     }
@@ -890,16 +870,11 @@ export class AIActionAdapter {
       return {
         success: false,
         message: '无法解析 AI 响应',
-        error: ActionErrorType.INVALID_PARAMS
+        error: ActionErrorType.INVALID_PARAMS,
       };
     }
 
-    return await this.executor.execute(
-      parsed.actionName,
-      this.bot,
-      parsed.params,
-      { aiContext: this.aiContext }
-    );
+    return await this.executor.execute(parsed.actionName, this.bot, parsed.params, { aiContext: this.aiContext });
   }
 
   /**
@@ -912,8 +887,7 @@ export class AIActionAdapter {
   /**
    * 解析提示词中的动作指令
    */
-  private parseActionFromPrompt(response: string): 
-    { actionName: string; params: any } | null {
+  private parseActionFromPrompt(response: string): { actionName: string; params: any } | null {
     // 尝试 JSON 格式
     try {
       const match = response.match(/\{[\s\S]*"action"[\s\S]*\}/);
@@ -921,7 +895,7 @@ export class AIActionAdapter {
         const parsed = JSON.parse(match[0]);
         return {
           actionName: parsed.action,
-          params: parsed.params || {}
+          params: parsed.params || {},
         };
       }
     } catch {}
@@ -973,7 +947,7 @@ async function main() {
   const bot = Bot.createBot({
     host: 'localhost',
     port: 25565,
-    username: 'MaiBot'
+    username: 'MaiBot',
   });
 
   // 2. 初始化核心组件
@@ -993,7 +967,7 @@ async function main() {
     llmManager,
     promptManager,
     thinkingLog: stateManager.thinkingLog,
-    taskList: stateManager.taskList
+    taskList: stateManager.taskList,
   };
 
   // 5. 创建 AI 适配器
@@ -1003,22 +977,23 @@ async function main() {
   while (true) {
     // 获取当前状态
     const state = getCurrentState(bot, stateManager);
-    
+
     // 获取工具定义
     const tools = aiAdapter.getToolDefinitions();
-    
+
     // 调用 LLM
-    const response = await llmManager.chat([
-      { role: 'system', content: 'You are a Minecraft AI agent.' },
-      { role: 'user', content: `Current state: ${JSON.stringify(state)}. What should I do next?` }
-    ], { tools });
+    const response = await llmManager.chat(
+      [
+        { role: 'system', content: 'You are a Minecraft AI agent.' },
+        { role: 'user', content: `Current state: ${JSON.stringify(state)}. What should I do next?` },
+      ],
+      { tools },
+    );
 
     // 执行工具调用
     if (response.choices[0].message.tool_calls) {
-      const results = await aiAdapter.executeToolCalls(
-        response.choices[0].message.tool_calls
-      );
-      
+      const results = await aiAdapter.executeToolCalls(response.choices[0].message.tool_calls);
+
       console.log('执行结果:', results);
     }
 
@@ -1042,7 +1017,7 @@ async function startMcpServer() {
   const bot = Bot.createBot({
     host: 'localhost',
     port: 25565,
-    username: 'MaiBot'
+    username: 'MaiBot',
   });
 
   // 2. 初始化核心组件
@@ -1058,58 +1033,54 @@ async function startMcpServer() {
   const server = new Server(
     {
       name: 'maicraft-mcp-server',
-      version: '1.0.0'
+      version: '1.0.0',
     },
     {
       capabilities: {
-        tools: {}
-      }
-    }
+        tools: {},
+      },
+    },
   );
 
   // 5. 注册 MCP 工具
   const mcpTools = executor.getMcpTools();
-  
+
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
       tools: mcpTools.map(tool => ({
         name: tool.toolName,
         description: tool.description,
-        inputSchema: tool.schema
-      }))
+        inputSchema: tool.schema,
+      })),
     };
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async request => {
     const tool = mcpTools.find(t => t.toolName === request.params.name);
-    
+
     if (!tool) {
       throw new Error(`未找到工具: ${request.params.name}`);
     }
 
     // 映射参数并执行动作
     const params = tool.mapInputToParams?.(request.params.arguments, {}) || request.params.arguments;
-    
-    const result = await executor.execute(
-      tool.actionName || tool.toolName,
-      bot,
-      params
-    );
+
+    const result = await executor.execute(tool.actionName || tool.toolName, bot, params);
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(result, null, 2)
-        }
-      ]
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
     };
   });
 
   // 6. 启动服务器
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  
+
   console.log('MCP Server 已启动');
 }
 
@@ -1134,7 +1105,7 @@ export class BuildHouseAction extends CompositeAction<BuildHouseParams> {
     steps.push({
       actionName: 'clearArea',
       params: { x, y, z, width, height, depth },
-      required: true
+      required: true,
     });
 
     // 2. 铺设地板
@@ -1146,11 +1117,11 @@ export class BuildHouseAction extends CompositeAction<BuildHouseParams> {
             x: x + i,
             y: y,
             z: z + j,
-            blockName: material
+            blockName: material,
           },
           required: false, // 地板不是必需的
           rollbackAction: 'mineBlock',
-          rollbackParams: { x: x + i, y: y, z: z + j }
+          rollbackParams: { x: x + i, y: y, z: z + j },
         });
       }
     }
@@ -1164,7 +1135,7 @@ export class BuildHouseAction extends CompositeAction<BuildHouseParams> {
           params: { x: x + i, y: y + h, z: z, blockName: material },
           required: true,
           rollbackAction: 'mineBlock',
-          rollbackParams: { x: x + i, y: y + h, z: z }
+          rollbackParams: { x: x + i, y: y + h, z: z },
         });
       }
     }
@@ -1179,11 +1150,11 @@ export class BuildHouseAction extends CompositeAction<BuildHouseParams> {
             x: x + i,
             y: y + height + 1,
             z: z + j,
-            blockName: material
+            blockName: material,
           },
           required: false,
           rollbackAction: 'mineBlock',
-          rollbackParams: { x: x + i, y: y + height + 1, z: z + j }
+          rollbackParams: { x: x + i, y: y + height + 1, z: z + j },
         });
       }
     }
@@ -1209,10 +1180,10 @@ export class BuildHouseAction extends CompositeAction<BuildHouseParams> {
           width: { type: 'number', description: '房屋宽度 (X方向)', default: 5 },
           height: { type: 'number', description: '房屋高度', default: 3 },
           depth: { type: 'number', description: '房屋深度 (Z方向)', default: 5 },
-          material: { type: 'string', description: '建造材料', default: 'oak_planks' }
+          material: { type: 'string', description: '建造材料', default: 'oak_planks' },
         },
-        required: ['x', 'y', 'z']
-      }
+        required: ['x', 'y', 'z'],
+      },
     };
   }
 }
@@ -1223,24 +1194,28 @@ export class BuildHouseAction extends CompositeAction<BuildHouseParams> {
 ## 🚀 迁移路径
 
 ### 阶段 1: 核心架构 (Week 1-2)
+
 - [ ] 实现 EventBus
 - [ ] 实现 StateManager (BlockCache, TaskList)
 - [ ] 增强 ActionExecutor (事件、状态集成)
 - [ ] 实现 ErrorHandler (重试机制)
 
 ### 阶段 2: 功能增强 (Week 3-4)
+
 - [ ] 实现 CompositeAction 基类
 - [ ] 实现 ActionHistory 和持久化
 - [ ] 实现 MetricsCollector
 - [ ] 迁移现有动作到新架构
 
 ### 阶段 3: AI 集成 (Week 5-6)
+
 - [ ] 实现 AIActionAdapter
 - [ ] 支持 OpenAI Function Calling
 - [ ] 支持提示词模式 (兼容 maicraft)
 - [ ] 实现 ThinkingLog
 
 ### 阶段 4: 双模式支持 (Week 7-8)
+
 - [ ] 独立 Agent 模式完善
 - [ ] MCP Server 模式完善
 - [ ] 配置系统和启动脚本
@@ -1251,6 +1226,7 @@ export class BuildHouseAction extends CompositeAction<BuildHouseParams> {
 ## 📝 总结
 
 **改进要点:**
+
 1. ✅ **明确架构定位**: 双模式支持 (Agent + MCP Server)
 2. ✅ **事件系统**: 完整的 EventBus 实现
 3. ✅ **状态管理**: BlockCache, TaskList, ThinkingLog 等
@@ -1261,6 +1237,7 @@ export class BuildHouseAction extends CompositeAction<BuildHouseParams> {
 8. ✅ **监控**: 性能指标、执行追踪
 
 **核心优势:**
+
 - 🎯 **灵活性**: 双模式运行，适应不同场景
 - ⚡ **高性能**: Agent 模式零 IPC 开销
 - 🔄 **兼容性**: 平滑迁移 maicraft Python 功能
@@ -1269,4 +1246,3 @@ export class BuildHouseAction extends CompositeAction<BuildHouseParams> {
 
 **下一步:**
 参考 `action-system-review.md` 的优先级，逐步实现改进方案。
-

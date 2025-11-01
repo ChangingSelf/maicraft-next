@@ -1,6 +1,7 @@
 # Logger 实现任务
 
 ## 任务目标
+
 实现一个完整的结构化日志系统，支持多级别日志、JSONL格式文件输出和控制台输出。
 
 ## 任务分解
@@ -97,7 +98,7 @@ import { Logger, createLogger, createModuleLogger } from '@/utils/Logger';
 const logger = new Logger({
   level: LogLevel.INFO,
   console: true,
-  file: true
+  file: true,
 });
 
 // 模块专用

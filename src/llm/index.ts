@@ -44,6 +44,6 @@ export const LLM_MODULE_VERSION = '1.0.0';
  */
 export const SUPPORTED_PROVIDERS = [
   'openai',
-  'azure',      // TODO: 实现
-  'anthropic',  // TODO: 实现
+  'azure', // TODO: 实现
+  'anthropic', // TODO: 实现
 ] as const;

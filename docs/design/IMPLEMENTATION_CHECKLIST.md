@@ -5,6 +5,7 @@
 本清单用于指导 maicraft-next 动作系统 v2.0 的实施。
 
 **相关文档:**
+
 - [action-system-review.md](./action-system-review.md) - 详细评估
 - [action-system-v2.md](./action-system-v2.md) - 完整设计
 - [COMPARISON.md](./COMPARISON.md) - 对比总结
@@ -17,6 +18,7 @@
 ### 1. 事件系统 (EventBus)
 
 #### 文件结构
+
 ```
 src/events/
 ├─ EventBus.ts           ✅ 核心事件总线
@@ -32,6 +34,7 @@ src/events/
 ```
 
 #### 实施步骤
+
 - [ ] 1.1 创建 `src/events/EventBus.ts`
   - [ ] 实现 `on()`, `once()`, `off()`, `emit()` 方法
   - [ ] 实现监听器管理
@@ -69,6 +72,7 @@ src/events/
 ### 2. 状态管理 (StateManager)
 
 #### 文件结构
+
 ```
 src/state/
 ├─ StateManager.ts       ✅ 状态管理器
@@ -81,6 +85,7 @@ src/state/
 ```
 
 #### 实施步骤
+
 - [ ] 2.1 创建 `src/state/StateManager.ts`
   - [ ] 集成各个子管理器
   - [ ] 实现 `load()`, `save()` 方法
@@ -137,11 +142,13 @@ src/state/
 ### 3. 增强 ActionExecutor
 
 #### 修改文件
+
 ```
 src/minecraft/ActionExecutor.ts  (增强现有文件)
 ```
 
 #### 实施步骤
+
 - [ ] 3.1 集成 EventBus
   - [ ] 构造函数接收 EventBus
   - [ ] 执行前发射 ActionStartEvent
@@ -174,6 +181,7 @@ src/minecraft/ActionExecutor.ts  (增强现有文件)
 ### 4. 错误处理器 (ErrorHandler)
 
 #### 文件结构
+
 ```
 src/errors/
 ├─ ErrorHandler.ts       ✅ 错误处理器
@@ -182,6 +190,7 @@ src/errors/
 ```
 
 #### 实施步骤
+
 - [ ] 4.1 创建 `src/errors/ErrorTypes.ts`
   - [ ] 定义 ActionErrorType 枚举
   - [ ] 定义 RetryConfig 接口
@@ -223,6 +232,7 @@ src/errors/
 ### 5. 复合动作基类 (CompositeAction)
 
 #### 文件结构
+
 ```
 src/actions/
 ├─ Action.ts             (现有，ActionInterface.ts 中的 BaseAction)
@@ -231,6 +241,7 @@ src/actions/
 ```
 
 #### 实施步骤
+
 - [ ] 5.1 创建 `src/actions/ActionStep.ts`
   - [ ] 定义 ActionStep 接口
   - [ ] 定义 ActionStepResult 接口
@@ -267,6 +278,7 @@ src/actions/
 ### 6. 执行历史 (ActionHistory)
 
 #### 文件结构
+
 ```
 src/history/
 ├─ ActionHistory.ts      ✅ 执行历史管理
@@ -274,6 +286,7 @@ src/history/
 ```
 
 #### 实施步骤
+
 - [ ] 6.1 创建 `src/history/types.ts`
   - [ ] ActionExecutionRecord 接口
   - [ ] 执行状态枚举
@@ -302,6 +315,7 @@ src/history/
 ### 7. 性能指标 (MetricsCollector)
 
 #### 文件结构
+
 ```
 src/metrics/
 ├─ MetricsCollector.ts   ✅ 指标收集器
@@ -309,6 +323,7 @@ src/metrics/
 ```
 
 #### 实施步骤
+
 - [ ] 7.1 创建 `src/metrics/types.ts`
   - [ ] ActionMetrics 接口
 
@@ -334,6 +349,7 @@ src/metrics/
 ### 8. 迁移现有动作
 
 #### 实施步骤
+
 - [ ] 8.1 迁移 MineBlockAction
   - [ ] 添加 subscribeEvents
   - [ ] 使用 StateManager (blockCache)
@@ -364,6 +380,7 @@ src/metrics/
 ### 9. AI 适配器 (AIActionAdapter)
 
 #### 文件结构
+
 ```
 src/ai/
 ├─ AIActionAdapter.ts    ✅ AI 适配器
@@ -372,6 +389,7 @@ src/ai/
 ```
 
 #### 实施步骤
+
 - [ ] 9.1 创建 `src/ai/types.ts`
   - [ ] AIContext 接口
   - [ ] ToolCall 接口
@@ -416,6 +434,7 @@ src/ai/
 ### 11. 双模式支持
 
 #### 实施步骤
+
 - [ ] 11.1 创建 Agent 模式入口
   - [ ] `src/main-agent.ts`
   - [ ] 集成 LLMManager
@@ -443,6 +462,7 @@ src/ai/
 ### 12. 文档和示例
 
 #### 文档清单
+
 - [ ] 12.1 API 文档
   - [ ] EventBus API
   - [ ] StateManager API
@@ -498,18 +518,21 @@ src/ai/
 ## ✅ 完成标准
 
 ### P0 完成标准
+
 - ✅ 所有核心组件实现并通过单元测试
 - ✅ 集成测试通过
 - ✅ 现有动作可正常运行
 - ✅ 基础文档完成
 
 ### P1 完成标准
+
 - ✅ 复合动作可以创建和执行
 - ✅ 执行历史可以查询
 - ✅ 性能指标可以查看
 - ✅ 所有现有动作迁移完成
 
 ### P2 完成标准
+
 - ✅ Agent 模式可以运行
 - ✅ MCP Server 模式可以运行
 - ✅ 模式可以无缝切换
@@ -542,17 +565,19 @@ src/ai/
 ## 📞 支持和反馈
 
 ### 问题报告
+
 - GitHub Issues
 
 ### 进度汇报
+
 - 每周进度更新
 - 阻塞问题及时沟通
 
 ### 代码审查
+
 - 每个 P 阶段完成后进行审查
 - 重大变更需要审查
 
 ---
 
 **准备好开始了吗?** 从 P0 的 EventBus 开始! 🚀
-

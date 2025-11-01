@@ -9,6 +9,7 @@ import { BaseAction } from '../Action';
 import { RuntimeContext } from '../../context/RuntimeContext';
 import { ActionResult, CraftParams } from '../types';
 import { ActionIds } from '../ActionIds';
+import { MovementUtils } from '../../../utils/MovementUtils';
 
 export class CraftItemAction extends BaseAction<CraftParams> {
   readonly id = ActionIds.CRAFT;
@@ -63,26 +64,22 @@ export class CraftItemAction extends BaseAction<CraftParams> {
 
         context.logger.info(`找到工作台: (${craftingTableBlock.position.x}, ${craftingTableBlock.position.y}, ${craftingTableBlock.position.z})`);
 
-        // 移动到工作台附近
-        if ((context.bot as any).pathfinder) {
-          const pathfinder = (context.bot as any).pathfinder;
-          const { goals } = require('mineflayer-pathfinder');
-          const goal = new goals.GoalNear(craftingTableBlock.position.x, craftingTableBlock.position.y, craftingTableBlock.position.z, 2);
-          pathfinder.setGoal(goal);
+        // 使用 MovementUtils 移动到工作台附近
+        const moveResult = await MovementUtils.moveToCoordinate(
+          context.bot,
+          craftingTableBlock.position.x,
+          craftingTableBlock.position.y,
+          craftingTableBlock.position.z,
+          2, // 到达距离
+          64, // 最大移动距离
+          false, // 不使用相对坐标
+        );
 
-          // 等待移动完成
-          await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              pathfinder.setGoal(null);
-              reject(new Error('移动超时'));
-            }, 30000);
-
-            pathfinder.once('goal_reached', () => {
-              clearTimeout(timeout);
-              resolve(null);
-            });
-          });
+        if (!moveResult.success) {
+          return this.failure(`移动到工作台失败: ${moveResult.message}`);
         }
+
+        context.logger.info('成功移动到工作台附近');
 
         // 合成物品
         context.logger.info('开始合成...');
@@ -90,7 +87,7 @@ export class CraftItemAction extends BaseAction<CraftParams> {
       } else {
         // 使用背包合成（2x2）
         context.logger.info('使用背包进行合成');
-        await context.bot.craft(recipe, count, null);
+        await context.bot.craft(recipe, count, undefined);
       }
 
       context.logger.info(`成功合成 ${item} x${count}`);

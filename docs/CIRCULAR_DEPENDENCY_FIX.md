@@ -19,15 +19,18 @@ Config.ts  ──imports──> Logger.ts
 **具体问题：**
 
 1. **Config.ts** (line 6):
+
    ```typescript
    import { getModuleLogger, LogLevel } from './Logger';
    ```
+
    - 在类初始化时使用: `private logger = getModuleLogger('Config');`
 
 2. **Logger.ts** (line 4):
    ```typescript
    import { getSection } from './Config';
    ```
+
    - 在静态方法中使用: `const loggingSection = getSection('logging');`
 
 ### 问题影响
@@ -49,6 +52,7 @@ Config.ts  ──imports──> Logger.ts
 #### 1. Logger.ts 的修改
 
 **修改前:**
+
 ```typescript
 import { getSection } from './Config';
 
@@ -61,6 +65,7 @@ private static getConfigFromApp(): Partial<LoggerConfig> {
 ```
 
 **修改后:**
+
 ```typescript
 // 移除顶部导入
 
@@ -75,6 +80,7 @@ private static getConfigFromApp(): Partial<LoggerConfig> {
 ```
 
 **关键点:**
+
 - ✅ 移除顶部的 `import { getSection } from './Config'`
 - ✅ 在方法内部使用 `require()` 动态加载
 - ✅ 只在真正需要时才加载 Config 模块
@@ -86,10 +92,12 @@ private static getConfigFromApp(): Partial<LoggerConfig> {
 ### 使用原有的 Config 类
 
 **原方案（已废弃）:**
+
 - 创建了额外的 `ConfigLoader.ts`
 - 不够优雅，增加了代码冗余
 
 **新方案（当前）:**
+
 - 直接使用原有的 `Config.ts`
 - 调用 `initializeConfig()` 和 `getSection()`
 
@@ -116,7 +124,7 @@ async function loadConfig() {
 }
 
 async function main() {
-  await loadConfig();  // 先加载配置
+  await loadConfig(); // 先加载配置
   // ... 其他初始化
 }
 ```
@@ -150,6 +158,7 @@ npm run test-bot
 ```
 
 **预期结果**:
+
 ```
 ✅ 已从 config.toml 加载配置
 [INFO] 🚀 maicraft-next 测试 Bot 启动
@@ -160,12 +169,12 @@ npm run test-bot
 
 ## 📊 修改总结
 
-| 文件 | 修改类型 | 说明 |
-|------|---------|------|
-| `src/utils/Logger.ts` | 🔧 修改 | 移除顶部 import，使用懒加载 |
-| `src/test-bot.ts` | 🔧 修改 | 使用原有 Config 类 |
-| `src/utils/ConfigLoader.ts` | 🗑️ 删除 | 不再需要额外的加载器 |
-| `CONFIG_GUIDE.md` | 📝 更新 | 添加循环依赖修复说明 |
+| 文件                        | 修改类型 | 说明                        |
+| --------------------------- | -------- | --------------------------- |
+| `src/utils/Logger.ts`       | 🔧 修改  | 移除顶部 import，使用懒加载 |
+| `src/test-bot.ts`           | 🔧 修改  | 使用原有 Config 类          |
+| `src/utils/ConfigLoader.ts` | 🗑️ 删除  | 不再需要额外的加载器        |
+| `CONFIG_GUIDE.md`           | 📝 更新  | 添加循环依赖修复说明        |
 
 ---
 
@@ -180,21 +189,25 @@ npm run test-bot
 ### require() vs import()
 
 **使用 require():**
+
 ```typescript
 const { getSection } = require('./Config');
 ```
 
 **优点:**
+
 - ✅ 同步加载，简单直接
 - ✅ TypeScript 编译器识别
 - ✅ 适合内部模块
 
 **使用 import() (动态导入):**
+
 ```typescript
 const { getSection } = await import('./Config');
 ```
 
 **缺点:**
+
 - ❌ 异步加载，需要 async/await
 - ❌ 对于简单场景过度设计
 
@@ -242,7 +255,6 @@ const { getSection } = await import('./Config');
 
 ---
 
-*修复者: AI Assistant*  
-*审核者: 待定*  
-*版本: 1.0*
-
+_修复者: AI Assistant_  
+_审核者: 待定_  
+_版本: 1.0_

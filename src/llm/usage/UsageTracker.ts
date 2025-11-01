@@ -7,16 +7,7 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { Logger } from '../../utils/Logger.js';
-import {
-  UsageStats,
-  DailyUsage,
-  MonthlyUsage,
-  ProviderUsage,
-  ModelUsage,
-  LLMProvider,
-  TokenUsage,
-  LLMConfig
-} from '../types.js';
+import { UsageStats, DailyUsage, MonthlyUsage, ProviderUsage, ModelUsage, LLMProvider, TokenUsage, LLMConfig } from '../types.js';
 import { z } from 'zod';
 
 /**
@@ -31,11 +22,13 @@ export class UsageTracker {
 
   constructor(config: LLMConfig, logger?: Logger) {
     this.config = config;
-    this.logger = logger || new Logger({
-      level: (globalThis as any).logLevel || 2, // INFO
-      console: true,
-      file: false,
-    }).child('UsageTracker');
+    this.logger =
+      logger ||
+      new Logger({
+        level: (globalThis as any).logLevel || 2, // INFO
+        console: true,
+        file: false,
+      }).child('UsageTracker');
 
     this.stats = this.initializeStats();
 
@@ -54,12 +47,7 @@ export class UsageTracker {
   /**
    * 记录一次LLM调用
    */
-  recordUsage(
-    provider: LLMProvider,
-    model: string,
-    tokenUsage: TokenUsage,
-    cost?: number
-  ): void {
+  recordUsage(provider: LLMProvider, model: string, tokenUsage: TokenUsage, cost?: number): void {
     const now = new Date();
     const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
     const month = date.substring(0, 7); // YYYY-MM
@@ -341,11 +329,7 @@ export class UsageTracker {
   /**
    * 计算费用
    */
-  private calculateCost(
-    provider: LLMProvider,
-    model: string,
-    tokenUsage: TokenUsage
-  ): number {
+  private calculateCost(provider: LLMProvider, model: string, tokenUsage: TokenUsage): number {
     const pricing = this.config.pricing;
     let inputPricePer1K = 0;
     let outputPricePer1K = 0;
@@ -469,7 +453,7 @@ export class UsageTracker {
       }
     } catch (error) {
       this.logger.error('加载用量统计数据失败', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -502,7 +486,7 @@ export class UsageTracker {
       this.isDirty = false;
     } catch (error) {
       this.logger.error('持久化用量统计数据失败', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }

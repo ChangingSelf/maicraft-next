@@ -17,7 +17,7 @@ import {
   UpdateTemplateRequest,
   SearchFilter,
   ValidationResult,
-  TemplateStatus
+  TemplateStatus,
 } from '../types/index.js';
 import { PromptError } from '../errors/PromptError.js';
 import { z } from 'zod';
@@ -38,11 +38,13 @@ export class PromptStorage {
     this.storageDir = storageDir;
     this.templatesDir = join(storageDir, 'templates');
     this.versionsDir = join(storageDir, 'versions');
-    this.logger = logger || new Logger({
-      level: 2, // INFO
-      console: true,
-      file: false,
-    }).child('PromptStorage');
+    this.logger =
+      logger ||
+      new Logger({
+        level: 2, // INFO
+        console: true,
+        file: false,
+      }).child('PromptStorage');
 
     this.logger.info('提示词存储管理器初始化', {
       storage_dir: storageDir,
@@ -61,11 +63,7 @@ export class PromptStorage {
     // 验证请求
     const validation = this.validateCreateRequest(request);
     if (!validation.valid) {
-      throw new PromptError(
-        `Invalid template request: ${validation.errors.join(', ')}`,
-        'VALIDATION_ERROR',
-        { validation }
-      );
+      throw new PromptError(`Invalid template request: ${validation.errors.join(', ')}`, 'VALIDATION_ERROR', { validation });
     }
 
     // 生成ID
@@ -156,11 +154,7 @@ export class PromptStorage {
     // 验证请求
     const validation = this.validateUpdateRequest(request);
     if (!validation.valid) {
-      throw new PromptError(
-        `Invalid update request: ${validation.errors.join(', ')}`,
-        'VALIDATION_ERROR',
-        { validation }
-      );
+      throw new PromptError(`Invalid update request: ${validation.errors.join(', ')}`, 'VALIDATION_ERROR', { validation });
     }
 
     const now = new Date();
@@ -267,9 +261,7 @@ export class PromptStorage {
     }
 
     if (filter.tags && filter.tags.length > 0) {
-      filtered = filtered.filter(t =>
-        filter.tags!.some(tag => t.tags.includes(tag))
-      );
+      filtered = filtered.filter(t => filter.tags!.some(tag => t.tags.includes(tag)));
     }
 
     if (filter.status) {
@@ -278,10 +270,11 @@ export class PromptStorage {
 
     if (filter.search) {
       const searchTerm = filter.search.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.name.toLowerCase().includes(searchTerm) ||
-        t.description.toLowerCase().includes(searchTerm) ||
-        t.content.toLowerCase().includes(searchTerm)
+      filtered = filtered.filter(
+        t =>
+          t.name.toLowerCase().includes(searchTerm) ||
+          t.description.toLowerCase().includes(searchTerm) ||
+          t.content.toLowerCase().includes(searchTerm),
       );
     }
 
@@ -345,22 +338,17 @@ export class PromptStorage {
 
     const versionFile = this.getVersionPath(templateId, version);
     if (!existsSync(versionFile)) {
-      throw new PromptError(
-        `Template version ${version} not found for template ${templateId}`,
-        'VERSION_NOT_FOUND',
-        { template_id: templateId, version }
-      );
+      throw new PromptError(`Template version ${version} not found for template ${templateId}`, 'VERSION_NOT_FOUND', {
+        template_id: templateId,
+        version,
+      });
     }
 
     try {
       const content = readFileSync(versionFile, 'utf8');
       return JSON.parse(content);
     } catch (error) {
-      throw new PromptError(
-        `Failed to load template version: ${error}`,
-        'VERSION_LOAD_ERROR',
-        { template_id: templateId, version }
-      );
+      throw new PromptError(`Failed to load template version: ${error}`, 'VERSION_LOAD_ERROR', { template_id: templateId, version });
     }
   }
 
@@ -524,22 +512,14 @@ export class PromptStorage {
     const templateFile = this.getTemplatePath(id);
 
     if (!existsSync(templateFile)) {
-      throw new PromptError(
-        `Template not found: ${id}`,
-        'TEMPLATE_NOT_FOUND',
-        { template_id: id }
-      );
+      throw new PromptError(`Template not found: ${id}`, 'TEMPLATE_NOT_FOUND', { template_id: id });
     }
 
     try {
       const content = readFileSync(templateFile, 'utf8');
       return JSON.parse(content);
     } catch (error) {
-      throw new PromptError(
-        `Failed to load template: ${error}`,
-        'TEMPLATE_LOAD_ERROR',
-        { template_id: id }
-      );
+      throw new PromptError(`Failed to load template: ${error}`, 'TEMPLATE_LOAD_ERROR', { template_id: id });
     }
   }
 
@@ -567,8 +547,7 @@ export class PromptStorage {
       return [];
     }
 
-    const templateFiles = readdirSync(this.templatesDir)
-      .filter(f => f.endsWith('.json'));
+    const templateFiles = readdirSync(this.templatesDir).filter(f => f.endsWith('.json'));
 
     const templates: PromptTemplate[] = [];
 
@@ -729,11 +708,7 @@ export class PromptStorage {
   /**
    * 排序模板
    */
-  private sortTemplates(
-    templates: PromptTemplate[],
-    sortBy: keyof PromptTemplate,
-    order: 'asc' | 'desc' = 'desc'
-  ): PromptTemplate[] {
+  private sortTemplates(templates: PromptTemplate[], sortBy: keyof PromptTemplate, order: 'asc' | 'desc' = 'desc'): PromptTemplate[] {
     return [...templates].sort((a, b) => {
       let valueA = a[sortBy];
       let valueB = b[sortBy];

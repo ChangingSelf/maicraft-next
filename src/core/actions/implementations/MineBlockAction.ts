@@ -1,7 +1,7 @@
 /**
  * MineBlockAction - 挖掘附近方块
  *
- * 搜索并挖掘指定类型的方块
+ * 使用正确的 collectBlock 插件 API
  */
 
 import { BaseAction } from '../Action';
@@ -26,7 +26,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       context.logger.info(`开始挖掘: ${name}, 数量: ${count}`);
 
       // 获取方块类型
-      const mcData = require('minecraft-data')(context.bot.version);
+      const mcData = context.bot.registry;
       const blockType = mcData.blocksByName[name];
 
       if (!blockType) {
@@ -69,13 +69,14 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         );
 
         try {
-          // 使用 collectBlock 插件挖掘
-          await (context.bot as any).collectBlock.collect(targetBlock);
+          // 使用 collectBlock 插件挖掘，提供正确的选项参数
+          await (context.bot as any).collectBlock.collect(targetBlock, {
+            ignoreNoPath: false,
+            count: 1
+          });
+          
           minedCount++;
           minedBlocks.push(name);
-
-          // 更新方块缓存
-          context.blockCache.removeBlock(targetBlock.position);
 
           // 短暂延迟
           await new Promise(resolve => setTimeout(resolve, 100));

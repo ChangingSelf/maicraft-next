@@ -218,12 +218,12 @@ describe('ConfigManager', () => {
       const updates: DeepPartial<AppConfig> = {
         app: {
           debug: false,
-          data_dir: './updated-data'
+          data_dir: './updated-data',
         },
         logging: {
           level: 'info',
-          file: true
-        }
+          file: true,
+        },
       };
 
       await configManager.updateConfig(updates);
@@ -246,16 +246,16 @@ describe('ConfigManager', () => {
       configManager.on('configChanged', changeSpy);
 
       await configManager.updateConfig({
-        app: { debug: false }
+        app: { debug: false },
       } as DeepPartial<AppConfig>);
 
       expect(changeSpy).toHaveBeenCalledTimes(1);
       expect(changeSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           app: expect.objectContaining({
-            debug: false
-          })
-        })
+            debug: false,
+          }),
+        }),
       );
     });
 
@@ -408,7 +408,7 @@ name = "missing-bracket"
 
         // 测试更新配置
         await manager.updateConfig({
-          app: { debug: false }
+          app: { debug: false },
         } as DeepPartial<AppConfig>);
 
         const updatedConfig = manager.getConfig();
@@ -478,10 +478,7 @@ describe('Logger Integration', () => {
 describe('集成测试', () => {
   test('配置系统应该与日志系统正确集成', async () => {
     // 创建带有日志配置的模板
-    const loggingConfig = TEST_TEMPLATE_CONTENT.replace(
-      'hot_reload = false',
-      'hot_reload = true'
-    );
+    const loggingConfig = TEST_TEMPLATE_CONTENT.replace('hot_reload = false', 'hot_reload = true');
     writeFileSync(TEST_TEMPLATE_PATH, loggingConfig);
 
     const configManager = new ConfigManager(TEST_CONFIG_PATH, TEST_TEMPLATE_PATH);
@@ -498,12 +495,11 @@ describe('集成测试', () => {
 
       // 更新配置并测试日志器更新
       await configManager.updateConfig({
-        logging: { level: 'error' }
+        logging: { level: 'error' },
       } as DeepPartial<AppConfig>);
 
       // 这里可以验证日志器是否正确响应配置变化
       expect(config.app.name).toBe('test-app');
-
     } finally {
       configManager.close();
 

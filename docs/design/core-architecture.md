@@ -2,7 +2,7 @@
 
 > **设计目标**: 将 maicraft (Python) 和 maicraft-mcp-server (TypeScript) 合并为高内聚的单体架构
 
-***
+---
 
 ## 🎯 设计原则
 
@@ -13,7 +13,7 @@
 5. **事件驱动** - 薄层 EventEmitter 封装，统一管理游戏事件和自定义事件
 6. **LLM 兼容** - Schema 支持，兼容提示词模式和工具调用模式
 
-***
+---
 
 ## 🏗️ 核心架构图
 
@@ -23,12 +23,12 @@ graph TB
         A[LLM Manager]
         B[Prompt Manager]
     end
-    
+
     subgraph "执行层"
         C[ActionExecutor]
         D[Actions: 15个核心动作]
     end
-    
+
     subgraph "状态层 - 全局可访问"
         E[GameState]
         E1[位置/生命/饥饿/经验]
@@ -36,24 +36,24 @@ graph TB
         E3[周围实体/方块]
         E4[天气/时间/维度]
     end
-    
+
     subgraph "缓存层"
         F1[BlockCache - 方块记忆]
         F2[ContainerCache - 容器记忆]
         F3[LocationManager - 地标管理]
     end
-    
+
     subgraph "事件层"
         G[EventEmitter - 薄层封装]
         G1[bot事件桥接]
         G2[自定义事件]
     end
-    
+
     subgraph "底层"
         H[Mineflayer Bot]
         I[Minecraft Server]
     end
-    
+
     A --> B
     B --> C
     C --> D
@@ -62,19 +62,19 @@ graph TB
     D --> F1
     D --> F2
     D --> F3
-    
+
     H --> E
     H --> G
     G --> G1
     G --> G2
     H --> I
-    
+
     style E fill:#e1f5ff
     style C fill:#ffe1e1
     style G fill:#ffe1ff
 ```
 
-***
+---
 
 ## 📦 核心组件设计
 
@@ -101,11 +101,11 @@ class GameState {
   // 玩家基础信息
   readonly playerName: string;
   readonly gamemode: string;
-  
+
   // 位置信息（实时更新）
   position: Vec3;
   blockPosition: Vec3;
-  
+
   // 状态信息（实时更新）
   health: number;
   healthMax: number;
@@ -116,26 +116,26 @@ class GameState {
   level: number;
   oxygen: number;
   armor: number;
-  
+
   // 物品栏（实时更新）
   inventory: Item[];
   equipment: Record<string, Item | null>;
   heldItem: Item | null;
-  
+
   // 环境信息（实时更新）
   weather: string;
   timeOfDay: number;
   dimension: string;
   biome: string;
-  
+
   // 周围实体（定期更新）
   nearbyEntities: Entity[];
-  
+
   // 视角信息
   yaw: number;
   pitch: number;
   onGround: boolean;
-  
+
   /**
    * 初始化环境，设置 bot 事件监听
    */
@@ -146,40 +146,39 @@ class GameState {
       this.food = bot.food;
       this.foodSaturation = bot.foodSaturation;
     });
-    
+
     // 监听位置移动
     bot.on('move', () => {
       this.position = bot.entity.position.clone();
       this.blockPosition = this.position.floored();
     });
-    
+
     // 监听经验变化
     bot.on('experience', () => {
       this.experience = bot.experience.points;
       this.level = bot.experience.level;
     });
-    
+
     // 监听物品栏变化
     bot.on('windowUpdate', () => {
       this.updateInventory(bot);
     });
-    
+
     // 监听天气和时间
     bot.on('time', () => {
       this.timeOfDay = bot.time.timeOfDay;
     });
-    
+
     bot.on('weather', () => {
-      this.weather = bot.thunderState ? 'thunder' : 
-                     bot.isRaining ? 'rain' : 'clear';
+      this.weather = bot.thunderState ? 'thunder' : bot.isRaining ? 'rain' : 'clear';
     });
-    
+
     // 定期更新周围实体 (每秒一次)
     setInterval(() => {
       this.updateNearbyEntities(bot);
     }, 1000);
   }
-  
+
   /**
    * 更新物品栏
    */
@@ -188,17 +187,19 @@ class GameState {
       name: item.name,
       count: item.count,
       slot: item.slot,
-      displayName: item.displayName
+      displayName: item.displayName,
     }));
-    
-    this.heldItem = bot.heldItem ? {
-      name: bot.heldItem.name,
-      count: bot.heldItem.count,
-      slot: bot.heldItem.slot,
-      displayName: bot.heldItem.displayName
-    } : null;
+
+    this.heldItem = bot.heldItem
+      ? {
+          name: bot.heldItem.name,
+          count: bot.heldItem.count,
+          slot: bot.heldItem.slot,
+          displayName: bot.heldItem.displayName,
+        }
+      : null;
   }
-  
+
   /**
    * 更新周围实体
    */
@@ -210,12 +211,12 @@ class GameState {
         name: e.name || e.displayName,
         position: e.position,
         distance: e.position.distanceTo(bot.entity.position),
-        health: e.metadata?.[8],  // health metadata
+        health: e.metadata?.[8], // health metadata
       }));
-    
+
     this.nearbyEntities = entities;
   }
-  
+
   /**
    * 生成状态描述（用于 LLM 提示词）
    */
@@ -236,7 +237,7 @@ class GameState {
 手持: ${this.heldItem?.name || '无'}
     `.trim();
   }
-  
+
   /**
    * 获取物品栏描述
    */
@@ -244,14 +245,12 @@ class GameState {
     if (this.inventory.length === 0) {
       return '物品栏为空';
     }
-    
-    const lines = this.inventory.map(item => 
-      `  ${item.name} x${item.count}`
-    );
-    
+
+    const lines = this.inventory.map(item => `  ${item.name} x${item.count}`);
+
     return `物品栏 (${this.inventory.length}/36):\n${lines.join('\n')}`;
   }
-  
+
   /**
    * 获取周围实体描述
    */
@@ -259,11 +258,9 @@ class GameState {
     if (this.nearbyEntities.length === 0) {
       return '周围没有实体';
     }
-    
-    const lines = this.nearbyEntities.map((e, i) => 
-      `  ${i + 1}. ${e.name} (距离: ${e.distance.toFixed(1)}格)`
-    );
-    
+
+    const lines = this.nearbyEntities.map((e, i) => `  ${i + 1}. ${e.name} (距离: ${e.distance.toFixed(1)}格)`);
+
     return `周围实体 (${this.nearbyEntities.length}):\n${lines.join('\n')}`;
   }
 }
@@ -281,7 +278,7 @@ export const globalGameState = new GameState();
 - ✅ 任何地方都可以通过 `context.gameState` 访问
 - ✅ 提供格式化方法用于生成 LLM 提示词
 
-***
+---
 
 ### 2. Actions - 15个核心动作（精简版）
 
@@ -316,7 +313,7 @@ export const globalGameState = new GameState();
 - ❌ `query_recipe` → 合成动作内部调用
 - ❌ `query_raw_recipe` → 合成动作内部调用
 
-***
+---
 
 ### 3. RuntimeContext - 运行时上下文
 
@@ -334,36 +331,36 @@ interface RuntimeContext {
   // 核心资源
   bot: Bot;
   executor: ActionExecutor;
-  
+
   // 全局状态（实时可访问）
   gameState: GameState;
-  
+
   // 缓存管理
   blockCache: BlockCache;
   containerCache: ContainerCache;
   locationManager: LocationManager;
-  
+
   // 事件系统
   events: EventEmitter;
-  
+
   // 中断控制
   interruptSignal: InterruptSignal;
-  
+
   // 日志（每个动作自动分配独立的 logger）
-  logger: Logger;  // 自动带上动作名前缀，如 "[MoveAction]"
-  
+  logger: Logger; // 自动带上动作名前缀，如 "[MoveAction]"
+
   // 配置
   config: Config;
 }
 ```
 
 **Logger 说明**:
-  
+
 每个动作执行时，`context.logger` 会自动创建一个带有动作名前缀的 logger 实例：
 
 ```typescript
 // 在 MoveAction 中
-context.logger.info('开始移动到目标位置');  
+context.logger.info('开始移动到目标位置');
 // 输出: [MoveAction] 开始移动到目标位置
 
 // 在 MineBlockAction 中
@@ -373,12 +370,12 @@ context.logger.info('找到目标方块');
 
 这样可以轻松区分不同动作的日志。
 
-***
+---
 
 ### 4. ActionExecutor - 类型安全 + 动态注册
 
 **问题 1**: 硬编码字符串 `executor.execute('move', params)` 不友好
-  
+
 **问题 2**: 类型安全的方法无法支持动态注册
 
 **解决方案**: 使用常量 + 类型映射，兼顾类型安全和动态注册
@@ -408,7 +405,7 @@ export const ActionIds = {
 /**
  * 动作 ID 类型
  */
-export type ActionId = typeof ActionIds[keyof typeof ActionIds];
+export type ActionId = (typeof ActionIds)[keyof typeof ActionIds];
 
 /**
  * 动作参数类型映射
@@ -436,30 +433,26 @@ export interface ActionParamsMap {
  */
 class ActionExecutor {
   private actions: Map<ActionId, Action> = new Map();
-  
+
   /**
    * 注册动作（支持动态注册）
    */
   register(action: Action): void {
     this.actions.set(action.id as ActionId, action);
   }
-  
+
   /**
    * 执行动作（类型安全）
    */
-  async execute<T extends ActionId>(
-    actionId: T,
-    params: ActionParamsMap[T],
-    options?: ExecuteOptions
-  ): Promise<ActionResult> {
+  async execute<T extends ActionId>(actionId: T, params: ActionParamsMap[T], options?: ExecuteOptions): Promise<ActionResult> {
     const action = this.actions.get(actionId);
     if (!action) {
       throw new Error(`动作 ${actionId} 未注册`);
     }
-    
+
     // 创建带有动作名前缀的 logger
     const actionLogger = this.createActionLogger(action.name);
-    
+
     // 创建运行时上下文
     const context: RuntimeContext = {
       bot: this.bot,
@@ -470,10 +463,10 @@ class ActionExecutor {
       locationManager: this.locationManager,
       events: this.events,
       interruptSignal: new InterruptSignal(),
-      logger: actionLogger,  // 每个动作独立的 logger
+      logger: actionLogger, // 每个动作独立的 logger
       config: this.config,
     };
-    
+
     try {
       actionLogger.info(`开始执行动作: ${action.name}`);
       const result = await action.execute(context, params);
@@ -484,23 +477,19 @@ class ActionExecutor {
       throw error;
     }
   }
-  
+
   /**
    * 创建带动作名前缀的 logger
    */
   private createActionLogger(actionName: string): Logger {
     return {
-      debug: (msg: string, ...args: any[]) => 
-        this.logger.debug(`[${actionName}] ${msg}`, ...args),
-      info: (msg: string, ...args: any[]) => 
-        this.logger.info(`[${actionName}] ${msg}`, ...args),
-      warn: (msg: string, ...args: any[]) => 
-        this.logger.warn(`[${actionName}] ${msg}`, ...args),
-      error: (msg: string, ...args: any[]) => 
-        this.logger.error(`[${actionName}] ${msg}`, ...args),
+      debug: (msg: string, ...args: any[]) => this.logger.debug(`[${actionName}] ${msg}`, ...args),
+      info: (msg: string, ...args: any[]) => this.logger.info(`[${actionName}] ${msg}`, ...args),
+      warn: (msg: string, ...args: any[]) => this.logger.warn(`[${actionName}] ${msg}`, ...args),
+      error: (msg: string, ...args: any[]) => this.logger.error(`[${actionName}] ${msg}`, ...args),
     };
   }
-  
+
   /**
    * 生成 LLM 提示词
    */
@@ -528,7 +517,7 @@ await context.executor.execute(ActionIds.MINE_BLOCK, { name: 'iron_ore', count: 
 - ✅ **参数类型映射**: `ActionParamsMap` 确保参数类型正确
 - ✅ **独立 Logger**: 每个动作自动获得带前缀的 logger
 
-***
+---
 
 ### 5. EventEmitter - 薄层封装（方案 B）
 
@@ -537,7 +526,7 @@ await context.executor.execute(ActionIds.MINE_BLOCK, { name: 'iron_ore', count: 
 ```typescript
 /**
  * 事件发射器（薄层封装）
- * 
+ *
  * 设计目标:
  * 1. 保持 mineflayer 事件名不变（entityHurt, health, death 等）
  * 2. 统一管理游戏事件和自定义事件（actionComplete, actionError 等）
@@ -547,12 +536,12 @@ await context.executor.execute(ActionIds.MINE_BLOCK, { name: 'iron_ore', count: 
 class EventEmitter {
   private bot: Bot;
   private listeners: Map<string, EventListener[]> = new Map();
-  
+
   constructor(bot: Bot) {
     this.bot = bot;
-    this.bridgeBotEvents();  // 桥接 bot 事件
+    this.bridgeBotEvents(); // 桥接 bot 事件
   }
-  
+
   /**
    * 桥接 bot 事件到统一事件系统
    * 保持原始事件名
@@ -562,33 +551,33 @@ class EventEmitter {
     this.bot.on('entityHurt', (entity, source) => {
       this.emit('entityHurt', { entity, source });
     });
-    
+
     this.bot.on('health', () => {
-      this.emit('health', { 
+      this.emit('health', {
         health: this.bot.health,
-        food: this.bot.food
+        food: this.bot.food,
       });
     });
-    
+
     this.bot.on('death', () => {
       this.emit('death', {});
     });
-    
-    this.bot.on('kicked', (reason) => {
+
+    this.bot.on('kicked', reason => {
       this.emit('kicked', { reason });
     });
-    
+
     this.bot.on('spawn', () => {
       this.emit('spawn', {});
     });
-    
+
     this.bot.on('chat', (username, message) => {
       this.emit('chat', { username, message });
     });
-    
+
     // 更多 bot 事件...
   }
-  
+
   /**
    * 订阅事件
    */
@@ -596,18 +585,18 @@ class EventEmitter {
     const listener = {
       id: this.generateId(),
       handler,
-      once: false
+      once: false,
     };
-    
+
     const listeners = this.listeners.get(event) || [];
     listeners.push(listener);
     this.listeners.set(event, listeners);
-    
+
     return {
-      remove: () => this.off(event, listener.id)
+      remove: () => this.off(event, listener.id),
     };
   }
-  
+
   /**
    * 订阅一次
    */
@@ -615,54 +604,54 @@ class EventEmitter {
     const listener = {
       id: this.generateId(),
       handler,
-      once: true
+      once: true,
     };
-    
+
     const listeners = this.listeners.get(event) || [];
     listeners.push(listener);
     this.listeners.set(event, listeners);
-    
+
     return {
-      remove: () => this.off(event, listener.id)
+      remove: () => this.off(event, listener.id),
     };
   }
-  
+
   /**
    * 发射事件（游戏事件 + 自定义事件）
    */
   emit(event: string, data: any): void {
     const listeners = this.listeners.get(event);
     if (!listeners) return;
-    
+
     for (let i = listeners.length - 1; i >= 0; i--) {
       const listener = listeners[i];
-      
+
       try {
         listener.handler(data);
       } catch (error) {
         this.bot.emit('error', error);
       }
-      
+
       // 移除一次性监听器
       if (listener.once) {
         listeners.splice(i, 1);
       }
     }
   }
-  
+
   /**
    * 取消订阅
    */
   off(event: string, listenerId: string): void {
     const listeners = this.listeners.get(event);
     if (!listeners) return;
-    
+
     const index = listeners.findIndex(l => l.id === listenerId);
     if (index !== -1) {
       listeners.splice(index, 1);
     }
   }
-  
+
   private generateId(): string {
     return `listener_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
@@ -673,7 +662,7 @@ class EventEmitter {
 
 ```typescript
 // ✅ 订阅 mineflayer 原始事件（事件名不变）
-context.events.on('entityHurt', (data) => {
+context.events.on('entityHurt', data => {
   if (data.source) {
     // 受到攻击，中断当前动作
     context.executor.interruptAll('受到攻击');
@@ -681,7 +670,7 @@ context.events.on('entityHurt', (data) => {
 });
 
 // ✅ 订阅自定义事件
-context.events.on('actionComplete', (data) => {
+context.events.on('actionComplete', data => {
   console.log(`动作 ${data.actionId} 完成`);
 });
 ```
@@ -693,7 +682,7 @@ context.events.on('actionComplete', (data) => {
 - ✅ 解耦，动作不直接依赖 bot.on
 - ✅ 薄层封装，性能开销极小
 
-***
+---
 
 ### 6. 中断机制
 
@@ -704,25 +693,25 @@ context.events.on('actionComplete', (data) => {
 class InterruptSignal {
   private interrupted: boolean = false;
   private reason: string = '';
-  
+
   interrupt(reason: string): void {
     this.interrupted = true;
     this.reason = reason;
   }
-  
+
   isInterrupted(): boolean {
     return this.interrupted;
   }
-  
+
   getReason(): string {
     return this.reason;
   }
-  
+
   reset(): void {
     this.interrupted = false;
     this.reason = '';
   }
-  
+
   throwIfInterrupted(): void {
     if (this.interrupted) {
       throw new InterruptError(this.reason);
@@ -740,7 +729,7 @@ class MoveAction extends Action {
     const checkInterval = setInterval(() => {
       context.interruptSignal.throwIfInterrupted();
     }, 100);
-    
+
     // 移动逻辑...
   }
 }
@@ -751,7 +740,7 @@ context.events.on('entityHurt', () => {
 });
 ```
 
-***
+---
 
 ## 📝 LLM 提示词生成
 
@@ -878,7 +867,7 @@ class ActionExecutor {
 - ✅ 去除了查询类动作，状态直接可访问
 - ✅ 清晰的分类和说明
 
-***
+---
 
 ## 🚀 完整使用示例
 
@@ -888,41 +877,37 @@ class ActionExecutor {
 class CraftItemAction extends Action {
   async execute(context: RuntimeContext, params: CraftParams): Promise<ActionResult> {
     const { item, count } = params;
-    
+
     // 1. 检查是否有工作台
     const hasCraftingTable = await this.findNearbyCraftingTable(context);
-    
+
     if (!hasCraftingTable) {
       // 2. 寻找工作台
       const foundTable = await context.executor.actions.findBlock('crafting_table', 16);
-      
+
       if (!foundTable.success) {
         // 3. 没有工作台，先合成一个
         const craftTableResult = await context.executor.actions.craft('crafting_table', 1);
         if (!craftTableResult.success) {
           return { success: false, message: '无法合成工作台' };
         }
-        
+
         // 4. 放置工作台
         const placeResult = await context.executor.actions.placeBlock(
           'crafting_table',
           context.gameState.blockPosition.x + 1,
           context.gameState.blockPosition.y,
-          context.gameState.blockPosition.z
+          context.gameState.blockPosition.z,
         );
       } else {
         // 5. 移动到工作台
-        await context.executor.actions.move(
-          foundTable.data.x,
-          foundTable.data.y,
-          foundTable.data.z
-        );
+        await context.executor.actions.move(foundTable.data.x, foundTable.data.y, foundTable.data.z);
       }
     }
-    
+
     // 6. 执行合成
     // ... 合成逻辑
-    
+
     return { success: true, message: `成功合成 ${item}` };
   }
 }
@@ -934,19 +919,19 @@ class CraftItemAction extends Action {
 // 启动时设置事件监听
 function setupEventListeners(context: RuntimeContext) {
   // 受伤时中断动作
-  context.events.on('entityHurt', (data) => {
+  context.events.on('entityHurt', data => {
     if (data.source) {
       context.executor.interruptAll('受到攻击，需要战斗或逃跑');
     }
   });
-  
+
   // 死亡时中断所有动作
   context.events.on('death', () => {
     context.executor.interruptAll('死亡');
   });
-  
+
   // 饥饿值低时提醒
-  context.events.on('health', (data) => {
+  context.events.on('health', data => {
     if (data.food < 6) {
       context.logger.warn('饥饿值过低，需要进食！');
     }
@@ -961,43 +946,41 @@ class EatAction extends Action {
   async execute(context: RuntimeContext, params: EatParams): Promise<ActionResult> {
     // ✅ 直接访问全局状态，无需查询
     if (context.gameState.food >= 20) {
-      return { 
-        success: false, 
-        message: '饱食度已满，无需进食' 
+      return {
+        success: false,
+        message: '饱食度已满，无需进食',
       };
     }
-    
+
     // 检查物品栏中是否有食物
-    const foodItem = context.gameState.inventory.find(item => 
-      item.name === params.item
-    );
-    
+    const foodItem = context.gameState.inventory.find(item => item.name === params.item);
+
     if (!foodItem) {
       return {
         success: false,
-        message: `物品栏中没有 ${params.item}`
+        message: `物品栏中没有 ${params.item}`,
       };
     }
-    
+
     // 装备并使用食物
     await context.bot.equip(foodItem, 'hand');
     await context.bot.consume();
-    
-    return { 
-      success: true, 
-      message: `吃了 ${params.item}` 
+
+    return {
+      success: true,
+      message: `吃了 ${params.item}`,
     };
   }
 }
 ```
 
-***
+---
 
 ## 📊 架构对比
 
 ### maicraft (Python) 架构
 
-````
+```
 MaiAgent (Python)
     ↓
 MCP Client (跨进程)
@@ -1007,7 +990,7 @@ MCP Server (TypeScript)
 Mineflayer Bot
     ↓
 轮询查询状态 (query_player_status, query_game_state)
-````
+```
 
 **问题:**
 
@@ -1015,11 +998,11 @@ Mineflayer Bot
 - ❌ 轮询查询状态，效率低
 - ❌ 两个项目维护复杂
 
-***
+---
 
 ### maicraft-next 架构
 
-````
+```
 AI决策
     ↓
 ActionExecutor (类型安全)
@@ -1029,7 +1012,7 @@ ActionExecutor (类型安全)
 直接访问 globalGameState (实时状态)
     ↓
 Mineflayer Bot
-````
+```
 
 **优势:**
 
@@ -1038,91 +1021,84 @@ Mineflayer Bot
 - ✅ 单一项目，易维护
 - ✅ 类型安全，重构友好
 
-***
+---
 
 ## 🎯 总结
 
 ### 核心改进
 
 1. **去除查询类动作** ✅
-
    - `query_player_status` → `context.gameState.health/food/...`
    - `query_game_state` → `context.gameState.weather/timeOfDay/...`
    - 状态实时可访问，无需轮询
 
 2. **精简动作列表** ✅
-
    - 从 25 个 → 15 个核心动作
    - 基于 maicraft 实际使用的动作
    - LLM 上下文空间充足
 
 3. **类型安全调用** ✅
-
    - 使用 `ActionIds` 常量避免硬编码字符串
    - 支持动态注册 + 类型安全
    - IDE 自动补全，重构友好
 
 4. **事件名保持一致** ✅
-
    - `entityHurt`, `health`, `death` 等保持 mineflayer 原名
    - 统一管理游戏事件和自定义事件
 
 5. **GameState 全局状态** ✅
-
    - 通过 bot 事件实时更新
    - 任何地方都可直接访问
    - 去除轮询查询的糟糕设计
 
 6. **独立 Logger** ✅
-
    - 每个动作自动获得带前缀的 logger
    - 轻松区分不同动作的日志
 
-
-***
+---
 
 ## 📝 实施路线
 
 ### Phase 1: 核心基础 (Week 1-2)
 
-````
+```
 ✅ GameState - 全局游戏状态管理
 ✅ EventEmitter - 薄层事件封装
 ✅ ActionExecutor - 类型安全调用 + 动态注册
 ✅ InterruptSignal - 中断机制
 ✅ BlockCache, LocationManager, ContainerCache
 ✅ Logger - 带前缀的日志系统
-````
+```
 
 ### Phase 2: P0 动作 (Week 3-4)
 
-````
+```
 ✅ move, find_block
 ✅ mine_block, mine_block_by_position
 ✅ place_block
 ✅ craft
-````
+```
 
 ### Phase 3: P1 动作 (Week 5-6)
 
-````
+```
 ✅ mine_in_direction
 ✅ use_chest, use_furnace
 ✅ eat, toss_item
 ✅ kill_mob
 ✅ set_location
-````
+```
 
 ### Phase 4: AI 集成 (Week 7-8)
 
-````
+```
 ✅ Prompt 生成
 ✅ LLM Manager
 ✅ 完整测试和文档
-````
+```
 
-***
+---
 
-*设计版本: v2.0*  
-*创建日期: 2024-11-01*  
-*基于: maicraft (Python) + maicraft-mcp-server (TypeScript) 深度分析*
+_设计版本: v2.0_  
+_创建日期: 2024-11-01_  
+_基于: maicraft (Python) + maicraft-mcp-server (TypeScript) 深度分析_

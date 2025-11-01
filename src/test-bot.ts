@@ -13,6 +13,7 @@ import { globalGameState, ActionExecutor, ActionIds } from './core';
 import { BlockCache } from './core/cache/BlockCache';
 import { ContainerCache } from './core/cache/ContainerCache';
 import { LocationManager } from './core/cache/LocationManager';
+import { getLogger } from './utils/Logger';
 import {
   ChatAction,
   MoveAction,
@@ -50,13 +51,8 @@ async function loadConfig() {
   }
 }
 
-// 简单的 Logger 实现
-const logger = {
-  debug: (msg: string, ...args: any[]) => console.debug(`[DEBUG] ${msg}`, ...args),
-  info: (msg: string, ...args: any[]) => console.log(`[INFO] ${msg}`, ...args),
-  warn: (msg: string, ...args: any[]) => console.warn(`[WARN] ${msg}`, ...args),
-  error: (msg: string, ...args: any[]) => console.error(`[ERROR] ${msg}`, ...args),
-};
+// 使用项目的 Logger 系统
+const logger = getLogger('test-bot');
 
 /**
  * 主类

@@ -3,7 +3,7 @@ import { join, dirname, basename } from 'path';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { z } from 'zod';
 import { EventEmitter } from 'events';
-import { getModuleLogger, LogLevel } from './Logger';
+import { getLogger, LogLevel } from './Logger';
 import { LLMConfigSchema } from '../llm/types';
 
 /**
@@ -71,6 +71,7 @@ export interface PluginsSection {
   pathfinder?: {
     timeout: number;
     search_radius: number;
+    blocks_cant_break?: string[];
   };
   collectblock?: {
     max_distance: number;
@@ -103,11 +104,7 @@ export interface AdvancedSection {
  * 深度可选类型
  */
 export type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends (infer U)[]
-    ? DeepPartial<U>[]
-    : T[P] extends object
-    ? DeepPartial<T[P]>
-    : T[P];
+  [P in keyof T]?: T[P] extends (infer U)[] ? DeepPartial<U>[] : T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
 /**
@@ -137,7 +134,10 @@ const LoggingSectionSchema = z.object({
   level: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   console: z.boolean().default(true),
   file: z.boolean().default(true),
-  max_file_size: z.number().positive().default(10 * 1024 * 1024),
+  max_file_size: z
+    .number()
+    .positive()
+    .default(10 * 1024 * 1024),
   max_files: z.number().positive().default(5),
   log_dir: z.string().default('./logs'),
 });
@@ -168,33 +168,38 @@ const AgentSectionSchema = z.object({
 });
 
 const PluginsSectionSchema = z.object({
-  enabled: z.array(z.string()).default([
-    'armor-manager',
-    'pathfinder',
-    'collectblock',
-    'pvp',
-    'tool'
-  ]),
-  'armor-manager': z.object({
-    auto_equip: z.boolean().default(true),
-    prefer_protection: z.boolean().default(true),
-  }).optional(),
-  pathfinder: z.object({
-    timeout: z.number().positive().default(10000),
-    search_radius: z.number().positive().default(100),
-  }).optional(),
-  collectblock: z.object({
-    max_distance: z.number().positive().default(16),
-    auto_collect: z.boolean().default(true),
-  }).optional(),
-  pvp: z.object({
-    enabled: z.boolean().default(false),
-    auto_attack: z.boolean().default(false),
-  }).optional(),
-  tool: z.object({
-    auto_switch: z.boolean().default(true),
-    prefer_efficiency: z.boolean().default(true),
-  }).optional(),
+  enabled: z.array(z.string()).default(['armor-manager', 'pathfinder', 'collectblock', 'pvp', 'tool']),
+  'armor-manager': z
+    .object({
+      auto_equip: z.boolean().default(true),
+      prefer_protection: z.boolean().default(true),
+    })
+    .optional(),
+  pathfinder: z
+    .object({
+      timeout: z.number().positive().default(10000),
+      search_radius: z.number().positive().default(100),
+      blocks_cant_break: z.array(z.string()).optional(),
+    })
+    .optional(),
+  collectblock: z
+    .object({
+      max_distance: z.number().positive().default(16),
+      auto_collect: z.boolean().default(true),
+    })
+    .optional(),
+  pvp: z
+    .object({
+      enabled: z.boolean().default(false),
+      auto_attack: z.boolean().default(false),
+    })
+    .optional(),
+  tool: z
+    .object({
+      auto_switch: z.boolean().default(true),
+      prefer_efficiency: z.boolean().default(true),
+    })
+    .optional(),
 });
 
 const AdvancedSectionSchema = z.object({
@@ -221,7 +226,10 @@ const AppConfigSchema = z.object({
  * 配置错误类
  */
 export class ConfigError extends Error {
-  constructor(message: string, public readonly cause?: Error) {
+  constructor(
+    message: string,
+    public readonly cause?: Error,
+  ) {
     super(message);
     this.name = 'ConfigError';
   }
@@ -235,7 +243,7 @@ export class ConfigManager extends EventEmitter {
   private configPath: string;
   private templatePath: string;
   private backupPath: string;
-  private logger = getModuleLogger('Config');
+  private logger = getLogger('Config');
   private isWatching = false;
   private watchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly WATCH_DEBOUNCE_DELAY = 1000; // 1秒防抖
@@ -269,7 +277,7 @@ export class ConfigManager extends EventEmitter {
 
       this.logger.info('配置加载成功', {
         sections: Object.keys(validatedConfig),
-        debug: validatedConfig.app.debug
+        debug: validatedConfig.app.debug,
       });
 
       // 启动热重载监听
@@ -380,7 +388,7 @@ export class ConfigManager extends EventEmitter {
 
     this.logger.info('配置文件不存在，从模板创建', {
       configPath: this.configPath,
-      templatePath: this.templatePath
+      templatePath: this.templatePath,
     });
 
     if (!existsSync(this.templatePath)) {
@@ -405,7 +413,7 @@ export class ConfigManager extends EventEmitter {
       minecraft: {},
       agent: {},
       plugins: {},
-      advanced: {}
+      advanced: {},
     });
   }
 

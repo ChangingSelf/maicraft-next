@@ -14,6 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 开发指南
 
 ### 代码风格
+
 1. **文件格式**: 所有文件必须在保存时自动格式化(VS Code已配置)
 2. **导入顺序**: 第三方库 → 项目内部模块 → 相对路径
 3. **命名规范**:
@@ -21,7 +22,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - 函数/变量: camelCase
    - 常量: UPPER_SNAKE_CASE
    - 接口: IPrefix 或无前缀
-
 
 ### 开发流程
 

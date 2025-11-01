@@ -21,7 +21,7 @@ import {
   LLMIntegrationConfig,
   TemplateCategory,
   MessageRole,
-  ChatMessage
+  ChatMessage,
 } from './types/index.js';
 import { PromptError, PromptErrorFactory } from './errors/PromptError.js';
 
@@ -37,21 +37,18 @@ export class PromptManager extends EventEmitter {
   private usageStats: Map<string, PromptUsageStats> = new Map();
   private isMonitoring = false;
 
-  constructor(
-    storage: PromptStorage,
-    engine: TemplateEngine,
-    config?: Partial<LLMIntegrationConfig>,
-    logger?: Logger
-  ) {
+  constructor(storage: PromptStorage, engine: TemplateEngine, config?: Partial<LLMIntegrationConfig>, logger?: Logger) {
     super();
 
     this.storage = storage;
     this.engine = engine;
-    this.logger = logger || new Logger({
-      level: 2, // INFO
-      console: true,
-      file: false,
-    }).child('PromptManager');
+    this.logger =
+      logger ||
+      new Logger({
+        level: 2, // INFO
+        console: true,
+        file: false,
+      }).child('PromptManager');
 
     // 默认配置
     this.config = {
@@ -96,11 +93,7 @@ export class PromptManager extends EventEmitter {
     if (this.config.validate_variables) {
       const validation = this.engine.validateTemplate(request.content);
       if (!validation.valid) {
-        throw new PromptError(
-          `Template validation failed: ${validation.errors.join(', ')}`,
-          'TEMPLATE_VALIDATION_ERROR',
-          { validation }
-        );
+        throw new PromptError(`Template validation failed: ${validation.errors.join(', ')}`, 'TEMPLATE_VALIDATION_ERROR', { validation });
       }
     }
 
@@ -142,11 +135,7 @@ export class PromptManager extends EventEmitter {
     if (request.content && this.config.validate_variables) {
       const validation = this.engine.validateTemplate(request.content);
       if (!validation.valid) {
-        throw new PromptError(
-          `Template validation failed: ${validation.errors.join(', ')}`,
-          'TEMPLATE_VALIDATION_ERROR',
-          { validation }
-        );
+        throw new PromptError(`Template validation failed: ${validation.errors.join(', ')}`, 'TEMPLATE_VALIDATION_ERROR', { validation });
       }
     }
 
@@ -342,9 +331,11 @@ export class PromptManager extends EventEmitter {
   /**
    * 使用提示词与LLM交互
    */
-  async useWithLLM(request: TemplateRenderRequest & {
-    llm_options?: any; // LLM请求选项
-  }): Promise<{
+  async useWithLLM(
+    request: TemplateRenderRequest & {
+      llm_options?: any; // LLM请求选项
+    },
+  ): Promise<{
     render_result: TemplateRenderResult;
     llm_response?: any; // LLM响应
   }> {
@@ -353,10 +344,7 @@ export class PromptManager extends EventEmitter {
     });
 
     if (!this.llmManager) {
-      throw new PromptError(
-        'LLM manager not configured',
-        'LLM_NOT_CONFIGURED'
-      );
+      throw new PromptError('LLM manager not configured', 'LLM_NOT_CONFIGURED');
     }
 
     // 1. 渲染提示词
@@ -497,10 +485,12 @@ export class PromptManager extends EventEmitter {
 
     if (messageSections.length === 1) {
       // 单条消息，默认为用户消息
-      return [{
-        role: MessageRole.USER,
-        content: messageSections[0].content,
-      }];
+      return [
+        {
+          role: MessageRole.USER,
+          content: messageSections[0].content,
+        },
+      ];
     }
 
     // 多条消息，转换为数组
@@ -557,7 +547,7 @@ export class PromptManager extends EventEmitter {
   private setupLLMEventListeners(): void {
     if (!this.llmManager) return;
 
-    this.llmManager.on('chat_complete', (data) => {
+    this.llmManager.on('chat_complete', data => {
       // 可以在这里记录LLM使用情况
       this.logger.debug('LLM聊天完成', {
         provider: data.provider,
@@ -566,7 +556,7 @@ export class PromptManager extends EventEmitter {
       });
     });
 
-    this.llmManager.on('provider_changed', (data) => {
+    this.llmManager.on('provider_changed', data => {
       this.logger.info('LLM提供商变更', {
         from: data.from,
         to: data.to,
@@ -597,10 +587,7 @@ export class PromptManager extends EventEmitter {
   /**
    * 更新使用统计
    */
-  private updateUsageStats(
-    templateId: string,
-    stats: Partial<PromptUsageStats>
-  ): void {
+  private updateUsageStats(templateId: string, stats: Partial<PromptUsageStats>): void {
     const current = this.usageStats.get(templateId) || this.createEmptyUsageStats();
 
     Object.assign(current, stats);
@@ -651,11 +638,7 @@ export class PromptManager extends EventEmitter {
 /**
  * 便捷函数：创建提示词管理器
  */
-export async function createPromptManager(
-  storageDir: string,
-  config?: Partial<LLMIntegrationConfig>,
-  logger?: Logger
-): Promise<PromptManager> {
+export async function createPromptManager(storageDir: string, config?: Partial<LLMIntegrationConfig>, logger?: Logger): Promise<PromptManager> {
   const storage = new PromptStorage(storageDir, logger);
   const engine = new TemplateEngine(logger);
   return new PromptManager(storage, engine, config, logger);

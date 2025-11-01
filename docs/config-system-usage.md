@@ -5,6 +5,7 @@
 ## 概述
 
 配置系统提供了完整的TOML格式配置文件支持，包括：
+
 - 配置模板和用户配置的分离
 - 配置验证和类型安全
 - 配置热重载功能
@@ -42,11 +43,11 @@ import { updateConfig, DeepPartial } from '../utils/Config';
 // 更新配置
 await updateConfig({
   app: {
-    debug: true
+    debug: true,
   },
   logging: {
-    level: 'debug'
-  }
+    level: 'debug',
+  },
 } as DeepPartial<AppConfig>);
 ```
 
@@ -58,12 +59,12 @@ import { ConfigManager } from '../utils/Config';
 const manager = new ConfigManager();
 
 // 监听配置变化
-manager.on('configChanged', (newConfig) => {
+manager.on('configChanged', newConfig => {
   console.log('配置已更新:', newConfig.app.debug);
 });
 
 // 监听配置重新加载
-manager.on('configReloaded', (newConfig) => {
+manager.on('configReloaded', newConfig => {
   console.log('配置已重新加载');
 });
 
@@ -244,7 +245,7 @@ if (config.advanced.hot_reload) {
 // 启用调试模式查看详细日志
 await updateConfig({
   app: { debug: true },
-  logging: { level: 'debug' }
+  logging: { level: 'debug' },
 });
 
 // 查看当前配置

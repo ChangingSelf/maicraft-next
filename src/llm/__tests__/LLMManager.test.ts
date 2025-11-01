@@ -269,7 +269,7 @@ gpt_35_turbo_output = 0.002
     test('应该能够计算token数', () => {
       const messages = [
         { role: MessageRole.SYSTEM, content: 'You are a helpful assistant.' },
-        { role: MessageRole.USER, content: 'Hello, how are you?' }
+        { role: MessageRole.USER, content: 'Hello, how are you?' },
       ];
       const tokenCount = llmManager.countTokens(messages);
       expect(tokenCount).toBeGreaterThan(0);
@@ -295,7 +295,7 @@ gpt_35_turbo_output = 0.002
           max_tokens: 100,
           temperature: 0.7,
           timeout: 5000,
-        }
+        },
       });
 
       expect(llmManager.isProviderAvailable(LLMProvider.ANTHROPIC)).toBe(true);
@@ -351,7 +351,7 @@ gpt_35_turbo_output = 0.002
           max_tokens: 200,
           temperature: 0.5,
           timeout: 10000,
-        }
+        },
       };
 
       expect(() => {
@@ -384,8 +384,8 @@ gpt_35_turbo_output = 0.002
   });
 
   describe('事件监听测试', () => {
-    test('应该能够监听提供商变化事件', (done) => {
-      llmManager.on('provider_changed', (data) => {
+    test('应该能够监听提供商变化事件', done => {
+      llmManager.on('provider_changed', data => {
         expect(data.to).toBe(LLMProvider.OPENAI); // 会切换回自身
         done();
       });

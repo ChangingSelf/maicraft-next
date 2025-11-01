@@ -480,7 +480,7 @@ export const logger = GlobalLoggerManager.getInstance().getRootLogger();
 /**
  * 获取模块日志器的便捷函数
  */
-export function getModuleLogger(moduleName: string): Logger {
+export function getLogger(moduleName: string): Logger {
   return GlobalLoggerManager.getInstance().getLogger(moduleName);
 }
 

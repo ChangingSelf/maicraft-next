@@ -7,6 +7,7 @@
 ## 设计思路
 
 ### 核心架构原则
+
 1. **提供商抽象化**：通过接口抽象不同的LLM提供商，实现统一调用方式
 2. **类型安全**：全面使用TypeScript和Zod进行类型约束和验证
 3. **可扩展性**：支持动态添加新的LLM提供商
@@ -15,6 +16,7 @@
 6. **错误处理**：完善的错误分类、重试机制和降级策略
 
 ### 模块化设计
+
 - **核心接口层**：定义统一的LLM服务接口
 - **提供商实现层**：各种LLM服务的具体实现
 - **用量统计层**：token计数、费用计算和持久化
@@ -280,34 +282,38 @@ interface ILLMConfigManager {
 ### 1. LLMManager（统一管理器）
 
 **职责：**
+
 - 提供统一的LLM调用入口
 - 管理多个LLM提供商
 - 协调用量统计和错误处理
 - 实现负载均衡和故障转移
 
 **核心方法：**
+
 ```typescript
 class LLMManager {
-  async chatCompletion(request: LLMRequest): Promise<LLMResponse>
-  async streamCompletion(request: LLMRequest): AsyncIterable<LLMStreamChunk>
-  async callWithTools(request: LLMRequest, tools: LLMTool[]): Promise<LLMToolResponse>
-  async visionCompletion(request: LLMMultiModalRequest): Promise<LLMResponse>
+  async chatCompletion(request: LLMRequest): Promise<LLMResponse>;
+  async streamCompletion(request: LLMRequest): AsyncIterable<LLMStreamChunk>;
+  async callWithTools(request: LLMRequest, tools: LLMTool[]): Promise<LLMToolResponse>;
+  async visionCompletion(request: LLMMultiModalRequest): Promise<LLMResponse>;
 
-  getProviderInfo(): ProviderInfo[]
-  getUsageSummary(): Promise<UsageSummary[]>
-  healthCheck(): Promise<HealthStatus>
+  getProviderInfo(): ProviderInfo[];
+  getUsageSummary(): Promise<UsageSummary[]>;
+  healthCheck(): Promise<HealthStatus>;
 }
 ```
 
 ### 2. UsageTracker（用量统计器）
 
 **职责：**
+
 - 记录每次LLM调用的详细用量
 - 计算费用并持久化存储
 - 提供用量查询和分析功能
 - 支持数据导出和清理
 
 **特性：**
+
 - 内存缓存 + 文件持久化
 - 异步批量写入优化
 - 支持时间范围查询
@@ -316,12 +322,14 @@ class LLMManager {
 ### 3. RetryManager（重试管理器）
 
 **职责：**
+
 - 实现智能重试策略
 - 错误分类和重试决策
 - 指数退避算法
 - 断路器模式
 
 **重试策略：**
+
 - 网络错误：3次重试，指数退避
 - 限流错误：5次重试，线性退避
 - 服务器错误：2次重试，固定延迟
@@ -392,7 +400,7 @@ enum LLMErrorType {
   INVALID_REQUEST = 'invalid_request',
   SERVER_ERROR = 'server_error',
   TIMEOUT_ERROR = 'timeout',
-  UNKNOWN_ERROR = 'unknown'
+  UNKNOWN_ERROR = 'unknown',
 }
 
 class LLMError extends Error {
@@ -401,7 +409,7 @@ class LLMError extends Error {
     message: string,
     public providerName: string,
     public statusCode?: number,
-    public retryable: boolean = false
+    public retryable: boolean = false,
   ) {
     super(message);
     this.name = 'LLMError';

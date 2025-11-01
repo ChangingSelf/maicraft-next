@@ -249,11 +249,13 @@ describe('PromptManager', () => {
       const template = await promptManager.createTemplate(request);
 
       // 严格模式应该失败
-      await expect(promptManager.renderTemplate({
-        template_id: template.id,
-        variables: {},
-        strict: true,
-      })).rejects.toThrow();
+      await expect(
+        promptManager.renderTemplate({
+          template_id: template.id,
+          variables: {},
+          strict: true,
+        }),
+      ).rejects.toThrow();
 
       // 非严格模式应该返回警告
       const result = await promptManager.renderTemplate({
@@ -431,7 +433,7 @@ describe('PromptManager', () => {
   });
 
   describe('事件监听测试', () => {
-    test('应该能够监听模板事件', (done) => {
+    test('应该能够监听模板事件', done => {
       let eventCount = 0;
 
       promptManager.on('template_created', () => {
@@ -457,25 +459,27 @@ describe('PromptManager', () => {
       });
     });
 
-    test('应该能够监听渲染事件', (done) => {
-      promptManager.on('template_rendered', (data) => {
+    test('应该能够监听渲染事件', done => {
+      promptManager.on('template_rendered', data => {
         expect(data.result.template_name).toBe('render-event-test');
         done();
       });
 
       // 创建并渲染模板
-      promptManager.createTemplate({
-        name: 'render-event-test',
-        description: 'Render event test',
-        content: 'Hello, ${name}!',
-        category: 'test' as any,
-        created_by: 'test-user',
-      }).then(template => {
-        return promptManager.renderTemplate({
-          template_id: template.id,
-          variables: { name: 'Alice' },
+      promptManager
+        .createTemplate({
+          name: 'render-event-test',
+          description: 'Render event test',
+          content: 'Hello, ${name}!',
+          category: 'test' as any,
+          created_by: 'test-user',
+        })
+        .then(template => {
+          return promptManager.renderTemplate({
+            template_id: template.id,
+            variables: { name: 'Alice' },
+          });
         });
-      });
     });
   });
 

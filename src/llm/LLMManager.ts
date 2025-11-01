@@ -5,17 +5,9 @@
  */
 
 import { EventEmitter } from 'events';
-import { Logger, getModuleLogger } from '../utils/Logger.js';
+import { Logger, getLogger } from '../utils/Logger.js';
 import { ConfigManager } from '../utils/Config.js';
-import {
-  LLMConfig,
-  LLMResponse,
-  LLMRequestConfig,
-  LLMError,
-  LLMProvider as ProviderType,
-  ChatMessage,
-  UsageStats
-} from './types.js';
+import { LLMConfig, LLMResponse, LLMRequestConfig, LLMError, LLMProvider as ProviderType, ChatMessage, UsageStats } from './types.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
 import { UsageTracker } from './usage/UsageTracker.js';
 import { ILLMProvider } from './providers/OpenAIProvider.js';
@@ -35,7 +27,7 @@ export class LLMManager extends EventEmitter {
     super();
 
     this.config = config;
-    this.logger = logger || getModuleLogger('LLMManager');
+    this.logger = logger || getLogger('LLMManager');
 
     this.logger.info('LLM管理器初始化', {
       default_provider: config.default_provider,
@@ -82,11 +74,7 @@ export class LLMManager extends EventEmitter {
       const response = await this.activeProvider!.chat(requestConfig);
 
       // 记录用量
-      this.usageTracker.recordUsage(
-        this.activeProvider!.provider,
-        response.model,
-        response.usage
-      );
+      this.usageTracker.recordUsage(this.activeProvider!.provider, response.model, response.usage);
 
       // 发送事件
       this.emit('chat_complete', {
@@ -137,15 +125,10 @@ export class LLMManager extends EventEmitter {
    * 计算token数量
    */
   countTokens(messages: ChatMessage, provider?: ProviderType): number {
-    const targetProvider = provider
-      ? this.providers.get(provider)
-      : this.activeProvider;
+    const targetProvider = provider ? this.providers.get(provider) : this.activeProvider;
 
     if (!targetProvider) {
-      throw new LLMError(
-        `Provider ${provider || 'default'} not available`,
-        'PROVIDER_NOT_FOUND'
-      );
+      throw new LLMError(`Provider ${provider || 'default'} not available`, 'PROVIDER_NOT_FOUND');
     }
 
     const messageArray = Array.isArray(messages) ? messages : [messages];
@@ -158,10 +141,7 @@ export class LLMManager extends EventEmitter {
   setActiveProvider(provider: ProviderType): void {
     const instance = this.providers.get(provider);
     if (!instance) {
-      throw new LLMError(
-        `Provider ${provider} not initialized or disabled`,
-        'PROVIDER_NOT_FOUND'
-      );
+      throw new LLMError(`Provider ${provider} not initialized or disabled`, 'PROVIDER_NOT_FOUND');
     }
 
     const previousProvider = this.activeProvider;
@@ -275,8 +255,7 @@ export class LLMManager extends EventEmitter {
     }
 
     // 找到一个可用的备用提供商
-    const availableProviders = Array.from(this.providers.keys())
-      .filter(p => p !== this.activeProvider?.provider);
+    const availableProviders = Array.from(this.providers.keys()).filter(p => p !== this.activeProvider?.provider);
 
     for (const provider of availableProviders) {
       try {
@@ -369,11 +348,7 @@ export class LLMManager extends EventEmitter {
     // OpenAI
     if (this.config.openai.enabled && this.config.openai.api_key) {
       try {
-        const openaiProvider = new OpenAIProvider(
-          this.config.openai,
-          this.config.retry,
-          this.logger
-        );
+        const openaiProvider = new OpenAIProvider(this.config.openai, this.config.retry, this.logger);
         this.providers.set(ProviderType.OPENAI, openaiProvider);
         this.logger.info('OpenAI提供商初始化成功');
       } catch (error) {
@@ -438,14 +413,7 @@ export class LLMManager extends EventEmitter {
     }
 
     // 某些错误类型不适合故障转移
-    const nonFailoverErrors = [
-      'BAD_REQUEST',
-      'UNAUTHORIZED',
-      'FORBIDDEN',
-      'NOT_FOUND',
-      'PAYLOAD_TOO_LARGE',
-      'CONTEXT_LENGTH_EXCEEDED',
-    ];
+    const nonFailoverErrors = ['BAD_REQUEST', 'UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'PAYLOAD_TOO_LARGE', 'CONTEXT_LENGTH_EXCEEDED'];
 
     return !nonFailoverErrors.includes(error.code);
   }
@@ -460,8 +428,7 @@ export class LLMManager extends EventEmitter {
     });
 
     // 找到备用提供商
-    const availableProviders = Array.from(this.providers.keys())
-      .filter(p => p !== this.activeProvider?.provider);
+    const availableProviders = Array.from(this.providers.keys()).filter(p => p !== this.activeProvider?.provider);
 
     let lastError: LLMError | null = null;
 
@@ -482,11 +449,7 @@ export class LLMManager extends EventEmitter {
         this.setActiveProvider(provider);
 
         // 记录用量
-        this.usageTracker.recordUsage(
-          provider,
-          response.model,
-          response.usage
-        );
+        this.usageTracker.recordUsage(provider, response.model, response.usage);
 
         this.emit('failover_success', {
           from_provider: originalError.provider,
@@ -529,11 +492,7 @@ export class LLMManager extends EventEmitter {
       this.providers.delete(ProviderType.OPENAI);
       if (newConfig.openai.enabled && newConfig.openai.api_key) {
         try {
-          const openaiProvider = new OpenAIProvider(
-            newConfig.openai,
-            newConfig.retry,
-            this.logger
-          );
+          const openaiProvider = new OpenAIProvider(newConfig.openai, newConfig.retry, this.logger);
           this.providers.set(ProviderType.OPENAI, openaiProvider);
           this.logger.info('OpenAI提供商重新初始化成功');
         } catch (error) {

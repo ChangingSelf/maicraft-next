@@ -9,6 +9,7 @@ import { RuntimeContext } from '../../context/RuntimeContext';
 import { ActionResult, MineBlockByPositionParams } from '../types';
 import { ActionIds } from '../ActionIds';
 import { Vec3 } from 'vec3';
+import { MovementUtils } from '../../../utils/MovementUtils';
 
 export class MineBlockByPositionAction extends BaseAction<MineBlockByPositionParams> {
   readonly id = ActionIds.MINE_BLOCK_BY_POSITION;
@@ -46,32 +47,29 @@ export class MineBlockByPositionAction extends BaseAction<MineBlockByPositionPar
       if (distance > 6) {
         context.logger.warn(`方块距离过远 (${distance.toFixed(2)} > 6)，尝试移动靠近`);
 
-        // 尝试移动到方块附近
-        if ((context.bot as any).pathfinder) {
-          const pathfinder = (context.bot as any).pathfinder;
-          const { goals } = require('mineflayer-pathfinder');
-          const goal = new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 3);
-          pathfinder.setGoal(goal);
+        // 使用 MovementUtils 移动到方块附近
+        const moveResult = await MovementUtils.moveToCoordinate(
+          context.bot,
+          targetPos.x,
+          targetPos.y,
+          targetPos.z,
+          4, // 到达距离
+          64, // 最大移动距离
+          false // 不使用相对坐标
+        );
 
-          // 等待移动完成
-          await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              pathfinder.setGoal(null);
-              reject(new Error('移动超时'));
-            }, 30000);
-
-            pathfinder.once('goal_reached', () => {
-              clearTimeout(timeout);
-              resolve(null);
-            });
-          });
+        if (!moveResult.success) {
+          return this.failure(`移动到目标位置失败: ${moveResult.message}`);
         }
       }
 
       // 检查是否有 collectBlock 插件
       if ((context.bot as any).collectBlock) {
         context.logger.info('使用 collectBlock 插件挖掘');
-        await (context.bot as any).collectBlock.collect(targetBlock);
+        await (context.bot as any).collectBlock.collect(targetBlock, {
+          ignoreNoPath: false,
+          count: 1
+        });
       } else {
         // 使用基本的 dig 方法
         context.logger.info('使用基本 dig 方法挖掘');
@@ -82,9 +80,6 @@ export class MineBlockByPositionAction extends BaseAction<MineBlockByPositionPar
         // 挖掘方块
         await context.bot.dig(targetBlock);
       }
-
-      // 更新方块缓存
-      context.blockCache.removeBlock(targetPos);
 
       context.logger.info(`成功挖掘 ${targetBlock.name}`);
 

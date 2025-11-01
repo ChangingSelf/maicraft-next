@@ -1,14 +1,14 @@
 /**
  * PlaceBlockAction - 放置方块
  *
- * 在指定位置放置方块
+ * 使用 PlaceBlockUtils 统一的放置功能
  */
 
 import { BaseAction } from '../Action';
 import { RuntimeContext } from '../../context/RuntimeContext';
 import { ActionResult, PlaceBlockParams } from '../types';
 import { ActionIds } from '../ActionIds';
-import { Vec3 } from 'vec3';
+import { PlaceBlockUtils } from '../../../utils/PlaceBlockUtils';
 
 export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
   readonly id = ActionIds.PLACE_BLOCK;
@@ -28,88 +28,29 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
         return this.failure('坐标参数不完整');
       }
 
-      const targetPos = new Vec3(Math.floor(x), Math.floor(y), Math.floor(z));
-      context.logger.info(`放置方块: ${block} at (${targetPos.x}, ${targetPos.y}, ${targetPos.z})`);
+      context.logger.info(`放置方块: ${block} at (${x}, ${y}, ${z})`);
 
-      // 检查目标位置是否已有方块
-      const existingBlock = context.bot.blockAt(targetPos);
-      if (existingBlock && existingBlock.name !== 'air') {
-        return this.failure(`目标位置已有方块: ${existingBlock.name}`);
-      }
-
-      // 查找物品栏中的方块
-      const mcData = require('minecraft-data')(context.bot.version);
-      const blockType = mcData.blocksByName[block];
-
-      if (!blockType) {
-        return this.failure(`未知的方块类型: ${block}`);
-      }
-
-      const item = context.bot.inventory.items().find((i: any) => i.name === block);
-
-      if (!item) {
-        return this.failure(`物品栏中没有 ${block}`);
-      }
-
-      context.logger.info(`找到物品: ${item.name} x${item.count}`);
-
-      // 装备方块
-      await context.bot.equip(item, 'hand');
-
-      // 找到参考方块（目标位置下方的方块）
-      const referencePos = targetPos.offset(0, -1, 0);
-      const referenceBlock = context.bot.blockAt(referencePos);
-
-      if (!referenceBlock || referenceBlock.name === 'air') {
-        return this.failure('目标位置下方没有参考方块，无法放置');
-      }
-
-      context.logger.info(`参考方块: ${referenceBlock.name} at (${referencePos.x}, ${referencePos.y}, ${referencePos.z})`);
-
-      // 检查距离
-      const distance = context.bot.entity.position.distanceTo(targetPos);
-      if (distance > 5) {
-        context.logger.warn(`距离过远 (${distance.toFixed(2)} > 5)，尝试移动靠近`);
-
-        // 尝试移动到目标位置附近
-        if ((context.bot as any).pathfinder) {
-          const pathfinder = (context.bot as any).pathfinder;
-          const { goals } = require('mineflayer-pathfinder');
-          const goal = new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 3);
-          pathfinder.setGoal(goal);
-
-          // 等待移动完成
-          await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              pathfinder.setGoal(null);
-              reject(new Error('移动超时'));
-            }, 30000);
-
-            pathfinder.once('goal_reached', () => {
-              clearTimeout(timeout);
-              resolve(null);
-            });
-          });
-        }
-      }
-
-      // 放置方块
-      const faceVector = new Vec3(0, 1, 0); // 从下方放置
-      await context.bot.placeBlock(referenceBlock, faceVector);
-
-      // 更新方块缓存
-      context.blockCache.addBlock(block, true, targetPos);
-
-      context.logger.info(`成功放置 ${block}`);
-
-      return this.success(`成功放置 ${block}`, {
-        blockType: block,
-        position: {
-          x: targetPos.x,
-          y: targetPos.y,
-          z: targetPos.z,
-        },
+      // 使用 PlaceBlockUtils 放置方块
+      const result = await PlaceBlockUtils.placeBlock(context.bot, {
+        x: Math.floor(x),
+        y: Math.floor(y),
+        z: Math.floor(z),
+        block,
+        useRelativeCoords: false
       });
+
+      if (result.success) {
+        context.logger.info(result.message);
+        return this.success(result.message, {
+          blockType: result.block,
+          position: result.position,
+          referenceBlock: result.referenceBlock,
+          face: result.face
+        });
+      } else {
+        context.logger.warn(result.message);
+        return this.failure(result.message, undefined);
+      }
     } catch (error) {
       const err = error as Error;
       context.logger.error('放置方块失败:', err);

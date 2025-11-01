@@ -219,11 +219,13 @@ describe('PromptManager', () => {
       const template = await promptManager.createTemplate(request);
 
       // 严格模式应该失败
-      await expect(promptManager.renderTemplate({
-        template_id: template.id,
-        variables: {},
-        strict: true,
-      })).rejects.toThrow();
+      await expect(
+        promptManager.renderTemplate({
+          template_id: template.id,
+          variables: {},
+          strict: true,
+        }),
+      ).rejects.toThrow();
 
       // 非严格模式应该返回警告
       const result = await promptManager.renderTemplate({
