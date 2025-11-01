@@ -85,8 +85,8 @@ export class Logger {
   private currentFilePath: string;
 
   constructor(config: Partial<LoggerConfig> = {}) {
-    // 如果没有传入配置，尝试从全局配置中读取
-    const configFromApp = config || Logger.getConfigFromApp();
+    // 如果没有传入配置或传入空配置，尝试从全局配置中读取
+    const configFromApp = Object.keys(config).length === 0 ? Logger.getConfigFromApp() : config;
     const validatedConfig = LoggerConfigSchema.parse(configFromApp);
     this.config = validatedConfig;
 
@@ -207,30 +207,41 @@ export class Logger {
    */
   private static getConfigFromApp(): Partial<LoggerConfig> {
     try {
-      // 懒加载 Config 模块以避免循环依赖
-      const { getSection } = require('./Config');
-      const loggingSection = getSection('logging');
+      // 直接读取配置文件，避免循环依赖
+      const { existsSync, readFileSync } = require('fs');
+      const { parse: parseToml } = require('smol-toml');
 
-      return {
-        level: Logger.parseLogLevel(loggingSection.level),
-        console: loggingSection.console,
-        file: loggingSection.file,
-        maxFileSize: loggingSection.max_file_size,
-        maxFiles: loggingSection.max_files,
-        logDir: loggingSection.log_dir,
-      };
+      const configPath = './config.toml';
+      if (existsSync(configPath)) {
+        const configContent = readFileSync(configPath, 'utf8');
+        const rawConfig = parseToml(configContent);
+
+        if (rawConfig && rawConfig.logging) {
+          const logging = rawConfig.logging;
+          return {
+            level: Logger.parseLogLevel(logging.level || 'info'),
+            console: logging.console !== false, // 默认true
+            file: logging.file !== false, // 默认true
+            maxFileSize: logging.max_file_size || 10 * 1024 * 1024,
+            maxFiles: logging.max_files || 5,
+            logDir: logging.log_dir || './logs',
+          };
+        }
+      }
     } catch (error) {
-      // 如果无法获取配置，使用默认值
-      console.warn('无法从配置文件读取日志配置，使用默认配置:', error);
-      return {
-        level: LogLevel.INFO,
-        console: true,
-        file: true,
-        maxFileSize: 10 * 1024 * 1024,
-        maxFiles: 5,
-        logDir: './logs',
-      };
+      // 如果读取配置失败，使用默认配置
+      // 不输出警告，避免在Logger初始化时的循环依赖
     }
+
+    // 返回默认配置
+    return {
+      level: LogLevel.INFO,
+      console: true,
+      file: true,
+      maxFileSize: 10 * 1024 * 1024,
+      maxFiles: 5,
+      logDir: './logs',
+    };
   }
 
   /**

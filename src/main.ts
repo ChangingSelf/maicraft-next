@@ -76,14 +76,11 @@ class MaicraftNext {
    */
   async initialize(): Promise<void> {
     try {
-      // 1. 初始化基础日志系统（使用默认配置）
-      this.initializeBasicLogging();
+      // 1. 初始化日志系统（Logger类自带容错机制，会自动读取配置）
+      this.logger = createLogger();
 
       // 2. 加载配置
       await this.loadConfiguration();
-
-      // 3. 更新日志系统配置
-      this.updateLoggingConfig();
 
       this.logger!.info('🚀 Maicraft-Next 正在启动...');
       this.logger!.info(`版本: ${this.config!.app.version}`);
@@ -112,18 +109,6 @@ class MaicraftNext {
   }
 
   /**
-   * 初始化基础日志系统（使用默认配置）
-   */
-  private initializeBasicLogging(): void {
-    // 使用基础配置创建临时 logger
-    this.logger = createLogger({
-      level: LogLevel.INFO,
-      console: true,
-      file: false,
-    });
-  }
-
-  /**
    * 加载配置文件
    */
   private async loadConfiguration(): Promise<void> {
@@ -134,58 +119,6 @@ class MaicraftNext {
       this.logger!.error('❌ 配置加载失败', undefined, error as Error);
       throw new Error('无法加载配置文件，请检查 config.toml 是否存在且格式正确');
     }
-  }
-
-  /**
-   * 更新日志系统配置（基于加载的配置文件）
-   */
-  private updateLoggingConfig(): void {
-    if (!this.config) {
-      throw new Error('配置未加载');
-    }
-
-    const loggingConfig = this.config.logging;
-
-    // 转换字符串日志级别为 LogLevel 枚举
-    const logLevelMap: Record<string, LogLevel> = {
-      error: LogLevel.ERROR,
-      warn: LogLevel.WARN,
-      info: LogLevel.INFO,
-      debug: LogLevel.DEBUG,
-    };
-
-    // 重新创建 logger，使用完整配置
-    this.logger = createLogger({
-      level: logLevelMap[loggingConfig.level] || LogLevel.INFO,
-      console: loggingConfig.console,
-      file: loggingConfig.file,
-      maxFileSize: loggingConfig.max_file_size,
-      maxFiles: loggingConfig.max_files,
-      logDir: loggingConfig.log_dir,
-    });
-
-    this.logger.info('✅ 日志系统配置已更新');
-  }
-
-  /**
-   * 初始化日志系统（已弃用，使用 initializeBasicLogging 和 updateLoggingConfig 代替）
-   */
-  private initializeLogging(): void {
-    if (!this.config) {
-      throw new Error('配置未加载');
-    }
-
-    const loggingConfig = this.config.logging;
-
-    this.logger = createLogger({
-      level: loggingConfig.level as any,
-      console: loggingConfig.console,
-      file: loggingConfig.file,
-      maxFileSize: loggingConfig.max_file_size,
-      maxFiles: loggingConfig.max_files,
-      logDir: loggingConfig.log_dir,
-    });
-    this.logger.info('✅ 日志系统初始化完成');
   }
 
   /**
@@ -252,10 +185,10 @@ class MaicraftNext {
       this.bot!.once('spawn', () => {
         clearTimeout(timeout);
         this.logger!.info('✅ 成功连接到服务器并重生');
-        
+
         // 初始化插件设置
         this.initializePluginSettings();
-        
+
         resolve();
       });
 
@@ -320,14 +253,14 @@ class MaicraftNext {
       // 1. 设置 pathfinder movements
       if (this.bot.pathfinder) {
         const defaultMove = new Movements(this.bot);
-        
+
         // 设置不能破坏的方块列表
         const blocksCantBreakIds = new Set<number>();
         const defaultBlocks = ['chest', 'furnace', 'crafting_table', 'bed']; // 默认不能破坏的方块
         const blockNames = this.config.plugins.pathfinder?.blocks_cant_break || defaultBlocks;
-        
+
         this.logger.info(`配置移动过程中不能破坏的方块列表: ${blockNames.join(', ')}`);
-        
+
         for (const blockName of blockNames) {
           const block = this.bot.registry.blocksByName[blockName];
           if (block) {
@@ -337,10 +270,10 @@ class MaicraftNext {
             this.logger.warn(`未知的方块名称: ${blockName}`);
           }
         }
-        
+
         defaultMove.blocksCantBreak = blocksCantBreakIds;
         this.bot.pathfinder.setMovements(defaultMove);
-        
+
         this.logger.info('✅ Pathfinder movements 初始化完成');
       }
 
