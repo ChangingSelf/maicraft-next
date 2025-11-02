@@ -158,17 +158,21 @@ class MaicraftTestBot {
     globalGameState.initialize(this.bot);
     logger.info('✅ GameState 初始化完成');
 
-    // 2. 创建缓存管理器
-    this.blockCache = new BlockCache(10000);
-    this.containerCache = new ContainerCache();
-    this.locationManager = new LocationManager();
-    logger.info('✅ 缓存管理器创建完成');
+    // 2. 创建上下文管理器
+    const contextManager = new ContextManager();
+    contextManager.createContext({
+      bot: this.bot,
+      executor: null as any, // 先传 null，稍后注入真正的 executor
+      config: {},
+      logger,
+    });
+    logger.info('✅ ContextManager 创建完成');
 
     // 3. 创建 ActionExecutor
-    this.executor = new ActionExecutor(this.bot, logger, {});
-    this.executor.setBlockCache(this.blockCache);
-    this.executor.setContainerCache(this.containerCache);
-    this.executor.setLocationManager(this.locationManager);
+    this.executor = new ActionExecutor(contextManager, logger);
+
+    // 更新 ContextManager 中的 executor 引用
+    contextManager.updateExecutor(this.executor);
     logger.info('✅ ActionExecutor 创建完成');
 
     // 4. 注册所有 P0 动作
@@ -213,19 +217,19 @@ class MaicraftTestBot {
       new PlaceBlockAction(),
       new CraftItemAction(),
       new MineInDirectionAction(),
-      
+
       // 容器操作
       new UseChestAction(),
       new UseFurnaceAction(),
-      
+
       // 生存相关
       new EatAction(),
       new TossItemAction(),
       new KillMobAction(),
-      
+
       // 移动和探索
       new SwimToLandAction(),
-      
+
       // 地标管理
       new SetLocationAction(),
     ];

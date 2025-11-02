@@ -1,6 +1,6 @@
 /**
  * 主思考模板
- * 
+ *
  * 对应 maicraft 的 main_thinking 模板
  */
 
@@ -15,134 +15,11 @@ export function initMainThinkingTemplate(): void {
       'main_thinking',
       `{basic_info}
 
-**动作**
-**mine_block**
-挖掘并收集附近的方块
-可选挖掘附近count个name类型的方块，会自动寻找并挖掘附近count个name类型的方块挖掘，不需要额外使用move
-\`\`\`json
-{{
-    "action_type":"mine_block",
-    "name":"挖掘方块名称（可选）",
-    "count":"挖掘数量（可选）",
-}}
-\`\`\`
+{available_actions}
 
-**mine_block_by_position**
-挖掘某个位置指定的方块
-1.可选择挖掘指定位置的方块，会挖掘xyz指定的方块
-\`\`\`json
-{{
-    "action_type":"mine_block_by_position",
-    "x":"挖掘x位置(可选)",
-    "y":"挖掘y位置(可选)",
-    "z":"挖掘z位置(可选)",
-}}
-\`\`\`
-
-**mine_in_direction**
-按方向持续挖掘，直到超时或挖掘失败，此动作将会位移一段时间
-direction: 方向 (+x, -x, +y, -y, +z, -z)
-timeout: 超时时间（秒），例如60s,120s
-\`\`\`json
-{{
-    "action_type":"mine_in_direction",
-    "direction":"方向",
-    "timeout":"超时时间", 
-}}
-\`\`\`
-
-**place_block**
-能够放置方块到xyz指定位置
-你只能放置在可以放置的坐标上
-\`\`\`json
-{{
-    "action_type":"place_block",
-    "block":"方块名称",
-    "x":"放置x位置",
-    "y":"放置y位置",
-    "z":"放置z位置",
-}}
-\`\`\`
-
-**move**
-移动到一个能够到达的位置，如果已经到达，则不需要移动
-移动会自动进行搭路和清理障碍物，无需手动铺路，只需要指定移动坐标即可
-\`\`\`json
-{{
-    "action_type":"move",
-    "position":{{"x": x坐标, "y": y坐标, "z": z坐标}},
-}}
-\`\`\`
-
-**find_block**
-在视野内寻找可以直接看见的指定方块，返回方块的位置
-\`\`\`json
-{{
-    "action_type":"find_block",
-    "radius": 8 //视野范围，默认8半径
-    "block":"方块名称",
-}}
-\`\`\`
-
-**craft**
-使用crafting_table或者背包进行合成物品
-能够进行crafting_table进行3x3合成
-能够进行直接2x2合成
-\`\`\`json
-{{
-    "action_type":"craft",
-    "item":"物品名称",
-    "count":"数量"
-}}
-\`\`\`
-
-**use_furnace**
-打开熔炉，可以熔炼或取出熔炼的物品
-\`\`\`json
-{{
-    "action_type":"use_furnace",
-    "position":{{"x": x坐标, "y": y坐标, "z": z坐标}}
-}}
-\`\`\`
-
-**use_chest**
-打开chest，将物品放入箱子或从箱子中取出物品
-你可以存入或取出多种物品
-\`\`\`json
-{{
-    "action_type":"use_chest",
-    "position":{{"x": x坐标, "y": y坐标, "z": z坐标}},
-}}
-\`\`\`
- 
 {eat_action}
 
-**toss_item**
-将物品丢弃，扔在地上成为掉落物
-分享给别人或丢弃
-\`\`\`json
-{{
-    "action_type":"toss_item",
-    "item":"物品名称",
-    "count":"数量",
-}}
-\`\`\`
-
 {kill_mob_action}
-
-**设置标记点**
-记录一个标记点/地标，可以记录重要位置的信息
-也可以删除一个不符合现状的地表
-也可以update地标信息
-\`\`\`json
-{{
-    "action_type":"set_location",
-    "type":"set/delete/update", //set表示设置，delete表示删除，update表示更新
-    "name":"地标名称（不要与现有地标名称重复）",
-    "info":"地标信息，描述和简介",
-    "position":{{"x": x坐标, "y": y坐标, "z": z坐标}},
-}}
-\`\`\`
 
 **进入task_edit模式**
 对任务列表进行修改，包括：
@@ -211,8 +88,17 @@ timeout: 超时时间（秒），例如60s,120s
 \`\`\`
 `,
       '任务-动作选择',
-      ['failed_hint', 'thinking_list', 'nearby_block_info', 'position', 'chat_str', 'basic_info', 'eat_action', 'kill_mob_action'],
+      [
+        'failed_hint',
+        'thinking_list',
+        'nearby_block_info',
+        'position',
+        'chat_str',
+        'basic_info',
+        'available_actions',
+        'eat_action',
+        'kill_mob_action',
+      ],
     ),
   );
 }
-

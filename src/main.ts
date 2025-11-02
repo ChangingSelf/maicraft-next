@@ -19,9 +19,7 @@ import { plugin as collectBlock } from 'mineflayer-collectblock-colalab';
 // 核心系统
 import { globalGameState } from '@/core/state/GameState';
 import { ActionExecutor } from '@/core/actions/ActionExecutor';
-import { BlockCache } from '@/core/cache/BlockCache';
-import { ContainerCache } from '@/core/cache/ContainerCache';
-import { LocationManager } from '@/core/location/LocationManager';
+import { ContextManager } from '@/core/context/ContextManager';
 
 // 动作实现
 import {
@@ -68,12 +66,10 @@ class MaicraftNext {
   private bot?: Bot;
   private config?: AppConfig;
   private logger: Logger = createLogger();
+  private contextManager?: ContextManager;
   private executor?: ActionExecutor;
   private agent?: Agent;
   private llmManager?: LLMManager;
-  private blockCache?: BlockCache;
-  private containerCache?: ContainerCache;
-  private locationManager?: LocationManager;
 
   private isShuttingDown = false;
   private reconnectTimer?: NodeJS.Timeout;
@@ -391,18 +387,22 @@ class MaicraftNext {
     // globalGameState 是全局实例，在 bot 登录时自动更新
     this.logger.info('✅ GameState已就绪');
 
-    // 2. 创建缓存管理器
-    this.blockCache = new BlockCache();
-    this.containerCache = new ContainerCache();
-    this.locationManager = new LocationManager();
-    this.logger.info('✅ 缓存管理器初始化完成');
+    // 2. 创建上下文管理器
+    this.contextManager = new ContextManager();
+    this.contextManager.createContext({
+      bot: this.bot!,
+      executor: null as any, // 先传 null，稍后注入真正的 executor
+      config: this.config!,
+      logger: this.logger,
+    });
+    this.logger.info('✅ ContextManager初始化完成');
 
     // 3. 创建ActionExecutor
-    this.executor = new ActionExecutor(this.bot, this.logger, this.config as any);
+    this.executor = new ActionExecutor(this.contextManager, this.logger);
 
-    this.executor.setBlockCache(this.blockCache);
-    this.executor.setContainerCache(this.containerCache);
-    this.executor.setLocationManager(this.locationManager);
+    // 更新 ContextManager 中的 executor 引用
+    this.contextManager.updateExecutor(this.executor);
+
     this.logger.info('✅ ActionExecutor初始化完成');
 
     // 4. 注册所有动作

@@ -1,0 +1,2430 @@
+# Maicraft-Next 架构分析与优化建议
+
+**生成日期**: 2025-11-02  
+**项目版本**: 2.0  
+**分析者**: AI Assistant
+
+---
+
+## 📋 目录
+
+1. [执行摘要](#执行摘要)
+2. [架构职责不清的问题](#架构职责不清的问题)
+3. [具体优化建议](#具体优化建议)
+4. [重构优先级](#重构优先级)
+5. [实施路线图](#实施路线图)
+
+---
+
+## 执行摘要
+
+### 🎯 分析目标
+
+对 Maicraft-Next 项目进行全面架构审查，识别职责不清、耦合过紧、设计不合理的部分，并提供可执行的优化方案。
+
+### 📊 主要发现
+
+本次分析发现了 **10 个主要架构问题**，涉及：
+
+- **职责边界模糊** (4个问题)
+- **依赖关系混乱** (3个问题)
+- **资源管理不当** (2个问题)
+- **代码重复和不一致** (1个问题)
+
+### ⚡ 优化收益
+
+预期优化后可获得：
+
+- 🎯 **更清晰的职责分离** - 每个类专注于单一职责
+- 🔧 **更容易的测试和维护** - 降低耦合度
+- 🚀 **更好的扩展性** - 符合开闭原则
+- 📦 **更统一的依赖管理** - 使用依赖注入
+
+---
+
+## 架构职责不清的问题
+
+### 🔴 问题 1: （已判断不需要解决，请无视）
+
+---
+
+### 🔴 问题 2: RuntimeContext 创建重复和不一致 (严重)
+
+#### 问题描述
+
+`RuntimeContext` 在多个地方被创建，导致上下文不一致：
+
+**位置 1: Agent.ts - createContext()**
+
+```typescript:101:114
+private createContext(bot: Bot, config: Config): RuntimeContext {
+  return {
+    bot,
+    executor: this.executor, // 使用外部传入的 executor
+    gameState: globalGameState,
+    blockCache: this.executor['blockCache'] || new BlockCache(),
+    containerCache: this.executor['containerCache'] || new ContainerCache(),
+    locationManager: this.executor['locationManager'] || new LocationManager(),
+    events: this.executor.getEventEmitter(),
+    interruptSignal: new InterruptSignal(),
+    logger: this.externalLogger,
+    config,
+  };
+}
+```
+
+**位置 2: ActionExecutor.ts - execute()**
+
+```typescript:87:98
+const context: RuntimeContext = {
+  bot: this.bot,
+  executor: this,
+  gameState: globalGameState,
+  blockCache: this.blockCache,
+  containerCache: this.containerCache,
+  locationManager: this.locationManager,
+  events: this.events,
+  interruptSignal,
+  logger: actionLogger,
+  config: this.config,
+};
+```
+
+#### 问题
+
+1. **缓存来源不一致**: Agent 尝试从 executor 获取缓存，但 executor 内部也有自己的缓存
+2. **InterruptSignal 不同**: 每次创建新的 InterruptSignal，无法统一中断控制
+3. **职责不清**: 谁负责创建和管理 RuntimeContext？
+4. **资源浪费**: 可能创建多个相同类型的实例
+
+#### 优化建议
+
+**引入单一的 ContextManager**
+
+```typescript
+/**
+ * 上下文管理器 - 统一管理 RuntimeContext
+ */
+class ContextManager {
+  private context?: RuntimeContext;
+
+  createContext(params: { bot: Bot; executor: ActionExecutor; config: Config; logger: Logger }): RuntimeContext {
+    if (this.context) {
+      throw new Error('Context already created');
+    }
+
+    const { bot, executor, config, logger } = params;
+
+    // 创建共享的缓存实例
+    const blockCache = new BlockCache();
+    const containerCache = new ContainerCache();
+    const locationManager = new LocationManager();
+
+    // 注入到 executor
+    executor.setBlockCache(blockCache);
+    executor.setContainerCache(containerCache);
+    executor.setLocationManager(locationManager);
+
+    // 创建共享的 InterruptSignal
+    const globalInterruptSignal = new InterruptSignal();
+
+    this.context = {
+      bot,
+      executor,
+      gameState: globalGameState,
+      blockCache,
+      containerCache,
+      locationManager,
+      events: executor.getEventEmitter(),
+      interruptSignal: globalInterruptSignal,
+      logger,
+      config,
+    };
+
+    return this.context;
+  }
+
+  getContext(): RuntimeContext {
+    if (!this.context) {
+      throw new Error('Context not created');
+    }
+    return this.context;
+  }
+
+  /**
+   * 为特定动作创建上下文（带专用 logger 和 interruptSignal）
+   */
+  createActionContext(actionName: string): RuntimeContext {
+    const baseContext = this.getContext();
+
+    return {
+      ...baseContext,
+      logger: createPrefixedLogger(baseContext.logger, actionName),
+      interruptSignal: new InterruptSignal(), // 每个动作独立的中断信号
+    };
+  }
+
+  cleanup(): void {
+    this.context = undefined;
+  }
+}
+```
+
+---
+
+### 🟡 问题 3: ActionExecutor 职责混乱 (中等)
+
+#### 问题描述
+
+`ActionExecutor` 同时承担了多个职责：
+
+```typescript:23:44
+export class ActionExecutor {
+  private bot: Bot;
+  private actions: Map<ActionId, Action> = new Map();
+  private events: EventEmitter;
+  private baseLogger: Logger;
+  private config: Config;
+
+  // 缓存管理器（待实现）
+  private blockCache: BlockCache = {} as BlockCache;
+  private containerCache: ContainerCache = {} as ContainerCache;
+  private locationManager: LocationManager = {} as LocationManager;
+
+  // 当前执行的动作
+  private currentAction: string | null = null;
+  private currentInterruptSignal: InterruptSignal | null = null;
+
+  constructor(bot: Bot, logger: Logger, config: Config = {}) {
+    this.bot = bot;
+    this.baseLogger = logger;
+    this.config = config;
+    this.events = new EventEmitter(bot);
+  }
+}
+```
+
+#### 职责分析
+
+1. ✅ **动作注册和管理** - register, getAction (合理)
+2. ✅ **动作执行** - execute (合理)
+3. ❌ **缓存管理** - 持有 blockCache, containerCache, locationManager (应该独立)
+4. ❌ **事件发射** - 创建和持有 EventEmitter (应该外部注入)
+5. ❌ **中断管理** - 管理 currentInterruptSignal (应该统一管理)
+6. ❌ **Prompt 生成** - generatePrompt() (应该由 PromptManager 处理)
+
+#### 优化建议
+
+**分离关注点**
+
+````typescript
+/**
+ * 简化后的 ActionExecutor - 只负责动作执行
+ */
+export class ActionExecutor {
+  private actions: Map<ActionId, Action> = new Map();
+  private logger: Logger;
+  private contextManager: ContextManager; // 依赖注入
+
+  constructor(contextManager: ContextManager, logger: Logger) {
+    this.contextManager = contextManager;
+    this.logger = logger;
+  }
+
+  register(action: Action): void {
+    this.actions.set(action.id as ActionId, action);
+    this.logger.info(`注册动作: ${action.name} (${action.id})`);
+  }
+
+  registerAll(actions: Action[]): void {
+    for (const action of actions) {
+      this.register(action);
+    }
+  }
+
+  async execute<T extends ActionId>(actionId: T, params: ActionParamsMap[T]): Promise<ActionResult> {
+    const action = this.actions.get(actionId);
+    if (!action) {
+      return {
+        success: false,
+        message: `动作 ${actionId} 未注册`,
+        error: new Error(`动作 ${actionId} 未注册`),
+      };
+    }
+
+    // 使用 ContextManager 创建专用上下文
+    const context = this.contextManager.createActionContext(action.name);
+
+    try {
+      const startTime = Date.now();
+      const result = await action.execute(context, params);
+      const duration = Date.now() - startTime;
+
+      context.logger.info(`动作执行${result.success ? '成功' : '失败'}: ${result.message} (耗时: ${duration}ms)`);
+
+      // 触发事件
+      context.events.emit('actionComplete', {
+        actionId,
+        actionName: action.name,
+        result,
+        duration,
+      });
+
+      return result;
+    } catch (error) {
+      const err = error as Error;
+      context.logger.error(`动作执行异常:`, err);
+
+      context.events.emit('actionError', {
+        actionId,
+        actionName: action.name,
+        error: err,
+      });
+
+      return {
+        success: false,
+        message: `动作执行异常: ${err.message}`,
+        error: err,
+      };
+    }
+  }
+
+  getRegisteredActions(): Action[] {
+    return Array.from(this.actions.values());
+  }
+
+  getAction(actionId: ActionId): Action | undefined {
+    return this.actions.get(actionId);
+  }
+
+  hasAction(actionId: ActionId): boolean {
+    return this.actions.has(actionId);
+  }
+}
+
+/**
+ * 新增：ActionPromptGenerator - 专门负责生成动作提示词
+ */
+export class ActionPromptGenerator {
+  constructor(private executor: ActionExecutor) {}
+
+  generatePrompt(): string {
+    const actions = this.executor.getRegisteredActions();
+
+    if (actions.length === 0) {
+      return '# 可用动作\n\n暂无可用动作';
+    }
+
+    const lines: string[] = ['# 可用动作', ''];
+
+    for (const action of actions) {
+      lines.push(`## ${action.name}`);
+      lines.push(action.description);
+      lines.push('');
+      lines.push('```json');
+      lines.push(
+        JSON.stringify(
+          {
+            action_type: action.id,
+            ...action.getParamsSchema?.(),
+          },
+          null,
+          2,
+        ),
+      );
+      lines.push('```');
+      lines.push('');
+    }
+
+    return lines.join('\n');
+  }
+}
+````
+
+---
+
+### 🟡 问题 4: MainDecisionLoop 数据收集职责过重 (中等)
+
+#### 问题描述
+
+`MainDecisionLoop` 的 `getAllData()` 方法承担了太多职责：
+
+```typescript:112:192
+private getAllData(): Record<string, any> {
+  const { gameState } = this.state.context;
+  const { memory, planningManager } = this.state;
+
+  // 构建 basic_info 需要的数据
+  const basicInfoData = {
+    bot_name: 'AI Bot',
+    player_name: gameState.playerName || 'Bot',
+    self_info: `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}`,
+    goal: this.state.goal,
+    to_do_list: planningManager?.generateStatusSummary() || '暂无任务',
+    self_status_info: `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}, 等级: ${gameState.level}`,
+    inventory_info: gameState.getInventoryDescription?.() || '空',
+    position: `位置: (${gameState.blockPosition.x}, ${gameState.blockPosition.y}, ${gameState.blockPosition.z})`,
+    nearby_block_info: this.getNearbyBlocksInfo(),
+    container_cache_info: this.getContainerCacheInfo(),
+    nearby_entities_info: gameState.getNearbyEntitiesDescription?.() || '无',
+    chat_str: this.getChatHistory(),
+    mode: this.state.modeManager.getCurrentMode(),
+    task: planningManager?.getCurrentTask()?.title || '暂无',
+  };
+
+  // 生成 basic_info
+  const basicInfo = promptManager.generatePrompt('basic_info', basicInfoData);
+
+  // 动态生成 eat_action
+  const needEat = gameState.food / gameState.foodMax < 0.8;
+  const eatAction = needEat
+    ? `**eat**
+食用某样物品回复饱食度
+如果背包中没有食物，可以尝试找寻苹果，或寻找附近的动物以获得食物
+\`\`\`json
+{
+    "action_type":"eat",
+    "item":"食物名称"
+}
+\`\`\``
+    : '';
+
+  // 动态生成 kill_mob_action
+  const hostileMobs = ['zombie', 'skeleton', 'spider', 'creeper', 'enderman', 'witch'];
+  const hasHostileMobs = gameState.nearbyEntities.some(e => hostileMobs.includes(e.name.toLowerCase()));
+  const killMobAction = hasHostileMobs
+    ? `**kill_mob**
+杀死某个实体
+\`\`\`json
+{
+    "action_type":"kill_mob",
+    "entity":"需要杀死的实体名称",
+    "timeout":"杀死实体的超时时间，单位：秒"
+}
+\`\`\``
+    : '';
+
+  // 获取失败提示
+  const recentDecisions = memory.decision.getRecent(5);
+  const failedDecisions = recentDecisions.filter(d => d.result === 'failed');
+  const failedHint =
+    failedDecisions.length > 0
+      ? failedDecisions.map(d => `之前尝试"${d.intention}"失败了: ${d.feedback || '原因未知'}，请尝试别的方案。`).join('\n')
+      : '';
+
+  // 获取思考记录
+  const thinkingList = memory.buildContextSummary({
+    includeThoughts: 3,
+    includeDecisions: 8,
+  });
+
+  // 返回 main_thinking 模板需要的所有参数
+  return {
+    basic_info: basicInfo,
+    eat_action: eatAction,
+    kill_mob_action: killMobAction,
+    failed_hint: failedHint,
+    thinking_list: thinkingList,
+    nearby_block_info: basicInfoData.nearby_block_info,
+    position: basicInfoData.position,
+    chat_str: basicInfoData.chat_str,
+    judge_guidance: this.getJudgeGuidance(),
+  };
+}
+```
+
+#### 问题
+
+1. **数据收集** - 从多个来源收集数据
+2. **格式化** - 格式化数据为字符串
+3. **业务逻辑** - 判断是否需要吃东西、是否有敌对生物
+4. **提示词生成** - 动态生成动作提示
+5. **历史筛选** - 过滤失败的决策
+
+#### 优化建议
+
+**引入 PromptDataCollector**
+
+```typescript
+/**
+ * 提示词数据收集器 - 专门负责收集和格式化 LLM 提示词所需数据
+ */
+class PromptDataCollector {
+  constructor(private state: AgentState) {}
+
+  /**
+   * 收集基础信息
+   */
+  collectBasicInfo(): Record<string, any> {
+    const { gameState } = this.state.context;
+    const { planningManager } = this.state;
+
+    return {
+      bot_name: 'AI Bot',
+      player_name: gameState.playerName || 'Bot',
+      self_info: this.formatSelfInfo(gameState),
+      goal: this.state.goal,
+      to_do_list: planningManager?.generateStatusSummary() || '暂无任务',
+      self_status_info: this.formatStatusInfo(gameState),
+      inventory_info: gameState.getInventoryDescription?.() || '空',
+      position: this.formatPosition(gameState.blockPosition),
+      nearby_block_info: this.getNearbyBlocksInfo(),
+      container_cache_info: this.getContainerCacheInfo(),
+      nearby_entities_info: gameState.getNearbyEntitiesDescription?.() || '无',
+      chat_str: this.getChatHistory(),
+      mode: this.state.modeManager.getCurrentMode(),
+      task: planningManager?.getCurrentTask()?.title || '暂无',
+    };
+  }
+
+  /**
+   * 收集动态动作提示
+   */
+  collectDynamicActions(): {
+    eat_action: string;
+    kill_mob_action: string;
+  } {
+    const { gameState } = this.state.context;
+
+    return {
+      eat_action: this.shouldShowEatAction(gameState) ? this.generateEatActionPrompt() : '',
+      kill_mob_action: this.shouldShowKillMobAction(gameState) ? this.generateKillMobActionPrompt() : '',
+    };
+  }
+
+  /**
+   * 收集记忆相关数据
+   */
+  collectMemoryData(): {
+    failed_hint: string;
+    thinking_list: string;
+  } {
+    const { memory } = this.state;
+
+    const recentDecisions = memory.decision.getRecent(5);
+    const failedDecisions = recentDecisions.filter(d => d.result === 'failed');
+
+    return {
+      failed_hint: this.formatFailedHints(failedDecisions),
+      thinking_list: memory.buildContextSummary({
+        includeThoughts: 3,
+        includeDecisions: 8,
+      }),
+    };
+  }
+
+  /**
+   * 收集所有数据（用于 main_thinking）
+   */
+  collectAllData(): Record<string, any> {
+    const basicInfo = this.collectBasicInfo();
+    const dynamicActions = this.collectDynamicActions();
+    const memoryData = this.collectMemoryData();
+
+    const basicInfoPrompt = promptManager.generatePrompt('basic_info', basicInfo);
+
+    return {
+      basic_info: basicInfoPrompt,
+      ...dynamicActions,
+      ...memoryData,
+      nearby_block_info: basicInfo.nearby_block_info,
+      position: basicInfo.position,
+      chat_str: basicInfo.chat_str,
+      judge_guidance: this.getJudgeGuidance(),
+    };
+  }
+
+  // 私有辅助方法
+  private formatSelfInfo(gameState: GameState): string {
+    return `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}`;
+  }
+
+  private formatStatusInfo(gameState: GameState): string {
+    return `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}, 等级: ${gameState.level}`;
+  }
+
+  private formatPosition(pos: Vec3): string {
+    return `位置: (${pos.x}, ${pos.y}, ${pos.z})`;
+  }
+
+  private shouldShowEatAction(gameState: GameState): boolean {
+    return gameState.food / gameState.foodMax < 0.8;
+  }
+
+  private shouldShowKillMobAction(gameState: GameState): boolean {
+    const hostileMobs = ['zombie', 'skeleton', 'spider', 'creeper', 'enderman', 'witch'];
+    return gameState.nearbyEntities.some(e => hostileMobs.includes(e.name.toLowerCase()));
+  }
+
+  private generateEatActionPrompt(): string {
+    return `**eat**
+食用某样物品回复饱食度
+如果背包中没有食物，可以尝试找寻苹果，或寻找附近的动物以获得食物
+\`\`\`json
+{
+    "action_type":"eat",
+    "item":"食物名称"
+}
+\`\`\``;
+  }
+
+  private generateKillMobActionPrompt(): string {
+    return `**kill_mob**
+杀死某个实体
+\`\`\`json
+{
+    "action_type":"kill_mob",
+    "entity":"需要杀死的实体名称",
+    "timeout":"杀死实体的超时时间，单位：秒"
+}
+\`\`\``;
+  }
+
+  private formatFailedHints(failedDecisions: DecisionEntry[]): string {
+    if (failedDecisions.length === 0) return '';
+
+    return failedDecisions.map(d => `之前尝试"${d.intention}"失败了: ${d.feedback || '原因未知'}，请尝试别的方案。`).join('\n');
+  }
+
+  private getNearbyBlocksInfo(): string {
+    // TODO: 实现
+    return '附近方块信息需要扫描';
+  }
+
+  private getContainerCacheInfo(): string {
+    // TODO: 实现
+    return '暂无容器缓存信息';
+  }
+
+  private getChatHistory(): string {
+    const recentConversations = this.state.memory.conversation.getRecent(5);
+    if (recentConversations.length === 0) {
+      return '暂无聊天记录';
+    }
+    return recentConversations.map(c => `[${c.speaker}]: ${c.message}`).join('\n');
+  }
+
+  private getJudgeGuidance(): string {
+    // TODO: 实现
+    return '';
+  }
+}
+
+// 简化后的 MainDecisionLoop
+export class MainDecisionLoop extends BaseLoop<AgentState> {
+  private llmManager: LLMManager;
+  private dataCollector: PromptDataCollector;
+
+  constructor(state: AgentState, llmManager: LLMManager) {
+    super(state, 'MainDecisionLoop');
+    this.llmManager = llmManager;
+    this.dataCollector = new PromptDataCollector(state);
+  }
+
+  private async executeDecisionCycle(): Promise<void> {
+    // 1. 收集数据（职责分离）
+    const inputData = this.dataCollector.collectAllData();
+
+    // 2. 生成提示词
+    const prompt = promptManager.generatePrompt('main_thinking', inputData);
+
+    // 3. 调用 LLM
+    const response = await this.llmManager.chat([{ role: 'user', content: prompt }]);
+
+    // 4-8. 其他处理...
+  }
+}
+```
+
+---
+
+### 🟡 问题 5: 全局状态使用不规范 (中等)
+
+#### 问题描述
+
+`globalGameState` 的使用方式不一致：
+
+**直接导入使用**
+
+```typescript:25:25
+import { globalGameState } from '@/core/state/GameState';
+```
+
+**通过 context 访问**
+
+```typescript:73:79
+const gameContext: GameContext = {
+  gameState: context.gameState,
+  blockCache: context.blockCache,
+  containerCache: context.containerCache,
+  locationManager: context.locationManager,
+  logger: context.logger,
+};
+```
+
+#### 问题
+
+1. **访问方式不统一** - 有些地方直接导入，有些通过 context
+2. **依赖不明确** - 难以追踪哪些代码依赖 GameState
+3. **测试困难** - 全局状态难以 mock
+4. **并发问题隐患** - 如果将来支持多 bot，全局状态会冲突
+
+#### 优化建议
+
+**统一通过 RuntimeContext 访问**
+
+```typescript
+// ❌ 不要这样
+import { globalGameState } from '@/core/state/GameState';
+const health = globalGameState.health;
+
+// ✅ 应该这样
+class SomeClass {
+  constructor(private context: RuntimeContext) {}
+
+  doSomething() {
+    const health = this.context.gameState.health;
+  }
+}
+```
+
+**如果需要全局访问，使用服务定位器模式**
+
+```typescript
+/**
+ * 服务定位器 - 用于需要全局访问但又希望保持可测试性的场景
+ */
+class ServiceLocator {
+  private static instances = new Map<string, any>();
+
+  static register<T>(name: string, instance: T): void {
+    this.instances.set(name, instance);
+  }
+
+  static get<T>(name: string): T {
+    const instance = this.instances.get(name);
+    if (!instance) {
+      throw new Error(`Service ${name} not registered`);
+    }
+    return instance as T;
+  }
+
+  static clear(): void {
+    this.instances.clear();
+  }
+}
+
+// 注册
+ServiceLocator.register('gameState', globalGameState);
+
+// 使用
+const gameState = ServiceLocator.get<GameState>('gameState');
+
+// 测试时可以替换
+ServiceLocator.register('gameState', mockGameState);
+```
+
+---
+
+### 🟡 问题 6: ModeManager 和决策循环职责重叠 (中等)
+
+#### 问题描述
+
+`ModeManager` 负责模式管理，但 `MainDecisionLoop` 也要检查模式：
+
+```typescript:46:52
+// 检查是否允许 LLM 决策
+if (!this.state.modeManager.canUseLLMDecision()) {
+  const autoSwitched = await this.state.modeManager.checkAutoTransitions();
+  if (!autoSwitched) {
+    await this.sleep(1000);
+  }
+  return;
+}
+```
+
+#### 问题
+
+1. **职责不清** - 谁负责决定是否执行决策？
+2. **逻辑分散** - 模式切换逻辑分布在多个地方
+3. **扩展困难** - 添加新模式需要修改多处代码
+
+#### 优化建议
+
+**引入策略模式 + 责任链模式**
+
+```typescript
+/**
+ * 决策策略接口
+ */
+interface DecisionStrategy {
+  canExecute(state: AgentState): boolean;
+  execute(state: AgentState): Promise<void>;
+  getPriority(): number;
+}
+
+/**
+ * LLM 决策策略
+ */
+class LLMDecisionStrategy implements DecisionStrategy {
+  constructor(
+    private llmManager: LLMManager,
+    private dataCollector: PromptDataCollector,
+  ) {}
+
+  canExecute(state: AgentState): boolean {
+    // 只有在允许 LLM 决策的模式下才执行
+    return state.modeManager.canUseLLMDecision();
+  }
+
+  async execute(state: AgentState): Promise<void> {
+    // 执行 LLM 决策
+    const inputData = this.dataCollector.collectAllData();
+    const prompt = promptManager.generatePrompt('main_thinking', inputData);
+    // ... 其余逻辑
+  }
+
+  getPriority(): number {
+    return 10;
+  }
+}
+
+/**
+ * 模式自动切换策略
+ */
+class AutoModeSwitchStrategy implements DecisionStrategy {
+  canExecute(state: AgentState): boolean {
+    // 总是可以检查模式切换
+    return true;
+  }
+
+  async execute(state: AgentState): Promise<void> {
+    await state.modeManager.checkAutoTransitions();
+  }
+
+  getPriority(): number {
+    return 100; // 高优先级
+  }
+}
+
+/**
+ * 战斗策略
+ */
+class CombatStrategy implements DecisionStrategy {
+  canExecute(state: AgentState): boolean {
+    return state.modeManager.getCurrentMode() === ModeType.COMBAT;
+  }
+
+  async execute(state: AgentState): Promise<void> {
+    // 执行战斗逻辑
+  }
+
+  getPriority(): number {
+    return 50;
+  }
+}
+
+/**
+ * 决策策略管理器
+ */
+class DecisionStrategyManager {
+  private strategies: DecisionStrategy[] = [];
+
+  addStrategy(strategy: DecisionStrategy): void {
+    this.strategies.push(strategy);
+    // 按优先级排序
+    this.strategies.sort((a, b) => b.getPriority() - a.getPriority());
+  }
+
+  async executeStrategies(state: AgentState): Promise<boolean> {
+    for (const strategy of this.strategies) {
+      if (strategy.canExecute(state)) {
+        await strategy.execute(state);
+        return true; // 执行了一个策略就返回
+      }
+    }
+    return false; // 没有策略可执行
+  }
+}
+
+/**
+ * 简化后的 MainDecisionLoop
+ */
+export class MainDecisionLoop extends BaseLoop<AgentState> {
+  private strategyManager: DecisionStrategyManager;
+
+  constructor(state: AgentState, llmManager: LLMManager) {
+    super(state, 'MainDecisionLoop');
+
+    this.strategyManager = new DecisionStrategyManager();
+
+    // 注册策略
+    this.strategyManager.addStrategy(new AutoModeSwitchStrategy());
+    this.strategyManager.addStrategy(new CombatStrategy());
+    this.strategyManager.addStrategy(new LLMDecisionStrategy(llmManager, new PromptDataCollector(state)));
+  }
+
+  protected async runLoopIteration(): Promise<void> {
+    // 检查中断
+    if (this.state.interrupt.isInterrupted()) {
+      this.handleInterrupt();
+      return;
+    }
+
+    // 执行策略
+    const executed = await this.strategyManager.executeStrategies(this.state);
+
+    if (!executed) {
+      // 没有策略执行，等待一下
+      await this.sleep(1000);
+    }
+  }
+}
+```
+
+---
+
+### 🔴 问题 7: 缓存系统实现不完整 (严重)
+
+#### 问题描述
+
+`BlockCache`, `ContainerCache`, `LocationManager` 都是占位实现：
+
+```typescript:9:55
+export class BlockCache {
+  private cache: Map<string, any> = new Map();
+  private logger: Logger;
+
+  constructor() {
+    this.logger = getLogger('BlockCache');
+  }
+
+  /**
+   * 获取方块
+   */
+  getBlock(x: number, y: number, z: number): any | null {
+    const key = `${x},${y},${z}`;
+    return this.cache.get(key) || null;
+  }
+
+  /**
+   * 设置方块
+   */
+  setBlock(x: number, y: number, z: number, block: any): void {
+    const key = `${x},${y},${z}`;
+    this.cache.set(key, block);
+  }
+
+  /**
+   * 保存缓存
+   */
+  async save(): Promise<void> {
+    // TODO: 实现持久化
+    this.logger.info('BlockCache 保存完成');
+  }
+
+  /**
+   * 加载缓存
+   */
+  async load(): Promise<void> {
+    // TODO: 实现加载
+    this.logger.info('BlockCache 加载完成');
+  }
+
+  /**
+   * 清空缓存
+   */
+  clear(): void {
+    this.cache.clear();
+  }
+}
+```
+
+#### 问题
+
+1. **接口不明确** - 没有定义接口，只有实现
+2. **功能不完整** - save/load 只是占位
+3. **类型不安全** - 使用 `any` 类型
+4. **职责不清** - 缓存策略（LRU、TTL）在哪里？
+
+#### 优化建议
+
+**定义清晰的接口和实现**
+
+```typescript
+/**
+ * 缓存接口
+ */
+interface ICache<K, V> {
+  get(key: K): V | null;
+  set(key: K, value: V): void;
+  has(key: K): boolean;
+  delete(key: K): boolean;
+  clear(): void;
+  size(): number;
+}
+
+/**
+ * 持久化缓存接口
+ */
+interface IPersistentCache<K, V> extends ICache<K, V> {
+  save(): Promise<void>;
+  load(): Promise<void>;
+}
+
+/**
+ * 方块位置
+ */
+interface BlockPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * 方块信息
+ */
+interface BlockInfo {
+  type: string;
+  name: string;
+  position: BlockPosition;
+  metadata?: any;
+  timestamp: number;
+}
+
+/**
+ * LRU 缓存实现
+ */
+class LRUCache<K, V> implements ICache<K, V> {
+  private cache: Map<K, V>;
+  private readonly maxSize: number;
+
+  constructor(maxSize: number = 1000) {
+    this.cache = new Map();
+    this.maxSize = maxSize;
+  }
+
+  get(key: K): V | null {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      // LRU: 访问后移到最后
+      this.cache.delete(key);
+      this.cache.set(key, value);
+      return value;
+    }
+    return null;
+  }
+
+  set(key: K, value: V): void {
+    // 如果已存在，先删除
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+
+    // 如果超过容量，删除最早的
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+
+    this.cache.set(key, value);
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key);
+  }
+
+  delete(key: K): boolean {
+    return this.cache.delete(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+
+  entries(): IterableIterator<[K, V]> {
+    return this.cache.entries();
+  }
+}
+
+/**
+ * 方块缓存实现
+ */
+export class BlockCache implements IPersistentCache<string, BlockInfo> {
+  private cache: LRUCache<string, BlockInfo>;
+  private logger: Logger;
+  private persistPath: string;
+
+  constructor(options?: { maxSize?: number; persistPath?: string }) {
+    this.cache = new LRUCache(options?.maxSize || 10000);
+    this.persistPath = options?.persistPath || 'data/block_cache.json';
+    this.logger = getLogger('BlockCache');
+  }
+
+  get(key: string): BlockInfo | null {
+    return this.cache.get(key);
+  }
+
+  set(key: string, value: BlockInfo): void {
+    this.cache.set(key, value);
+  }
+
+  has(key: string): boolean {
+    return this.cache.has(key);
+  }
+
+  delete(key: string): boolean {
+    return this.cache.delete(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  size(): number {
+    return this.cache.size();
+  }
+
+  /**
+   * 通过坐标获取方块
+   */
+  getBlock(x: number, y: number, z: number): BlockInfo | null {
+    const key = this.makeKey(x, y, z);
+    return this.get(key);
+  }
+
+  /**
+   * 通过坐标设置方块
+   */
+  setBlock(x: number, y: number, z: number, block: BlockInfo): void {
+    const key = this.makeKey(x, y, z);
+    this.set(key, block);
+  }
+
+  /**
+   * 保存到文件
+   */
+  async save(): Promise<void> {
+    try {
+      const data: Array<[string, BlockInfo]> = [];
+      for (const [key, value] of this.cache.entries()) {
+        data.push([key, value]);
+      }
+
+      await fs.writeFile(this.persistPath, JSON.stringify(data, null, 2), 'utf-8');
+
+      this.logger.info(`保存了 ${data.length} 个方块缓存`);
+    } catch (error) {
+      this.logger.error('保存方块缓存失败', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 从文件加载
+   */
+  async load(): Promise<void> {
+    try {
+      const content = await fs.readFile(this.persistPath, 'utf-8');
+      const data: Array<[string, BlockInfo]> = JSON.parse(content);
+
+      this.clear();
+      for (const [key, value] of data) {
+        this.set(key, value);
+      }
+
+      this.logger.info(`加载了 ${data.length} 个方块缓存`);
+    } catch (error) {
+      if ((error as any).code === 'ENOENT') {
+        this.logger.info('方块缓存文件不存在，跳过加载');
+      } else {
+        this.logger.error('加载方块缓存失败', error);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * 清理过期缓存
+   */
+  cleanupExpired(maxAge: number = 3600000): void {
+    const now = Date.now();
+    const keysToDelete: string[] = [];
+
+    for (const [key, value] of this.cache.entries()) {
+      if (now - value.timestamp > maxAge) {
+        keysToDelete.push(key);
+      }
+    }
+
+    for (const key of keysToDelete) {
+      this.delete(key);
+    }
+
+    if (keysToDelete.length > 0) {
+      this.logger.info(`清理了 ${keysToDelete.length} 个过期方块缓存`);
+    }
+  }
+
+  private makeKey(x: number, y: number, z: number): string {
+    return `${x},${y},${z}`;
+  }
+}
+```
+
+---
+
+### 🟠 问题 8: LLMManager 在多处创建 (中等)
+
+#### 问题描述
+
+`LLMManager` 既有全局创建，又在 `MainDecisionLoop` 中可能创建新实例：
+
+**全局创建（main.ts）**
+
+```typescript:138:141
+this.llmManager = createLLMManager(this.config.llm, this.logger);
+this.logger.info('✅ LLM管理器初始化完成', {
+  provider: this.llmManager.getActiveProvider(),
+});
+```
+
+**可能的局部创建（MainDecisionLoop.ts）**
+
+```typescript:22:22
+this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
+```
+
+#### 问题
+
+1. **资源浪费** - 可能创建多个 LLMManager 实例
+2. **状态不同步** - 不同实例的用量统计、配置等不同步
+3. **职责不清** - 谁负责创建和管理 LLMManager？
+
+#### 优化建议
+
+**使用单例模式 + 依赖注入**
+
+```typescript
+/**
+ * LLMManager 工厂 - 确保单例
+ */
+class LLMManagerFactory {
+  private static instance: LLMManager | null = null;
+
+  static create(config: LLMConfig, logger?: Logger): LLMManager {
+    if (this.instance) {
+      throw new Error('LLMManager already exists');
+    }
+    this.instance = new LLMManager(config, logger);
+    return this.instance;
+  }
+
+  static getInstance(): LLMManager {
+    if (!this.instance) {
+      throw new Error('LLMManager not initialized');
+    }
+    return this.instance;
+  }
+
+  static reset(): void {
+    if (this.instance) {
+      this.instance.close();
+      this.instance = null;
+    }
+  }
+}
+
+// 在 main.ts 中创建
+this.llmManager = LLMManagerFactory.create(this.config.llm, this.logger);
+
+// 在 MainDecisionLoop 中使用
+constructor(state: AgentState, llmManager: LLMManager) {
+  super(state, 'MainDecisionLoop');
+  this.llmManager = llmManager; // 必须传入，不允许创建
+}
+```
+
+---
+
+### 🟠 问题 9: 事件监听设置分散 (中等)
+
+#### 问题描述
+
+事件监听在多个地方设置：
+
+**main.ts - 连接相关事件**
+
+```typescript:300:316
+// 连接状态事件（main.ts 只负责连接管理，不处理游戏逻辑）
+this.bot.on('error', error => {
+  this.logger.error('Bot错误', undefined, error as Error);
+});
+
+this.bot.on('kicked', reason => {
+  this.logger.warn('被服务器踢出', { reason });
+  this.handleDisconnect('kicked');
+});
+
+this.bot.on('end', reason => {
+  this.logger.warn('连接断开', { reason });
+  this.handleDisconnect('ended');
+});
+
+// 游戏事件监听已移至 Agent.ts，由 Agent 统一处理游戏逻辑
+```
+
+**Agent.ts - 游戏逻辑事件**
+
+```typescript:205:247
+private setupEventListeners(): void {
+  const { context, interrupt, modeManager } = this.state;
+
+  // 受伤事件 - 切换到战斗模式
+  context.events.on('entityHurt', async (data: any) => {
+    if (data.entity?.id === context.bot.entity?.id) {
+      // 只有当受伤的是自己时才切换模式
+      await modeManager.trySetMode(ModeType.COMBAT, '受到攻击');
+      this.state.memory.recordThought('⚔️ 受到攻击，切换到战斗模式', { entity: data.entity });
+    }
+  });
+
+  // 死亡事件 - 触发中断
+  context.events.on('death', () => {
+    interrupt.trigger('玩家死亡');
+    this.logger.warn('💀 玩家死亡');
+    this.state.memory.recordThought('💀 玩家死亡，需要重生', {});
+  });
+
+  // 重生事件 - 恢复正常状态
+  context.events.on('spawn', () => {
+    this.logger.info('🎮 玩家重生');
+    this.state.memory.recordThought('🎮 玩家重生，恢复正常活动', {});
+  });
+
+  // 健康和饥饿状态变化 - AI决策相关
+  context.events.on('health', (data: any) => {
+    const { health, food } = data;
+
+    // 低血量警告
+    if (health < 6) {
+      this.state.memory.recordThought('⚠️ 生命值过低，需要回血或进食', { health });
+    }
+
+    // 低饥饿值警告
+    if (food < 6) {
+      this.state.memory.recordThought('⚠️ 饥饿值过低，需要进食', { food });
+    }
+
+    // 记录健康状态变化
+    this.logger.debug(`健康状态更新: 生命值 ${health}/20, 饥饿值 ${food}/20`);
+  });
+}
+```
+
+**GameState.ts - 状态更新事件**
+
+```typescript:118:156
+// 监听健康变化
+bot.on('health', () => {
+  this.updateHealth(bot);
+  this.updateFood(bot);
+});
+
+// 监听位置移动
+bot.on('move', () => {
+  this.updatePosition(bot);
+});
+
+// 监听经验变化
+bot.on('experience', () => {
+  this.updateExperience(bot);
+});
+
+// 监听物品栏变化
+bot.on('windowUpdate', () => {
+  this.updateInventory(bot);
+});
+
+// 监听天气和时间
+bot.on('time', () => {
+  this.timeOfDay = bot.time.timeOfDay;
+});
+
+bot.on('weather', () => {
+  this.weather = bot.thunderState ? 'thunder' : bot.isRaining ? 'rain' : 'clear';
+});
+
+// 监听睡眠状态
+bot.on('sleep', () => {
+  this.isSleeping = true;
+});
+
+bot.on('wake', () => {
+  this.isSleeping = false;
+});
+```
+
+#### 问题
+
+1. **职责分散** - 事件处理逻辑分散在多个文件
+2. **难以追踪** - 不清楚哪些事件被监听，在哪里处理
+3. **内存泄漏风险** - 事件监听器可能没有正确清理
+4. **重复监听** - 同一事件可能在多处监听
+
+#### 优化建议
+
+**引入事件路由器**
+
+```typescript
+/**
+ * 事件处理器接口
+ */
+interface IEventHandler {
+  readonly eventName: string;
+  handle(data: any): void | Promise<void>;
+}
+
+/**
+ * 事件路由器 - 统一管理所有事件监听
+ */
+class EventRouter {
+  private handlers = new Map<string, IEventHandler[]>();
+  private logger: Logger;
+
+  constructor(logger?: Logger) {
+    this.logger = logger || getLogger('EventRouter');
+  }
+
+  /**
+   * 注册事件处理器
+   */
+  register(handler: IEventHandler): void {
+    const handlers = this.handlers.get(handler.eventName) || [];
+    handlers.push(handler);
+    this.handlers.set(handler.eventName, handlers);
+    this.logger.debug(`注册事件处理器: ${handler.eventName} -> ${handler.constructor.name}`);
+  }
+
+  /**
+   * 批量注册
+   */
+  registerAll(handlers: IEventHandler[]): void {
+    for (const handler of handlers) {
+      this.register(handler);
+    }
+  }
+
+  /**
+   * 绑定到 Bot
+   */
+  bindToBot(bot: Bot): void {
+    for (const [eventName, handlers] of this.handlers.entries()) {
+      bot.on(eventName, async (data: any) => {
+        for (const handler of handlers) {
+          try {
+            await handler.handle(data);
+          } catch (error) {
+            this.logger.error(`事件处理器执行失败: ${handler.constructor.name}`, error);
+          }
+        }
+      });
+    }
+    this.logger.info(`绑定了 ${this.handlers.size} 个事件到 Bot`);
+  }
+
+  /**
+   * 清理所有监听器
+   */
+  cleanup(bot: Bot): void {
+    for (const eventName of this.handlers.keys()) {
+      bot.removeAllListeners(eventName);
+    }
+    this.handlers.clear();
+  }
+}
+
+/**
+ * 具体的事件处理器
+ */
+
+// 健康事件处理器
+class HealthEventHandler implements IEventHandler {
+  readonly eventName = 'health';
+
+  constructor(
+    private gameState: GameState,
+    private memory: MemoryManager,
+  ) {}
+
+  async handle(data: any): Promise<void> {
+    // 更新状态
+    this.gameState.updateHealth(data.health);
+    this.gameState.updateFood(data.food);
+
+    // 记录警告
+    if (data.health < 6) {
+      this.memory.recordThought('⚠️ 生命值过低，需要回血或进食', { health: data.health });
+    }
+
+    if (data.food < 6) {
+      this.memory.recordThought('⚠️ 饥饿值过低，需要进食', { food: data.food });
+    }
+  }
+}
+
+// 受伤事件处理器
+class EntityHurtEventHandler implements IEventHandler {
+  readonly eventName = 'entityHurt';
+
+  constructor(
+    private bot: Bot,
+    private modeManager: ModeManager,
+    private memory: MemoryManager,
+  ) {}
+
+  async handle(data: any): Promise<void> {
+    // 只处理自己受伤
+    if (data.entity?.id !== this.bot.entity?.id) {
+      return;
+    }
+
+    await this.modeManager.trySetMode(ModeType.COMBAT, '受到攻击');
+    this.memory.recordThought('⚔️ 受到攻击，切换到战斗模式', { entity: data.entity });
+  }
+}
+
+// 死亡事件处理器
+class DeathEventHandler implements IEventHandler {
+  readonly eventName = 'death';
+
+  constructor(
+    private interrupt: InterruptController,
+    private memory: MemoryManager,
+    private logger: Logger,
+  ) {}
+
+  async handle(): Promise<void> {
+    this.interrupt.trigger('玩家死亡');
+    this.logger.warn('💀 玩家死亡');
+    this.memory.recordThought('💀 玩家死亡，需要重生', {});
+  }
+}
+
+/**
+ * 事件处理器工厂
+ */
+class EventHandlerFactory {
+  static createAllHandlers(bot: Bot, state: AgentState): IEventHandler[] {
+    const { context, memory, modeManager, interrupt } = state;
+
+    return [
+      new HealthEventHandler(context.gameState, memory),
+      new EntityHurtEventHandler(bot, modeManager, memory),
+      new DeathEventHandler(interrupt, memory, context.logger),
+      // ... 其他处理器
+    ];
+  }
+}
+
+// 使用方式
+class Agent {
+  private eventRouter: EventRouter;
+
+  constructor(/* ... */) {
+    // 创建事件路由器
+    this.eventRouter = new EventRouter(this.logger);
+
+    // 注册所有处理器
+    const handlers = EventHandlerFactory.createAllHandlers(this.bot, this.state);
+    this.eventRouter.registerAll(handlers);
+
+    // 绑定到 bot
+    this.eventRouter.bindToBot(this.bot);
+  }
+
+  async stop(): Promise<void> {
+    // 清理事件监听
+    this.eventRouter.cleanup(this.bot);
+    // ...
+  }
+}
+```
+
+---
+
+### 🟡 问题 10: 提示词系统初始化时机不当 (中等)
+
+#### 问题描述
+
+`promptManager` 是全局单例，但在 `MainDecisionLoop` 构造函数中初始化：
+
+```typescript:24:29
+// 初始化提示词模板（只初始化一次）
+if (!this.promptsInitialized) {
+  initAllTemplates();
+  this.promptsInitialized = true;
+  this.logger.info('✅ 提示词模板初始化完成');
+}
+```
+
+#### 问题
+
+1. **职责不清** - MainDecisionLoop 不应该负责初始化全局资源
+2. **依赖隐式** - 使用全局 `promptManager` 但初始化在构造函数中
+3. **测试困难** - 难以 mock promptManager
+4. **时机不当** - 应该在应用启动时初始化，而不是在循环创建时
+
+#### 优化建议
+
+**在应用启动时初始化**
+
+```typescript
+// main.ts
+class MaicraftNext {
+  async initialize(): Promise<void> {
+    try {
+      // 1. 加载配置
+      await this.loadConfiguration();
+
+      // 2. 初始化日志系统
+      this.logger.info('🚀 Maicraft-Next 正在启动...');
+
+      // 3. 初始化提示词系统
+      await this.initializePromptSystem();
+
+      // 4. 初始化LLM管理器
+      await this.initializeLLM();
+
+      // 5. 连接到Minecraft服务器
+      await this.connectToMinecraft();
+
+      // 6. 初始化核心系统
+      await this.initializeCore();
+
+      // 7. 初始化AI代理
+      await this.initializeAgent();
+
+      // 8. 启动AI代理
+      await this.startAgent();
+
+      this.logger.info('✅ Maicraft-Next 启动完成');
+    } catch (error) {
+      this.logger.error('初始化失败', undefined, error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * 初始化提示词系统
+   */
+  private async initializePromptSystem(): Promise<void> {
+    this.logger.info('初始化提示词系统...');
+
+    // 初始化所有模板
+    initAllTemplates();
+
+    // 验证模板
+    const templates = promptManager.listTemplates();
+    this.logger.info(`✅ 提示词系统初始化完成，加载了 ${templates.length} 个模板`);
+  }
+}
+
+// MainDecisionLoop 中不再初始化
+export class MainDecisionLoop extends BaseLoop<AgentState> {
+  constructor(state: AgentState, llmManager: LLMManager) {
+    super(state, 'MainDecisionLoop');
+    this.llmManager = llmManager;
+    // 不再初始化 promptManager
+  }
+}
+```
+
+---
+
+## 具体优化建议
+
+### 📦 建议 1: 引入依赖注入容器
+
+**目标**: 解决依赖管理混乱、职责不清的问题
+
+**实施方案**:
+
+创建一个简单的 DI 容器：
+
+```typescript
+/**
+ * 依赖注入容器
+ */
+class DIContainer {
+  private services = new Map<string, any>();
+  private factories = new Map<string, () => any>();
+
+  /**
+   * 注册单例服务
+   */
+  registerSingleton<T>(name: string, instance: T): void {
+    this.services.set(name, instance);
+  }
+
+  /**
+   * 注册工厂
+   */
+  registerFactory<T>(name: string, factory: () => T): void {
+    this.factories.set(name, factory);
+  }
+
+  /**
+   * 获取服务
+   */
+  get<T>(name: string): T {
+    // 先查找已注册的实例
+    if (this.services.has(name)) {
+      return this.services.get(name) as T;
+    }
+
+    // 然后查找工厂
+    if (this.factories.has(name)) {
+      const factory = this.factories.get(name)!;
+      const instance = factory();
+      this.services.set(name, instance); // 缓存实例
+      return instance as T;
+    }
+
+    throw new Error(`Service ${name} not found`);
+  }
+
+  /**
+   * 检查服务是否存在
+   */
+  has(name: string): boolean {
+    return this.services.has(name) || this.factories.has(name);
+  }
+
+  /**
+   * 清空容器
+   */
+  clear(): void {
+    this.services.clear();
+    this.factories.clear();
+  }
+}
+
+// 全局容器实例
+export const container = new DIContainer();
+
+// 服务名称常量
+export const ServiceNames = {
+  BOT: 'bot',
+  CONFIG: 'config',
+  LOGGER: 'logger',
+  GAME_STATE: 'gameState',
+  BLOCK_CACHE: 'blockCache',
+  CONTAINER_CACHE: 'containerCache',
+  LOCATION_MANAGER: 'locationManager',
+  EVENT_EMITTER: 'eventEmitter',
+  CONTEXT_MANAGER: 'contextManager',
+  ACTION_EXECUTOR: 'actionExecutor',
+  LLM_MANAGER: 'llmManager',
+  AGENT_STATE: 'agentState',
+  AGENT: 'agent',
+} as const;
+
+// 在 main.ts 中注册所有服务
+class MaicraftNext {
+  async initialize(): Promise<void> {
+    // 1. 注册基础服务
+    container.registerSingleton(ServiceNames.CONFIG, this.config!);
+    container.registerSingleton(ServiceNames.LOGGER, this.logger);
+    container.registerSingleton(ServiceNames.BOT, this.bot!);
+    container.registerSingleton(ServiceNames.GAME_STATE, globalGameState);
+
+    // 2. 注册缓存服务（工厂模式，延迟创建）
+    container.registerFactory(ServiceNames.BLOCK_CACHE, () => new BlockCache());
+    container.registerFactory(ServiceNames.CONTAINER_CACHE, () => new ContainerCache());
+    container.registerFactory(ServiceNames.LOCATION_MANAGER, () => new LocationManager());
+
+    // 3. 注册 ContextManager
+    container.registerFactory(ServiceNames.CONTEXT_MANAGER, () => {
+      const manager = new ContextManager();
+      manager.createContext({
+        bot: container.get(ServiceNames.BOT),
+        executor: container.get(ServiceNames.ACTION_EXECUTOR),
+        config: container.get(ServiceNames.CONFIG),
+        logger: container.get(ServiceNames.LOGGER),
+      });
+      return manager;
+    });
+
+    // 4. 注册 ActionExecutor
+    container.registerFactory(ServiceNames.ACTION_EXECUTOR, () => {
+      const contextManager = container.get<ContextManager>(ServiceNames.CONTEXT_MANAGER);
+      const logger = container.get<Logger>(ServiceNames.LOGGER);
+      return new ActionExecutor(contextManager, logger);
+    });
+
+    // 5. 注册 LLMManager
+    container.registerSingleton(ServiceNames.LLM_MANAGER, this.llmManager!);
+
+    // 6. 注册 AgentState
+    container.registerFactory(ServiceNames.AGENT_STATE, () => {
+      const contextFactory = new AgentContextFactory();
+      const context = container.get<ContextManager>(ServiceNames.CONTEXT_MANAGER).getContext();
+      return contextFactory.createAgentState(context, container.get(ServiceNames.CONFIG));
+    });
+
+    // 7. 注册 Agent
+    container.registerFactory(ServiceNames.AGENT, () => {
+      const state = container.get<AgentState>(ServiceNames.AGENT_STATE);
+      const llmManager = container.get<LLMManager>(ServiceNames.LLM_MANAGER);
+      const logger = container.get<Logger>(ServiceNames.LOGGER);
+      return new Agent(state, llmManager, logger);
+    });
+
+    // 8. 获取 Agent 并初始化
+    this.agent = container.get<Agent>(ServiceNames.AGENT);
+    await this.agent.initialize();
+  }
+
+  async shutdown(): Promise<void> {
+    // 清空容器
+    container.clear();
+  }
+}
+
+// 在其他地方使用
+class SomeClass {
+  private logger: Logger;
+
+  constructor() {
+    // 从容器获取依赖
+    this.logger = container.get<Logger>(ServiceNames.LOGGER);
+  }
+}
+```
+
+---
+
+### 🏗️ 建议 2: 引入分层架构
+
+**目标**: 明确各层职责，降低耦合
+
+**分层结构**:
+
+```
+┌─────────────────────────────────────────────────┐
+│           应用层 (Application Layer)             │
+│  - main.ts                                      │
+│  - MaicraftNext 类                              │
+│  - 启动/关闭逻辑                                 │
+└─────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────┐
+│          AI 代理层 (Agent Layer)                 │
+│  - Agent                                        │
+│  - MainDecisionLoop, ChatLoop                   │
+│  - MemoryManager, GoalPlanningManager           │
+│  - ModeManager                                  │
+└─────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────┐
+│          领域层 (Domain Layer)                   │
+│  - ActionExecutor                               │
+│  - Action 实现                                   │
+│  - GameState                                    │
+│  - 业务逻辑                                      │
+└─────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────┐
+│       基础设施层 (Infrastructure Layer)          │
+│  - LLMManager                                   │
+│  - EventEmitter                                 │
+│  - BlockCache, ContainerCache                   │
+│  - Logger, Config                               │
+│  - Mineflayer Bot                               │
+└─────────────────────────────────────────────────┘
+```
+
+**依赖规则**:
+
+- ✅ 上层可以依赖下层
+- ❌ 下层不能依赖上层
+- ✅ 同层之间可以通过接口依赖
+- ❌ 跨层依赖必须通过依赖注入
+
+---
+
+### 🧪 建议 3: 提高可测试性
+
+**目标**: 使代码易于单元测试
+
+**措施**:
+
+1. **依赖注入，而不是直接创建**
+
+```typescript
+// ❌ 不好：直接创建依赖
+class Agent {
+  private memory: MemoryManager;
+
+  constructor() {
+    this.memory = new MemoryManager(); // 硬编码依赖
+  }
+}
+
+// ✅ 好：依赖注入
+class Agent {
+  constructor(private memory: MemoryManager) {
+    // 依赖从外部传入
+  }
+}
+
+// 测试时可以注入 mock
+const mockMemory = new MockMemoryManager();
+const agent = new Agent(mockMemory);
+```
+
+2. **使用接口，而不是具体类**
+
+```typescript
+// 定义接口
+interface IMemoryManager {
+  recordThought(content: string): void;
+  recordDecision(intention: string, actions: any[]): void;
+  buildContextSummary(options: any): string;
+}
+
+// Agent 依赖接口
+class Agent {
+  constructor(private memory: IMemoryManager) {}
+}
+
+// 测试时使用 mock 实现
+class MockMemoryManager implements IMemoryManager {
+  recordThought(content: string): void {
+    // mock 实现
+  }
+  // ...
+}
+```
+
+3. **提取函数，减少副作用**
+
+```typescript
+// ❌ 不好：副作用多，难以测试
+class MainDecisionLoop {
+  async executeDecisionCycle(): Promise<void> {
+    const data = this.getAllData(); // 依赖多个状态
+    const prompt = promptManager.generatePrompt('main_thinking', data); // 全局依赖
+    const response = await this.llmManager.chat([...]); // 网络请求
+    // ...
+  }
+}
+
+// ✅ 好：职责分离，易于测试
+class MainDecisionLoop {
+  constructor(
+    private dataCollector: IDataCollector,
+    private promptGenerator: IPromptGenerator,
+    private llmClient: ILLMClient
+  ) {}
+
+  async executeDecisionCycle(): Promise<void> {
+    const data = this.dataCollector.collect();
+    const prompt = this.promptGenerator.generate('main_thinking', data);
+    const response = await this.llmClient.chat([...]);
+    // ...
+  }
+}
+
+// 测试时可以 mock 所有依赖
+const mockDataCollector = { collect: () => ({ /* ... */ }) };
+const mockPromptGenerator = { generate: () => 'test prompt' };
+const mockLLMClient = { chat: async () => ({ /* ... */ }) };
+
+const loop = new MainDecisionLoop(
+  mockDataCollector,
+  mockPromptGenerator,
+  mockLLMClient
+);
+```
+
+---
+
+### 📝 建议 4: 统一错误处理
+
+**目标**: 统一的错误处理机制
+
+**实施方案**:
+
+```typescript
+/**
+ * 自定义错误基类
+ */
+abstract class BaseError extends Error {
+  abstract readonly code: string;
+  readonly timestamp: number;
+
+  constructor(
+    message: string,
+    public readonly context?: any,
+  ) {
+    super(message);
+    this.name = this.constructor.name;
+    this.timestamp = Date.now();
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+/**
+ * 具体错误类型
+ */
+class ActionExecutionError extends BaseError {
+  readonly code = 'ACTION_EXECUTION_ERROR';
+
+  constructor(
+    message: string,
+    public readonly actionId: string,
+    context?: any,
+  ) {
+    super(message, context);
+  }
+}
+
+class LLMError extends BaseError {
+  readonly code = 'LLM_ERROR';
+
+  constructor(
+    message: string,
+    public readonly provider: string,
+    context?: any,
+  ) {
+    super(message, context);
+  }
+}
+
+class ConfigurationError extends BaseError {
+  readonly code = 'CONFIGURATION_ERROR';
+}
+
+/**
+ * 错误处理器
+ */
+class ErrorHandler {
+  constructor(private logger: Logger) {}
+
+  handle(error: Error): void {
+    if (error instanceof BaseError) {
+      this.handleCustomError(error);
+    } else {
+      this.handleUnknownError(error);
+    }
+  }
+
+  private handleCustomError(error: BaseError): void {
+    this.logger.error(`[${error.code}] ${error.message}`, {
+      code: error.code,
+      context: error.context,
+      timestamp: error.timestamp,
+      stack: error.stack,
+    });
+
+    // 根据错误类型执行特定处理
+    if (error instanceof ActionExecutionError) {
+      // 处理动作执行错误
+    } else if (error instanceof LLMError) {
+      // 处理 LLM 错误（可能需要重试或切换提供商）
+    }
+  }
+
+  private handleUnknownError(error: Error): void {
+    this.logger.error(`[UNKNOWN_ERROR] ${error.message}`, {
+      stack: error.stack,
+    });
+  }
+}
+
+// 使用方式
+const errorHandler = new ErrorHandler(logger);
+
+try {
+  await executor.execute('mine_block', { name: 'stone' });
+} catch (error) {
+  errorHandler.handle(error as Error);
+}
+```
+
+---
+
+### 📊 建议 5: 引入配置验证
+
+**目标**: 在启动时验证配置的完整性和正确性
+
+```typescript
+/**
+ * 配置验证器
+ */
+class ConfigValidator {
+  private errors: string[] = [];
+  private warnings: string[] = [];
+
+  validate(config: AppConfig): ValidationResult {
+    this.errors = [];
+    this.warnings = [];
+
+    // 验证 Minecraft 配置
+    this.validateMinecraftConfig(config.minecraft);
+
+    // 验证 LLM 配置
+    this.validateLLMConfig(config.llm);
+
+    // 验证 Agent 配置
+    this.validateAgentConfig(config.agent);
+
+    return {
+      isValid: this.errors.length === 0,
+      errors: this.errors,
+      warnings: this.warnings,
+    };
+  }
+
+  private validateMinecraftConfig(config: any): void {
+    if (!config.host) {
+      this.errors.push('minecraft.host is required');
+    }
+
+    if (!config.port) {
+      this.errors.push('minecraft.port is required');
+    } else if (config.port < 1 || config.port > 65535) {
+      this.errors.push('minecraft.port must be between 1 and 65535');
+    }
+
+    if (!config.username) {
+      this.errors.push('minecraft.username is required');
+    } else if (config.username.length < 3 || config.username.length > 16) {
+      this.errors.push('minecraft.username must be between 3 and 16 characters');
+    }
+  }
+
+  private validateLLMConfig(config: any): void {
+    if (!config.default_provider) {
+      this.errors.push('llm.default_provider is required');
+    }
+
+    // 验证至少有一个提供商启用
+    const providersEnabled = [config.openai?.enabled, config.azure?.enabled, config.anthropic?.enabled].some(enabled => enabled);
+
+    if (!providersEnabled) {
+      this.errors.push('At least one LLM provider must be enabled');
+    }
+
+    // 验证 OpenAI 配置
+    if (config.openai?.enabled) {
+      if (!config.openai.api_key) {
+        this.errors.push('llm.openai.api_key is required when openai is enabled');
+      }
+
+      if (!config.openai.model) {
+        this.warnings.push('llm.openai.model is not set, will use default');
+      }
+    }
+  }
+
+  private validateAgentConfig(config: any): void {
+    if (!config?.goal) {
+      this.warnings.push('agent.goal is not set, will use default');
+    }
+  }
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+// 在启动时验证
+class MaicraftNext {
+  async initialize(): Promise<void> {
+    // 加载配置
+    await this.loadConfiguration();
+
+    // 验证配置
+    const validator = new ConfigValidator();
+    const result = validator.validate(this.config!);
+
+    // 输出警告
+    for (const warning of result.warnings) {
+      this.logger.warn(`配置警告: ${warning}`);
+    }
+
+    // 如果有错误，停止启动
+    if (!result.isValid) {
+      for (const error of result.errors) {
+        this.logger.error(`配置错误: ${error}`);
+      }
+      throw new ConfigurationError('Configuration validation failed');
+    }
+
+    // 继续启动...
+  }
+}
+```
+
+---
+
+## 重构优先级
+
+### 🔴 高优先级（立即处理）
+
+1. **Agent 类重构** - 使用依赖注入，分离职责
+2. **RuntimeContext 统一管理** - 引入 ContextManager
+3. **缓存系统实现** - 完善 BlockCache 等
+
+**预期收益**:
+
+- 显著提升代码可维护性
+- 解决当前的架构债务
+- 为后续扩展打好基础
+
+**实施时间**: 2-3 周
+
+---
+
+### 🟡 中优先级（近期处理）
+
+4. **ActionExecutor 职责分离** - 移除缓存管理职责
+5. **MainDecisionLoop 数据收集重构** - 引入 PromptDataCollector
+6. **事件监听统一管理** - 引入 EventRouter
+7. **提示词系统初始化优化** - 在启动时初始化
+
+**预期收益**:
+
+- 提高代码清晰度
+- 减少职责重叠
+- 提升测试覆盖率
+
+**实施时间**: 2-3 周
+
+---
+
+### 🟢 低优先级（长期优化）
+
+8. **全局状态访问规范** - 统一使用 context 或服务定位器
+9. **LLMManager 单例管理** - 使用工厂确保单例
+10. **ModeManager 和决策循环解耦** - 引入策略模式
+
+**预期收益**:
+
+- 进一步优化架构
+- 提高扩展性
+- 减少潜在 bug
+
+**实施时间**: 持续优化
+
+---
+
+## 实施路线图
+
+### 第一阶段：基础重构 (2-3 周)
+
+**目标**: 解决最紧急的架构问题
+
+**任务列表**:
+
+- [ ] 创建 `ContextManager` 类
+- [ ] 创建 `AgentContextFactory` 类
+- [ ] 重构 `Agent` 构造函数，使用工厂创建状态
+- [ ] 完善 `BlockCache`, `ContainerCache`, `LocationManager`
+- [ ] 编写单元测试覆盖重构部分
+
+**成功标准**:
+
+- Agent 类不再直接创建子系统
+- RuntimeContext 只在一处创建
+- 缓存系统功能完整
+
+---
+
+### 第二阶段：职责分离 (2-3 周)
+
+**目标**: 分离过重的职责
+
+**任务列表**:
+
+- [ ] 创建 `ActionPromptGenerator` 类
+- [ ] 从 `ActionExecutor` 移除缓存管理
+- [ ] 创建 `PromptDataCollector` 类
+- [ ] 简化 `MainDecisionLoop.getAllData()`
+- [ ] 创建 `EventRouter` 和事件处理器
+- [ ] 迁移所有事件监听到事件处理器
+
+**成功标准**:
+
+- 每个类的职责单一清晰
+- 事件监听统一管理
+- 提示词数据收集独立
+
+---
+
+### 第三阶段：依赖注入 (1-2 周)
+
+**目标**: 引入依赖注入，提高可测试性
+
+**任务列表**:
+
+- [ ] 创建 `DIContainer` 类
+- [ ] 在 `main.ts` 中注册所有服务
+- [ ] 修改各个类使用依赖注入
+- [ ] 编写测试验证 DI 工作正常
+
+**成功标准**:
+
+- 所有依赖通过 DI 容器管理
+- 单元测试覆盖率 > 70%
+- 集成测试通过
+
+---
+
+### 第四阶段：持续优化 (长期)
+
+**目标**: 持续改进架构质量
+
+**任务列表**:
+
+- [ ] 引入策略模式优化决策流程
+- [ ] 完善错误处理机制
+- [ ] 添加配置验证
+- [ ] 优化性能瓶颈
+- [ ] 完善文档
+
+**成功标准**:
+
+- 代码质量持续提升
+- 测试覆盖率 > 80%
+- 性能指标达标
+
+---
+
+## 附录：重构前后对比
+
+### 对比 1: Agent 创建
+
+**重构前**:
+
+```typescript
+const agent = new Agent(bot, executor, llmManager, config, logger);
+// Agent 内部创建所有子系统
+```
+
+**重构后**:
+
+```typescript
+const contextFactory = new AgentContextFactory();
+const context = contextFactory.createContext(bot, config);
+const state = contextFactory.createAgentState(context, config);
+const agent = new Agent(state, llmManager, logger);
+// 所有依赖显式创建和注入
+```
+
+---
+
+### 对比 2: RuntimeContext 创建
+
+**重构前**:
+
+```typescript
+// Agent.ts 中创建
+const context = this.createContext(bot, config);
+
+// ActionExecutor.ts 中又创建
+const context: RuntimeContext = {
+  bot: this.bot,
+  executor: this,
+  // ...
+};
+```
+
+**重构后**:
+
+```typescript
+// 统一由 ContextManager 创建
+const contextManager = new ContextManager();
+const context = contextManager.createContext({ bot, executor, config, logger });
+
+// ActionExecutor 使用专用上下文
+const actionContext = contextManager.createActionContext(actionName);
+```
+
+---
+
+### 对比 3: 事件监听
+
+**重构前**:
+
+```typescript
+// main.ts
+bot.on('error', ...);
+bot.on('kicked', ...);
+
+// Agent.ts
+context.events.on('entityHurt', ...);
+context.events.on('death', ...);
+
+// GameState.ts
+bot.on('health', ...);
+bot.on('move', ...);
+```
+
+**重构后**:
+
+```typescript
+// 统一注册
+const eventRouter = new EventRouter(logger);
+const handlers = EventHandlerFactory.createAllHandlers(bot, state);
+eventRouter.registerAll(handlers);
+eventRouter.bindToBot(bot);
+
+// 清理时统一移除
+eventRouter.cleanup(bot);
+```
+
+---
+
+## 总结
+
+本次架构分析发现了 **10 个主要问题**，涵盖职责分离、依赖管理、资源管理等多个方面。通过实施本文档提出的优化建议，可以显著提升代码质量、可维护性和可测试性。
+
+**关键改进**:
+
+1. ✅ **职责单一** - 每个类专注于单一职责
+2. ✅ **依赖注入** - 通过 DI 容器管理依赖
+3. ✅ **分层架构** - 清晰的层次结构
+4. ✅ **统一管理** - 上下文、事件、错误统一管理
+5. ✅ **可测试性** - 易于编写单元测试
+
+**实施建议**:
+
+- 优先处理高优先级问题
+- 每个阶段完成后进行测试
+- 保持向后兼容
+- 逐步迁移现有代码
+
+---
+
+**文档维护**:
+
+本文档应随着项目的演进持续更新。欢迎团队成员提出改进建议和补充。
+
+---
+
+**参考资料**:
+
+- [SOLID 原则](https://en.wikipedia.org/wiki/SOLID)
+- [依赖注入模式](https://en.wikipedia.org/wiki/Dependency_injection)
+- [分层架构](https://en.wikipedia.org/wiki/Multitier_architecture)
+- [设计模式](https://refactoring.guru/design-patterns)

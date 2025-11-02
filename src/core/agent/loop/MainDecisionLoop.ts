@@ -177,9 +177,13 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       includeDecisions: 8,
     });
 
+    // 获取动态生成的动作提示词
+    const availableActions = this.state.context.executor.generatePrompt();
+
     // 返回 main_thinking 模板需要的所有参数
     return {
       basic_info: basicInfo,
+      available_actions: availableActions, // 动态生成的动作列表
       eat_action: eatAction,
       kill_mob_action: killMobAction,
       failed_hint: failedHint,

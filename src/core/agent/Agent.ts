@@ -7,7 +7,6 @@ import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
 import type { Bot } from 'mineflayer';
 import type { AppConfig as Config } from '@/utils/Config';
-import type { RuntimeContext } from '@/core/context/RuntimeContext';
 import type { AgentState, AgentStatus, GameContext } from './types';
 import { InterruptController } from './InterruptController';
 import { MemoryManager } from './memory/MemoryManager';
@@ -17,12 +16,6 @@ import { ModeType } from './mode/types';
 import { MainDecisionLoop } from './loop/MainDecisionLoop';
 import { ChatLoop } from './loop/ChatLoop';
 import { ActionExecutor } from '@/core/actions/ActionExecutor';
-import { BlockCache } from '@/core/cache/BlockCache';
-import { ContainerCache } from '@/core/cache/ContainerCache';
-import { LocationManager } from '@/core/location/LocationManager';
-import { EventEmitter } from '@/core/events/EventEmitter';
-import { InterruptSignal } from '@/core/interrupt/InterruptSignal';
-import { globalGameState } from '@/core/state/GameState';
 
 export class Agent {
   // 共享状态（只读）
@@ -50,7 +43,7 @@ export class Agent {
     this.externalLogger = logger || getLogger('Agent');
     this.logger = this.externalLogger;
 
-    // 初始化共享状态
+    // 初始化共享状态（使用传入的 executor 中的 contextManager）
     this.state = this.initializeState(bot, config);
 
     // 绑定状态到 ModeManager
@@ -68,7 +61,8 @@ export class Agent {
    * 初始化共享状态
    */
   private initializeState(bot: Bot, config: Config): AgentState {
-    const context = this.createContext(bot, config);
+    // 从 executor 中获取已创建的上下文
+    const context = this.executor.getContextManager().getContext();
 
     const gameContext: GameContext = {
       gameState: context.gameState,
@@ -91,24 +85,6 @@ export class Agent {
       planningManager,
       memory,
       interrupt,
-      config,
-    };
-  }
-
-  /**
-   * 创建运行时上下文
-   */
-  private createContext(bot: Bot, config: Config): RuntimeContext {
-    return {
-      bot,
-      executor: this.executor, // 使用外部传入的 executor
-      gameState: globalGameState,
-      blockCache: this.executor['blockCache'] || new BlockCache(),
-      containerCache: this.executor['containerCache'] || new ContainerCache(),
-      locationManager: this.executor['locationManager'] || new LocationManager(),
-      events: this.executor.getEventEmitter(),
-      interruptSignal: new InterruptSignal(),
-      logger: this.externalLogger,
       config,
     };
   }

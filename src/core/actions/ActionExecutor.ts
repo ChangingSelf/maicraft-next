@@ -8,39 +8,30 @@
  * - 中断控制
  */
 
-import { Bot } from 'mineflayer';
 import { Action } from './Action';
 import { ActionId } from './ActionIds';
 import { ActionParamsMap, ActionResult, ExecuteOptions } from './types';
-import { RuntimeContext, Logger, Config, BlockCache, ContainerCache, LocationManager, createPrefixedLogger } from '../context/RuntimeContext';
-import { globalGameState } from '../state/GameState';
-import { EventEmitter } from '../events/EventEmitter';
-import { InterruptSignal } from '../interrupt/InterruptSignal';
+import { Logger } from '../context/RuntimeContext';
+import { ContextManager } from '../context/ContextManager';
 
 /**
  * 动作执行器类
  */
 export class ActionExecutor {
-  private bot: Bot;
   private actions: Map<ActionId, Action> = new Map();
-  private events: EventEmitter;
-  private baseLogger: Logger;
-  private config: Config;
+  private logger: Logger;
+  private contextManager: ContextManager;
 
-  // 缓存管理器（待实现）
-  private blockCache: BlockCache = {} as BlockCache;
-  private containerCache: ContainerCache = {} as ContainerCache;
-  private locationManager: LocationManager = {} as LocationManager;
+  constructor(contextManager: ContextManager, logger: Logger) {
+    this.contextManager = contextManager;
+    this.logger = logger;
+  }
 
-  // 当前执行的动作
-  private currentAction: string | null = null;
-  private currentInterruptSignal: InterruptSignal | null = null;
-
-  constructor(bot: Bot, logger: Logger, config: Config = {}) {
-    this.bot = bot;
-    this.baseLogger = logger;
-    this.config = config;
-    this.events = new EventEmitter(bot);
+  /**
+   * 获取上下文管理器
+   */
+  getContextManager(): ContextManager {
+    return this.contextManager;
   }
 
   /**
@@ -48,7 +39,7 @@ export class ActionExecutor {
    */
   register(action: Action): void {
     this.actions.set(action.id as ActionId, action);
-    this.baseLogger.info(`注册动作: ${action.name} (${action.id})`);
+    this.logger.info(`注册动作: ${action.name} (${action.id})`);
   }
 
   /**
@@ -63,11 +54,11 @@ export class ActionExecutor {
   /**
    * 执行动作（类型安全）
    */
-  async execute<T extends ActionId>(actionId: T, params: ActionParamsMap[T], options?: ExecuteOptions): Promise<ActionResult> {
+  async execute<T extends ActionId>(actionId: T, params: ActionParamsMap[T], _options?: ExecuteOptions): Promise<ActionResult> {
     const action = this.actions.get(actionId);
     if (!action) {
       const error = new Error(`动作 ${actionId} 未注册`);
-      this.baseLogger.error(error.message);
+      this.logger.error(error.message);
       return {
         success: false,
         message: error.message,
@@ -75,40 +66,21 @@ export class ActionExecutor {
       };
     }
 
-    // 创建带动作名前缀的 logger
-    const actionLogger = createPrefixedLogger(this.baseLogger, action.name);
-
-    // 创建中断信号
-    const interruptSignal = new InterruptSignal();
-    this.currentAction = actionId;
-    this.currentInterruptSignal = interruptSignal;
-
-    // 创建运行时上下文
-    const context: RuntimeContext = {
-      bot: this.bot,
-      executor: this,
-      gameState: globalGameState,
-      blockCache: this.blockCache,
-      containerCache: this.containerCache,
-      locationManager: this.locationManager,
-      events: this.events,
-      interruptSignal,
-      logger: actionLogger,
-      config: this.config,
-    };
+    // 使用 ContextManager 创建动作专用上下文
+    const context = this.contextManager.createActionContext(action.name);
 
     try {
-      actionLogger.info(`开始执行动作`);
+      context.logger.info(`开始执行动作`);
       const startTime = Date.now();
 
       // 执行动作
       const result = await action.execute(context, params);
 
       const duration = Date.now() - startTime;
-      actionLogger.info(`动作执行${result.success ? '成功' : '失败'}: ${result.message} (耗时: ${duration}ms)`);
+      context.logger.info(`动作执行${result.success ? '成功' : '失败'}: ${result.message} (耗时: ${duration}ms)`);
 
       // 触发自定义事件
-      this.events.emit('actionComplete', {
+      context.events.emit('actionComplete', {
         actionId,
         actionName: action.name,
         result,
@@ -118,10 +90,10 @@ export class ActionExecutor {
       return result;
     } catch (error) {
       const err = error as Error;
-      actionLogger.error(`动作执行异常:`, err);
+      context.logger.error(`动作执行异常:`, err);
 
       // 触发错误事件
-      this.events.emit('actionError', {
+      context.events.emit('actionError', {
         actionId,
         actionName: action.name,
         error: err,
@@ -132,9 +104,6 @@ export class ActionExecutor {
         message: `动作执行异常: ${err.message}`,
         error: err,
       };
-    } finally {
-      this.currentAction = null;
-      this.currentInterruptSignal = null;
     }
   }
 
@@ -142,10 +111,10 @@ export class ActionExecutor {
    * 中断所有正在执行的动作
    */
   interruptAll(reason: string): void {
-    if (this.currentInterruptSignal) {
-      this.baseLogger.warn(`中断当前动作: ${this.currentAction}, 原因: ${reason}`);
-      this.currentInterruptSignal.interrupt(reason);
-    }
+    // 中断全局上下文中的中断信号
+    const context = this.contextManager.getContext();
+    context.interruptSignal.interrupt(reason);
+    this.logger.warn(`中断所有动作，原因: ${reason}`);
   }
 
   /**
@@ -179,8 +148,9 @@ export class ActionExecutor {
   /**
    * 获取事件发射器
    */
-  getEventEmitter(): EventEmitter {
-    return this.events;
+  getEventEmitter() {
+    const context = this.contextManager.getContext();
+    return context.events;
   }
 
   /**
@@ -215,20 +185,5 @@ export class ActionExecutor {
     }
 
     return lines.join('\n');
-  }
-
-  /**
-   * 设置缓存管理器
-   */
-  setBlockCache(blockCache: BlockCache): void {
-    this.blockCache = blockCache;
-  }
-
-  setContainerCache(containerCache: ContainerCache): void {
-    this.containerCache = containerCache;
-  }
-
-  setLocationManager(locationManager: LocationManager): void {
-    this.locationManager = locationManager;
   }
 }

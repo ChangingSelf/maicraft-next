@@ -58,6 +58,8 @@ export interface ActionExecutor {
   // 后续实现
   execute(actionId: string, params: any): Promise<any>;
   interruptAll(reason: string): void;
+  generatePrompt(): string;
+  getEventEmitter(): any;
 }
 
 /**

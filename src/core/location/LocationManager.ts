@@ -4,6 +4,7 @@
  * 临时占位实现，实际功能需要完善
  */
 
+import { promises as fs } from 'fs';
 import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
 
@@ -19,9 +20,28 @@ export interface NamedLocation {
 export class LocationManager {
   private locations: Map<string, NamedLocation> = new Map();
   private logger: Logger;
+  private persistPath: string;
 
-  constructor() {
+  constructor(persistPath?: string) {
     this.logger = getLogger('LocationManager');
+    this.persistPath = persistPath || 'data/locations.json';
+  }
+
+  /**
+   * 设置位置（添加或更新）
+   */
+  setLocation(name: string, x: number, y: number, z: number, dimension: string = 'overworld', info?: string): NamedLocation {
+    const location: NamedLocation = {
+      name,
+      x,
+      y,
+      z,
+      dimension,
+      description: info,
+    };
+    this.locations.set(name, location);
+    this.logger.debug(`设置位置: ${name} (${x}, ${y}, ${z})`);
+    return location;
   }
 
   /**
@@ -46,25 +66,63 @@ export class LocationManager {
   }
 
   /**
+   * 更新位置
+   */
+  updateLocation(name: string, updates: Partial<Omit<NamedLocation, 'name'>>): boolean {
+    const existing = this.locations.get(name);
+    if (!existing) {
+      return false;
+    }
+
+    this.locations.set(name, { ...existing, ...updates });
+    this.logger.debug(`更新位置: ${name}`);
+    return true;
+  }
+
+  /**
    * 删除位置
    */
   deleteLocation(name: string): boolean {
-    return this.locations.delete(name);
+    const deleted = this.locations.delete(name);
+    if (deleted) {
+      this.logger.debug(`删除位置: ${name}`);
+    }
+    return deleted;
   }
 
   /**
    * 保存位置
    */
   async save(): Promise<void> {
-    // TODO: 实现持久化
-    this.logger.info('LocationManager 保存完成');
+    try {
+      const data = Array.from(this.locations.values());
+      await fs.writeFile(this.persistPath, JSON.stringify(data, null, 2), 'utf-8');
+      this.logger.info(`LocationManager 保存完成，已保存 ${data.length} 个位置`);
+    } catch (error) {
+      this.logger.error('保存 LocationManager 失败', undefined, error as Error);
+      throw error;
+    }
   }
 
   /**
    * 加载位置
    */
   async load(): Promise<void> {
-    // TODO: 实现加载
-    this.logger.info('LocationManager 加载完成');
+    try {
+      const content = await fs.readFile(this.persistPath, 'utf-8');
+      const data: NamedLocation[] = JSON.parse(content);
+      this.locations.clear();
+      for (const location of data) {
+        this.locations.set(location.name, location);
+      }
+      this.logger.info(`LocationManager 加载完成，已加载 ${data.length} 个位置`);
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        this.logger.info('LocationManager 文件不存在，跳过加载');
+      } else {
+        this.logger.error('加载 LocationManager 失败', undefined, error as Error);
+        throw error;
+      }
+    }
   }
 }
