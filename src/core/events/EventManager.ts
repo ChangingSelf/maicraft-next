@@ -1,5 +1,5 @@
 /**
- * 事件发射器（薄层封装）
+ * 事件管理器（薄层封装）
  *
  * 设计目标:
  * 1. 保持 mineflayer 事件名不变（entityHurt, health, death 等）
@@ -33,9 +33,9 @@ export interface ListenerHandle {
 }
 
 /**
- * 事件发射器
+ * 事件管理器
  */
-export class EventEmitter {
+export class EventManager {
   private bot: Bot;
   private listeners: Map<string, EventListener[]> = new Map();
   private listenerIdCounter: number = 0;
@@ -43,7 +43,7 @@ export class EventEmitter {
 
   constructor(bot: Bot) {
     this.bot = bot;
-    this.logger = getLogger('EventEmitter');
+    this.logger = getLogger('EventManager');
     this.bridgeBotEvents();
   }
 
@@ -203,7 +203,7 @@ export class EventEmitter {
   }
 
   /**
-   * 发射事件（游戏事件 + 自定义事件）
+   * 分发事件（游戏事件 + 自定义事件）
    */
   emit(event: string, data: any): void {
     const listeners = this.listeners.get(event);

@@ -10,7 +10,7 @@
 
 import { Bot } from 'mineflayer';
 import { GameState } from '../state/GameState';
-import { EventEmitter } from '../events/EventEmitter';
+import { EventManager } from '../events/EventManager';
 import { InterruptSignal } from '../interrupt/InterruptSignal';
 import type { ActionExecutor } from '../actions/ActionExecutor';
 
@@ -69,7 +69,7 @@ export interface RuntimeContext {
   locationManager: LocationManager;
 
   // 事件系统
-  events: EventEmitter;
+  events: EventManager;
 
   // 中断控制
   interruptSignal: InterruptSignal;

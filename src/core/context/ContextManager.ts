@@ -15,7 +15,7 @@ import { BlockCache } from '../cache/BlockCache';
 import { ContainerCache } from '../cache/ContainerCache';
 import { LocationManager } from '../location/LocationManager';
 import { InterruptSignal } from '../interrupt/InterruptSignal';
-import { EventEmitter } from '../events/EventEmitter';
+import { EventManager } from '../events/EventManager';
 import { GameState } from '../state/GameState';
 
 /**
@@ -46,8 +46,8 @@ export class ContextManager {
     // 创建全局共享的中断信号（用于系统级中断）
     const globalInterruptSignal = new InterruptSignal();
 
-    // 如果 executor 未提供，创建一个临时的 EventEmitter
-    const events = executor ? executor.getEventEmitter() : new EventEmitter(bot);
+    // 如果 executor 未提供，创建一个临时的 EventManager
+    const events = executor ? executor.getEventManager() : new EventManager(bot);
 
     this.context = {
       bot,
@@ -110,10 +110,10 @@ export class ContextManager {
     // 更新 executor 引用
     this.context.executor = executor;
 
-    // 如果之前使用的是临时 EventEmitter，现在替换为真正的
+    // 如果之前使用的是临时 EventManager，现在替换为真正的
     if (this.context.events && typeof (this.context.events as any).listenerCount === 'function') {
-      // 如果是临时创建的 EventEmitter，替换为真正的
-      this.context.events = executor.getEventEmitter();
+      // 如果是临时创建的 EventManager，替换为真正的
+      this.context.events = executor.getEventManager();
     }
   }
 

@@ -146,9 +146,9 @@ export class ActionExecutor {
   }
 
   /**
-   * 获取事件发射器
+   * 获取事件管理器
    */
-  getEventEmitter() {
+  getEventManager() {
     const context = this.contextManager.getContext();
     return context.events;
   }

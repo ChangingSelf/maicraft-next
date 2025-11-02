@@ -2,7 +2,7 @@
  * Maicraft-Next Main Entry Point
  *
  * 集成完整的AI代理系统，包括：
- * - 核心基础设施（GameState, ActionExecutor, EventEmitter）
+ * - 核心基础设施（GameState, ActionExecutor, EventManager）
  * - AI代理系统（Agent, Memory, Planning, Mode, Loops）
  * - LLM集成
  * - 配置管理
@@ -411,7 +411,7 @@ class MaicraftNext {
     this.registerActions();
 
     // 5. 设置事件监听
-    const events = this.executor.getEventEmitter();
+    const events = this.executor.getEventManager();
 
     events.on('actionComplete', data => {
       this.logger.debug(`动作完成: ${data.actionName}`, {

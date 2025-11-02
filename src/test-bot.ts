@@ -174,7 +174,7 @@ class MaicraftTestBot {
     this.registerActions();
 
     // 5. 设置事件监听
-    const events = this.executor.getEventEmitter();
+    const events = this.executor.getEventManager();
 
     events.on('actionComplete', data => {
       logger.info(`✅ 动作完成: ${data.actionName} (${data.duration}ms)`);

@@ -65,11 +65,11 @@ console.log(globalGameState.getStatusDescription());
 console.log(globalGameState.getInventoryDescription());
 ```
 
-### EventEmitter - 事件系统
+### EventManager - 事件系统
 
 ```typescript
 // 订阅事件（保持 mineflayer 原始事件名）
-const events = executor.getEventEmitter();
+const events = executor.getEventManager();
 
 events.on('entityHurt', data => {
   console.log('实体受伤:', data.entity);
