@@ -8,7 +8,7 @@
 export * from './types.js';
 
 // 管理器
-export { LLMManager, createLLMManager, getLLMManager, closeLLMManager } from './LLMManager.js';
+export { LLMManager, LLMManagerFactory } from './LLMManager.js';
 
 // 用量追踪
 export { UsageTracker } from './usage/UsageTracker.js';
@@ -28,10 +28,10 @@ export {
  * 创建默认LLM管理器的便捷函数
  */
 export function createDefaultLLMManager() {
-  const { ConfigManager } = require('../utils/Config.js');
-  const configManager = new ConfigManager();
-  const config = configManager.getConfig();
-  return createLLMManager(config.llm);
+  const { initializeConfig } = require('../utils/Config.js');
+  // 注意：这里需要异步处理，但为了向后兼容保持同步
+  // 实际使用时应该使用异步版本
+  throw new Error('createDefaultLLMManager is deprecated. Use LLMManagerFactory.create() directly with proper config loading.');
 }
 
 /**

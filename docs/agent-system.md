@@ -52,7 +52,7 @@ const bot = createBot({
 const executor = new ActionExecutor(bot, logger, config);
 
 // 3. 创建 LLMManager
-const llmManager = new LLMManager(config.llm, logger);
+const llmManager = LLMManagerFactory.create(config.llm, logger);
 
 // 4. 创建 Agent
 const agent = new Agent(bot, executor, llmManager, config);

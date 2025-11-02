@@ -16,11 +16,11 @@ export class ChatLoop extends BaseLoop<AgentState> {
   private activeValue: number = 5;
   private selfTriggered: boolean = false;
 
-  constructor(state: AgentState, llmManager?: any) {
+  constructor(state: AgentState, llmManager: any) {
     super(state, 'ChatLoop');
 
-    // 使用传入的 llmManager 或创建新实例
-    this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
+    // 必须传入 llmManager，不允许创建新实例
+    this.llmManager = llmManager;
 
     // 监听聊天事件
     this.setupChatListener();

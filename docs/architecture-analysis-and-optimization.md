@@ -46,165 +46,6 @@
 
 （前面的问题已经解决）
 
-### 🟡 问题 5: ModeManager 和决策循环职责重叠 (中等)
-
-#### 问题描述
-
-`ModeManager` 负责模式管理，但 `MainDecisionLoop` 也要检查模式：
-
-```typescript:46:52
-// 检查是否允许 LLM 决策
-if (!this.state.modeManager.canUseLLMDecision()) {
-  const autoSwitched = await this.state.modeManager.checkAutoTransitions();
-  if (!autoSwitched) {
-    await this.sleep(1000);
-  }
-  return;
-}
-```
-
-#### 问题
-
-1. **职责不清** - 谁负责决定是否执行决策？
-2. **逻辑分散** - 模式切换逻辑分布在多个地方
-3. **扩展困难** - 添加新模式需要修改多处代码
-
-#### 优化建议
-
-**引入策略模式 + 责任链模式**
-
-```typescript
-/**
- * 决策策略接口
- */
-interface DecisionStrategy {
-  canExecute(state: AgentState): boolean;
-  execute(state: AgentState): Promise<void>;
-  getPriority(): number;
-}
-
-/**
- * LLM 决策策略
- */
-class LLMDecisionStrategy implements DecisionStrategy {
-  constructor(
-    private llmManager: LLMManager,
-    private dataCollector: PromptDataCollector,
-  ) {}
-
-  canExecute(state: AgentState): boolean {
-    // 只有在允许 LLM 决策的模式下才执行
-    return state.modeManager.canUseLLMDecision();
-  }
-
-  async execute(state: AgentState): Promise<void> {
-    // 执行 LLM 决策
-    const inputData = this.dataCollector.collectAllData();
-    const prompt = promptManager.generatePrompt('main_thinking', inputData);
-    // ... 其余逻辑
-  }
-
-  getPriority(): number {
-    return 10;
-  }
-}
-
-/**
- * 模式自动切换策略
- */
-class AutoModeSwitchStrategy implements DecisionStrategy {
-  canExecute(state: AgentState): boolean {
-    // 总是可以检查模式切换
-    return true;
-  }
-
-  async execute(state: AgentState): Promise<void> {
-    await state.modeManager.checkAutoTransitions();
-  }
-
-  getPriority(): number {
-    return 100; // 高优先级
-  }
-}
-
-/**
- * 战斗策略
- */
-class CombatStrategy implements DecisionStrategy {
-  canExecute(state: AgentState): boolean {
-    return state.modeManager.getCurrentMode() === ModeType.COMBAT;
-  }
-
-  async execute(state: AgentState): Promise<void> {
-    // 执行战斗逻辑
-  }
-
-  getPriority(): number {
-    return 50;
-  }
-}
-
-/**
- * 决策策略管理器
- */
-class DecisionStrategyManager {
-  private strategies: DecisionStrategy[] = [];
-
-  addStrategy(strategy: DecisionStrategy): void {
-    this.strategies.push(strategy);
-    // 按优先级排序
-    this.strategies.sort((a, b) => b.getPriority() - a.getPriority());
-  }
-
-  async executeStrategies(state: AgentState): Promise<boolean> {
-    for (const strategy of this.strategies) {
-      if (strategy.canExecute(state)) {
-        await strategy.execute(state);
-        return true; // 执行了一个策略就返回
-      }
-    }
-    return false; // 没有策略可执行
-  }
-}
-
-/**
- * 简化后的 MainDecisionLoop
- */
-export class MainDecisionLoop extends BaseLoop<AgentState> {
-  private strategyManager: DecisionStrategyManager;
-
-  constructor(state: AgentState, llmManager: LLMManager) {
-    super(state, 'MainDecisionLoop');
-
-    this.strategyManager = new DecisionStrategyManager();
-
-    // 注册策略
-    this.strategyManager.addStrategy(new AutoModeSwitchStrategy());
-    this.strategyManager.addStrategy(new CombatStrategy());
-    this.strategyManager.addStrategy(new LLMDecisionStrategy(llmManager, new PromptDataCollector(state)));
-  }
-
-  protected async runLoopIteration(): Promise<void> {
-    // 检查中断
-    if (this.state.interrupt.isInterrupted()) {
-      this.handleInterrupt();
-      return;
-    }
-
-    // 执行策略
-    const executed = await this.strategyManager.executeStrategies(this.state);
-
-    if (!executed) {
-      // 没有策略执行，等待一下
-      await this.sleep(1000);
-    }
-  }
-}
-```
-
----
-
-
 ### 🟠 问题 6: LLMManager 在多处创建 (中等)
 
 #### 问题描述
@@ -214,16 +55,20 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
 **全局创建（main.ts）**
 
 ```typescript:138:141
-this.llmManager = createLLMManager(this.config.llm, this.logger);
+this.llmManager = LLMManagerFactory.create(this.config.llm, this.logger);
 this.logger.info('✅ LLM管理器初始化完成', {
   provider: this.llmManager.getActiveProvider(),
 });
 ```
 
-**可能的局部创建（MainDecisionLoop.ts）**
+**修复后的代码（MainDecisionLoop.ts）**
 
-```typescript:22:22
-this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
+```typescript:24:28
+constructor(state: AgentState, llmManager: LLMManager) {
+  super(state, 'MainDecisionLoop');
+
+  // 必须传入 llmManager，不允许创建新实例
+  this.llmManager = llmManager;
 ```
 
 #### 问题
@@ -232,20 +77,18 @@ this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
 2. **状态不同步** - 不同实例的用量统计、配置等不同步
 3. **职责不清** - 谁负责创建和管理 LLMManager？
 
-#### 优化建议
+#### ✅ 已实施的优化方案
 
 **使用单例模式 + 依赖注入**
 
 ```typescript
-/**
- * LLMManager 工厂 - 确保单例
- */
-class LLMManagerFactory {
+// src/llm/LLMManager.ts
+export class LLMManagerFactory {
   private static instance: LLMManager | null = null;
 
   static create(config: LLMConfig, logger?: Logger): LLMManager {
     if (this.instance) {
-      throw new Error('LLMManager already exists');
+      throw new LLMError('LLMManager already exists. Use getInstance() to get existing instance.', 'MANAGER_ALREADY_EXISTS');
     }
     this.instance = new LLMManager(config, logger);
     return this.instance;
@@ -253,7 +96,7 @@ class LLMManagerFactory {
 
   static getInstance(): LLMManager {
     if (!this.instance) {
-      throw new Error('LLMManager not initialized');
+      throw new LLMError('LLMManager not initialized. Call create() first.', 'MANAGER_NOT_INITIALIZED');
     }
     return this.instance;
   }
@@ -269,10 +112,10 @@ class LLMManagerFactory {
 // 在 main.ts 中创建
 this.llmManager = LLMManagerFactory.create(this.config.llm, this.logger);
 
-// 在 MainDecisionLoop 中使用
+// 在 MainDecisionLoop 和 ChatLoop 中强制传入
 constructor(state: AgentState, llmManager: LLMManager) {
-  super(state, 'MainDecisionLoop');
-  this.llmManager = llmManager; // 必须传入，不允许创建
+  // 必须传入 llmManager，不允许创建新实例
+  this.llmManager = llmManager;
 }
 ```
 
@@ -1435,7 +1278,7 @@ eventRouter.cleanup(bot);
 1. 🔄 **职责单一** - ActionExecutor 仍承担提示词生成职责
 2. 🔄 **统一管理** - 事件监听仍分散在多个类中
 3. 🔄 **依赖注入** - 尚未引入 DI 容器
-4. 🔄 **系统优化** - 提示词初始化和 LLMManager 单例管理待完善
+4. ✅ **LLMManager 单例** - 已实现单例模式和依赖注入
 
 **实施建议**:
 

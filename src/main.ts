@@ -43,7 +43,7 @@ import {
 import { Agent } from '@/core/agent/Agent';
 
 // LLM管理器
-import { LLMManager, createLLMManager } from '@/llm/LLMManager';
+import { LLMManager, LLMManagerFactory } from '@/llm/LLMManager';
 
 // 工具类
 import { initializeConfig, getSection, getConfig, type AppConfig } from '@/utils/Config';
@@ -130,7 +130,7 @@ class MaicraftNext {
     }
 
     try {
-      this.llmManager = createLLMManager(this.config.llm, this.logger);
+      this.llmManager = LLMManagerFactory.create(this.config.llm, this.logger);
       this.logger.info('✅ LLM管理器初始化完成', {
         provider: this.llmManager.getActiveProvider(),
       });

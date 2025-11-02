@@ -21,11 +21,11 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
   private evaluationCounter: number = 0;
   private promptsInitialized: boolean = false;
 
-  constructor(state: AgentState, llmManager?: LLMManager) {
+  constructor(state: AgentState, llmManager: LLMManager) {
     super(state, 'MainDecisionLoop');
 
-    // 使用传入的 llmManager 或创建新实例
-    this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
+    // 必须传入 llmManager，不允许创建新实例
+    this.llmManager = llmManager;
 
     // 初始化提示词模板（只初始化一次）
     if (!this.promptsInitialized) {

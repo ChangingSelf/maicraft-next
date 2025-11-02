@@ -440,7 +440,7 @@ class LLMClient:
 
 ```typescript
 // LLMManager 功能特性
-const llmManager = new LLMManager(config.llm, logger);
+const llmManager = LLMManagerFactory.create(config.llm, logger);
 
 // 多提供商支持
 const config = {

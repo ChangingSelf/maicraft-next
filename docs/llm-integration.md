@@ -44,7 +44,7 @@ Maicraft-Next 提供了 `LLMManager` 来统一管理所有 LLM 提供商的调�
 ### 初始化
 
 ```typescript
-import { LLMManager } from '@/llm/LLMManager';
+import { LLMManager, LLMManagerFactory } from '@/llm/LLMManager';
 import { getLogger } from '@/utils/Logger';
 
 // 从配置创建
@@ -59,7 +59,7 @@ const llmConfig = {
   },
 };
 
-const llmManager = new LLMManager(llmConfig, getLogger('LLM'));
+const llmManager = LLMManagerFactory.create(llmConfig, getLogger('LLM'));
 ```
 
 ### 发送聊天请求

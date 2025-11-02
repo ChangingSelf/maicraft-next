@@ -2,7 +2,7 @@
  * LLM管理器测试
  */
 
-import { LLMManager } from '../LLMManager.js';
+import { LLMManager, LLMManagerFactory } from '../LLMManager.js';
 import { LLMConfigSchema, LLMProvider, MessageRole } from '../types.js';
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -16,6 +16,9 @@ describe('LLMManager', () => {
   let llmManager: LLMManager;
 
   beforeAll(async () => {
+    // 重置工厂以确保测试隔离
+    LLMManagerFactory.reset();
+
     // 创建测试配置
     const testConfig = {
       default_provider: LLMProvider.OPENAI,
@@ -234,12 +237,14 @@ gpt_35_turbo_output = 0.002
       },
     });
 
-    llmManager = new LLMManager(config);
+    llmManager = LLMManagerFactory.create(config);
   });
 
   afterEach(() => {
     // 清理LLM管理器
     llmManager.close();
+    // 重置工厂以确保测试隔离
+    LLMManagerFactory.reset();
   });
 
   afterAll(() => {

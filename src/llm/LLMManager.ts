@@ -7,7 +7,7 @@
 import { EventEmitter } from 'events';
 import { Logger, getLogger } from '../utils/Logger.js';
 import { ConfigManager } from '../utils/Config.js';
-import { LLMConfig, LLMResponse, LLMRequestConfig, LLMError, LLMProvider as ProviderType, ChatMessage, UsageStats } from './types.js';
+import { LLMConfig, LLMResponse, LLMRequestConfig, LLMError, LLMProvider as ProviderType, ChatMessage, UsageStats, MessageRole } from './types.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
 import { UsageTracker } from './usage/UsageTracker.js';
 import { ILLMProvider } from './providers/OpenAIProvider.js';
@@ -78,7 +78,7 @@ export class LLMManager extends EventEmitter {
 
       // 发送事件
       this.emit('chat_complete', {
-        provider: this.activeProvider.provider,
+        provider: this.activeProvider!.provider,
         response,
         request: requestConfig,
       });
@@ -262,7 +262,7 @@ export class LLMManager extends EventEmitter {
         // 发送测试请求
         const testResponse = await this.providers.get(provider)!.chat({
           model: this.getProviderConfig(provider).model,
-          messages: [{ role: 'user', content: 'test' }],
+          messages: [{ role: MessageRole.USER, content: 'test' }],
           max_tokens: 1,
         });
 
@@ -512,24 +512,47 @@ export class LLMManager extends EventEmitter {
  */
 let globalLLMManager: LLMManager | null = null;
 
-export function createLLMManager(config: LLMConfig, logger?: Logger): LLMManager {
-  if (globalLLMManager) {
-    globalLLMManager.close();
-  }
-  globalLLMManager = new LLMManager(config, logger);
-  return globalLLMManager;
-}
+/**
+ * LLMManager 工厂 - 确保单例
+ */
+export class LLMManagerFactory {
+  private static instance: LLMManager | null = null;
 
-export function getLLMManager(): LLMManager {
-  if (!globalLLMManager) {
-    throw new LLMError('LLM manager not initialized', 'MANAGER_NOT_INITIALIZED');
+  /**
+   * 创建 LLMManager 实例（确保单例）
+   */
+  static create(config: LLMConfig, logger?: Logger): LLMManager {
+    if (this.instance) {
+      throw new LLMError('LLMManager already exists. Use getInstance() to get existing instance.', 'MANAGER_ALREADY_EXISTS');
+    }
+    this.instance = new LLMManager(config, logger);
+    return this.instance;
   }
-  return globalLLMManager;
-}
 
-export function closeLLMManager(): void {
-  if (globalLLMManager) {
-    globalLLMManager.close();
-    globalLLMManager = null;
+  /**
+   * 获取已创建的 LLMManager 实例
+   */
+  static getInstance(): LLMManager {
+    if (!this.instance) {
+      throw new LLMError('LLMManager not initialized. Call create() first.', 'MANAGER_NOT_INITIALIZED');
+    }
+    return this.instance;
+  }
+
+  /**
+   * 重置工厂（主要用于测试）
+   */
+  static reset(): void {
+    if (this.instance) {
+      this.instance.close();
+      this.instance = null;
+    }
+  }
+
+  /**
+   * 检查是否已创建实例
+   */
+  static hasInstance(): boolean {
+    return this.instance !== null;
   }
 }
