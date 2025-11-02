@@ -4,7 +4,7 @@
 
 import type { AgentState } from '../types';
 import type { ConversationEntry } from '../memory/types';
-import type { LLMManager, LLMClientResponse } from '@/llm/LLMManager';
+import type { LLMClientResponse } from '@/llm/LLMManager';
 import { promptManager } from '../prompt';
 import { ActionIds } from '@/core/actions/ActionIds';
 import { BaseLoop } from './BaseLoop';
@@ -30,15 +30,26 @@ export class ChatLoop extends BaseLoop<AgentState> {
    */
   private setupChatListener(): void {
     this.state.context.events.on('chat', (data: any) => {
+      // 获取机器人用户名，用于过滤自己的消息
+      const botUsername = this.state.config.minecraft.username || this.state.context.gameState.playerName;
+
+      // 检查是否是自己的消息 - 防止回复自己的话
+      if (botUsername && data.username === botUsername) {
+        // 是自己的消息，不记录也不响应
+        this.logger.debug(`🤖 过滤自己的消息: ${data.message}`);
+        return;
+      }
+
       // 记录到记忆系统
       this.state.memory.recordConversation('player', data.message, {
         username: data.username,
       });
 
       // 检查是否被呼叫
-      const botName = this.state.config.bot?.name || 'bot';
+      const botName = botUsername || 'bot';
       if (data.message.includes(botName)) {
         this.activeValue += 3;
+        this.logger.debug(`📢 被呼叫: ${data.message}`);
       }
     });
   }
@@ -73,16 +84,26 @@ export class ChatLoop extends BaseLoop<AgentState> {
    * 是否应该响应
    */
   private shouldRespond(conversation: ConversationEntry): boolean {
+    // 不响应自己的消息
     if (conversation.speaker === 'ai') {
-      return false; // 不响应自己的消息
+      return false;
     }
 
-    const botName = this.state.config.bot?.name || 'bot';
+    const botName = this.state.config.minecraft.username || this.state.context.gameState.playerName || 'bot';
+
+    // 被呼叫时，一定响应
     if (conversation.message.includes(botName)) {
-      return true; // 被呼叫，一定响应
+      this.logger.debug(`🎯 响应呼叫: ${conversation.message}`);
+      return true;
     }
 
-    return this.activeValue > 0 && Math.random() < 0.3;
+    // 根据活跃度和随机概率决定是否响应
+    const shouldRespond = this.activeValue > 0 && Math.random() < 0.3;
+    if (shouldRespond) {
+      this.logger.debug(`💬 主动响应: ${conversation.message}`);
+    }
+
+    return shouldRespond;
   }
 
   /**
@@ -147,7 +168,7 @@ export class ChatLoop extends BaseLoop<AgentState> {
         this.logger.info(`💬 主动聊天: ${message}`);
       }
     } catch (error) {
-      this.logger.error('❌ 主动聊天失败:', error);
+      this.logger.error('❌ 主动聊天失败:', undefined, error as Error);
     }
   }
 
