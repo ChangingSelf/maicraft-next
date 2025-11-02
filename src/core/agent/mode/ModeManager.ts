@@ -1,25 +1,37 @@
 /**
  * 模式管理器
- * 基于状态机管理模式转换
+ *
+ * 参考原maicraft的ModeManager设计，适配本项目架构
+ * 负责管理所有模式实例的切换，支持环境监听器机制
  */
 
 import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
 import type { RuntimeContext } from '@/core/context/RuntimeContext';
 import type { AgentState } from '../types';
-import { Mode } from './Mode';
-import { ModeType, type ModeTransitionRule } from './types';
+import { BaseMode } from './BaseMode';
+import type { GameStateListener } from './GameStateListener';
 import { MainMode } from './modes/MainMode';
 import { CombatMode } from './modes/CombatMode';
 
 export class ModeManager {
-  private modes: Map<ModeType, Mode> = new Map();
-  private currentMode: Mode | null = null;
-  private transitionRules: ModeTransitionRule[] = [];
+  private modes: Map<string, BaseMode> = new Map();
+  private currentMode: BaseMode | null = null;
+  private transitionHistory: Array<{ from: string; to: string; reason: string; timestamp: number }> = [];
+  private gameStateListeners: GameStateListener[] = [];
+  private previousGameState: any = null;
 
   private context: RuntimeContext;
   private state: AgentState | null = null;
   private logger: Logger;
+
+  // 模式类型常量 - 对应原maicraft
+  static readonly MODE_TYPES = {
+    MAIN: 'main_mode',
+    COMBAT: 'combat_mode',
+    FURNACE_GUI: 'furnace_gui',
+    CHEST_GUI: 'chest_gui',
+  } as const;
 
   constructor(context: RuntimeContext) {
     this.context = context;
@@ -37,14 +49,23 @@ export class ModeManager {
    * 注册所有模式
    */
   async registerModes(): Promise<void> {
+    if (!this.state) {
+      throw new Error('Agent状态未绑定，无法注册模式');
+    }
+
     this.logger.info('📝 注册模式...');
 
-    // 注册模式
-    this.registerMode(new MainMode(this.context));
-    this.registerMode(new CombatMode(this.context));
+    // 注册模式并绑定状态
+    const mainMode = new MainMode(this.context);
+    mainMode.bindState(this.state);
+    this.registerMode(mainMode);
 
-    // 注册转换规则
-    this.registerTransitionRules();
+    const combatMode = new CombatMode(this.context);
+    combatMode.bindState(this.state);
+    this.registerMode(combatMode);
+
+    // 注册游戏状态监听器
+    this.registerGameStateListeners();
 
     this.logger.info(`✅ 已注册 ${this.modes.size} 个模式`);
   }
@@ -52,50 +73,30 @@ export class ModeManager {
   /**
    * 注册模式
    */
-  private registerMode(mode: Mode): void {
+  private registerMode(mode: BaseMode): void {
     this.modes.set(mode.type, mode);
     this.logger.info(`  - ${mode.name} (优先级: ${mode.priority})`);
+
+    // 如果模式实现了GameStateListener，自动注册
+    if (mode.enabled && (mode.onGameStateUpdated || mode.onEntitiesUpdated ||
+        mode.onBlocksUpdated || mode.onInventoryUpdated || mode.onHealthUpdated)) {
+      this.gameStateListeners.push(mode);
+      this.logger.debug(`    📡 注册为游戏状态监听器: ${mode.listenerName}`);
+    }
   }
 
   /**
-   * 注册转换规则
+   * 注册游戏状态监听器
    */
-  private registerTransitionRules(): void {
-    // 主模式 → 战斗模式
-    this.addTransitionRule({
-      from: ModeType.MAIN,
-      to: ModeType.COMBAT,
-      condition: state => this.shouldEnterCombat(state),
-      priority: 10,
-      description: '检测到敌对生物',
-    });
-
-    // 战斗模式 → 主模式
-    this.addTransitionRule({
-      from: ModeType.COMBAT,
-      to: ModeType.MAIN,
-      condition: state => this.shouldExitCombat(state),
-      priority: 5,
-      description: '战斗结束',
-    });
-
-    this.logger.info(`📋 已注册 ${this.transitionRules.length} 条转换规则`);
+  private registerGameStateListeners(): void {
+    // 所有实现GameStateListener的模式都已在上一步注册
+    this.logger.info(`📡 已注册 ${this.gameStateListeners.length} 个游戏状态监听器`);
   }
 
   /**
-   * 添加转换规则
+   * 尝试设置模式（检查优先级）
    */
-  addTransitionRule(rule: ModeTransitionRule): void {
-    this.transitionRules.push(rule);
-
-    // 按优先级排序
-    this.transitionRules.sort((a, b) => b.priority - a.priority);
-  }
-
-  /**
-   * 尝试设置模式（检查优先级和转换规则）
-   */
-  async trySetMode(targetType: ModeType, reason: string): Promise<boolean> {
+  async trySetMode(targetType: string, reason: string): Promise<boolean> {
     const targetMode = this.modes.get(targetType);
     if (!targetMode) {
       this.logger.warn(`⚠️ 未知模式: ${targetType}`);
@@ -107,7 +108,7 @@ export class ModeManager {
       return true;
     }
 
-    // 检查优先级（被动响应模式可以中断任何模式）
+    // 检查优先级（参考原maicraft：被动响应模式可以中断任何模式）
     if (targetMode.requiresLLMDecision) {
       if (this.currentMode && this.currentMode.priority > targetMode.priority) {
         this.logger.warn(`⚠️ 无法切换到低优先级模式: ${targetMode.name} (当前: ${this.currentMode.name})`);
@@ -123,7 +124,7 @@ export class ModeManager {
   /**
    * 强制设置模式（不检查优先级）
    */
-  async setMode(targetType: ModeType, reason: string): Promise<void> {
+  async setMode(targetType: string, reason: string): Promise<void> {
     const targetMode = this.modes.get(targetType);
     if (!targetMode) {
       throw new Error(`未知模式: ${targetType}`);
@@ -135,8 +136,21 @@ export class ModeManager {
   /**
    * 切换模式
    */
-  private async switchMode(newMode: Mode, reason: string): Promise<void> {
+  private async switchMode(newMode: BaseMode, reason: string): Promise<void> {
     const oldMode = this.currentMode;
+
+    // 记录切换历史
+    this.transitionHistory.push({
+      from: oldMode?.type || 'none',
+      to: newMode.type,
+      reason,
+      timestamp: Date.now(),
+    });
+
+    // 保持历史记录在合理范围内
+    if (this.transitionHistory.length > 50) {
+      this.transitionHistory = this.transitionHistory.slice(-25);
+    }
 
     // 停用当前模式
     if (oldMode) {
@@ -152,31 +166,114 @@ export class ModeManager {
 
   /**
    * 检查自动转换
+   * 参考原maicraft设计：模式内部检查转换条件
    */
   async checkAutoTransitions(): Promise<boolean> {
     if (!this.currentMode || !this.state) {
       return false;
     }
 
-    // 查找适用的转换规则
-    const applicableRules = this.transitionRules.filter(rule => rule.from === this.currentMode!.type);
+    try {
+      // 让当前模式检查是否需要转换
+      const targetModes = await this.currentMode.checkTransitions();
 
-    // 按优先级检查每个规则
-    for (const rule of applicableRules) {
-      try {
-        const shouldTransition = await rule.condition(this.state);
-
-        if (shouldTransition) {
-          // 自动转换规则不受优先级限制，直接强制切换
-          await this.setMode(rule.to, rule.description);
+      // 按优先级处理转换目标
+      for (const targetType of targetModes) {
+        const targetMode = this.modes.get(targetType);
+        if (targetMode && targetMode !== this.currentMode) {
+          await this.setMode(targetType, `自动转换: ${this.currentMode.name} → ${targetMode.name}`);
           return true;
         }
-      } catch (error) {
-        this.logger.error(`❌ 检查转换规则失败: ${rule.description}`, error);
       }
+    } catch (error) {
+      this.logger.error(`❌ 检查自动转换失败: ${this.currentMode.name}`, error);
     }
 
     return false;
+  }
+
+  /**
+   * 通知游戏状态更新
+   * 替代原maicraft的环境监听器机制
+   */
+  async notifyGameStateUpdate(gameState: any): Promise<void> {
+    // 通知所有游戏状态监听器
+    for (const listener of this.gameStateListeners) {
+      if (listener.enabled && listener.onGameStateUpdated) {
+        try {
+          await listener.onGameStateUpdated(gameState, this.previousGameState);
+        } catch (error) {
+          this.logger.error(`❌ 游戏状态监听器异常: ${listener.listenerName}`, error);
+        }
+      }
+    }
+
+    // 更新前一次状态
+    this.previousGameState = gameState;
+
+    // 通知实体更新
+    if (gameState.nearbyEntities) {
+      await this.notifyEntitiesUpdate(gameState.nearbyEntities);
+    }
+
+    // 通知库存更新
+    if (gameState.getInventoryDescription) {
+      await this.notifyInventoryUpdate(gameState.getInventoryDescription());
+    }
+
+    // 通知健康更新
+    if (gameState.health !== undefined) {
+      await this.notifyHealthUpdate({
+        health: gameState.health,
+        food: gameState.food || 20,
+        saturation: gameState.saturation || 5,
+      });
+    }
+  }
+
+  /**
+   * 通知实体更新
+   */
+  private async notifyEntitiesUpdate(entities: any[]): Promise<void> {
+    for (const listener of this.gameStateListeners) {
+      if (listener.enabled && listener.onEntitiesUpdated) {
+        try {
+          await listener.onEntitiesUpdated(entities);
+        } catch (error) {
+          this.logger.error(`❌ 实体监听器异常: ${listener.listenerName}`, error);
+        }
+      }
+    }
+  }
+
+  /**
+   * 通知库存更新
+   */
+  private async notifyInventoryUpdate(inventory: any): Promise<void> {
+    for (const listener of this.gameStateListeners) {
+      if (listener.enabled && listener.onInventoryUpdated) {
+        try {
+          await listener.onInventoryUpdated(inventory);
+        } catch (error) {
+          this.logger.error(`❌ 库存监听器异常: ${listener.listenerName}`, error);
+        }
+      }
+    }
+  }
+
+  /**
+   * 通知健康更新
+   */
+  private async notifyHealthUpdate(health: { health: number; food: number; saturation: number }): Promise<void> {
+    for (const listener of this.gameStateListeners) {
+      if (listener.enabled && listener.onHealthUpdated) {
+        try {
+          await listener.onHealthUpdated(health);
+        } catch (error) {
+          this.logger.error(`❌ 健康监听器异常: ${listener.listenerName}`, error);
+        }
+      }
+    }
   }
 
   /**
@@ -189,7 +286,7 @@ export class ModeManager {
   /**
    * 获取当前模式对象
    */
-  getCurrentModeObject(): Mode | null {
+  getCurrentModeObject(): BaseMode | null {
     return this.currentMode;
   }
 
@@ -201,20 +298,48 @@ export class ModeManager {
   }
 
   /**
-   * 转换条件：是否应该进入战斗模式
+   * 执行当前模式的主逻辑
+   * 参考原maicraft：在主循环中调用当前模式的execute方法
    */
-  private shouldEnterCombat(state: AgentState): boolean {
-    const enemies = (state.context.gameState.nearbyEntities || []).filter((e: any) => ['zombie', 'skeleton', 'spider', 'creeper'].includes(e.name));
+  async executeCurrentMode(): Promise<void> {
+    if (!this.currentMode) {
+      this.logger.warn('⚠️ 没有当前模式，无法执行');
+      return;
+    }
 
-    return enemies.length > 0 && enemies[0].distance < 10;
+    try {
+      await this.currentMode.execute();
+    } catch (error) {
+      this.logger.error(`❌ 模式执行失败: ${this.currentMode.name}`, error);
+    }
   }
 
   /**
-   * 转换条件：是否应该退出战斗模式
+   * 获取模式切换历史
    */
-  private shouldExitCombat(state: AgentState): boolean {
-    const enemies = (state.context.gameState.nearbyEntities || []).filter((e: any) => ['zombie', 'skeleton', 'spider', 'creeper'].includes(e.name));
+  getTransitionHistory(): Array<{ from: string; to: string; reason: string; timestamp: number }> {
+    return [...this.transitionHistory];
+  }
 
-    return enemies.length === 0;
+  /**
+   * 获取所有已注册的模式
+   */
+  getAllModes(): BaseMode[] {
+    return Array.from(this.modes.values());
+  }
+
+  /**
+   * 强制恢复到主模式
+   * 参考原maicraft的安全机制
+   */
+  async forceRecoverToMain(reason: string = '系统恢复'): Promise<boolean> {
+    try {
+      await this.setMode(ModeManager.MODE_TYPES.MAIN, reason);
+      this.logger.info(`✅ 已强制恢复到主模式: ${reason}`);
+      return true;
+    } catch (error) {
+      this.logger.error(`❌ 强制恢复失败: ${reason}`, error);
+      return false;
+    }
   }
 }

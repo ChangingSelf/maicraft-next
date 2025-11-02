@@ -12,7 +12,6 @@ import { InterruptController } from './InterruptController';
 import { MemoryManager } from './memory/MemoryManager';
 import { GoalPlanningManager } from './planning/GoalPlanningManager';
 import { ModeManager } from './mode/ModeManager';
-import { ModeType } from './mode/types';
 import { MainDecisionLoop } from './loop/MainDecisionLoop';
 import { ChatLoop } from './loop/ChatLoop';
 import { ActionExecutor } from '@/core/actions/ActionExecutor';
@@ -84,6 +83,7 @@ export class Agent {
       modeManager,
       planningManager,
       memory,
+      llmManager: this.llmManager,
       interrupt,
       config,
     };
@@ -133,7 +133,7 @@ export class Agent {
 
     try {
       // 设置初始模式
-      await this.state.modeManager.setMode(ModeType.MAIN, '初始化');
+      await this.state.modeManager.setMode(ModeManager.MODE_TYPES.MAIN, '初始化');
 
       // 启动决策循环
       this.mainLoop.start();
@@ -185,7 +185,7 @@ export class Agent {
     context.events.on('entityHurt', async (data: any) => {
       if (data.entity?.id === context.bot.entity?.id) {
         // 只有当受伤的是自己时才切换模式
-        await modeManager.trySetMode(ModeType.COMBAT, '受到攻击');
+        await modeManager.trySetMode(ModeManager.MODE_TYPES.COMBAT, '受到攻击');
         this.state.memory.recordThought('⚔️ 受到攻击，切换到战斗模式', { entity: data.entity });
       }
     });

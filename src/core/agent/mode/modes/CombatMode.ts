@@ -1,85 +1,268 @@
 /**
  * 战斗模式
- * 自动战斗响应
+ *
+ * 参考原maicraft的CombatMode设计
+ * 实现GameStateListener接口，实时响应威胁变化
+ * 包含完整的战斗逻辑和自动转换机制
  */
 
-import { Mode } from '../Mode';
-import { ModeType } from '../types';
+import { BaseMode } from '../BaseMode';
+import { ModeManager } from '../ModeManager';
 import type { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionIds } from '@/core/actions/ActionIds';
+import { getLogger } from '@/utils/Logger';
 
-export class CombatMode extends Mode {
-  readonly type = ModeType.COMBAT;
+export class CombatMode extends BaseMode {
+  readonly type = ModeManager.MODE_TYPES.COMBAT;
   readonly name = '战斗模式';
   readonly description = '自动战斗响应';
-  readonly priority = 10;
-  readonly requiresLLMDecision = false; // 不需要 LLM 决策，完全自动
+  readonly priority = 100; // 高优先级，参考原maicraft
+  readonly requiresLLMDecision = false; // 不需要LLM决策，自动执行
 
-  private combatTask: Promise<void> | null = null;
+  // 模式配置 - 参考原maicraft设计
+  readonly maxDuration = 300; // 5分钟
+  readonly autoRestore = true; // 自动恢复到主模式
+  readonly restoreDelay = 10; // 10秒后恢复
+
+  // GameStateListener 实现
+  readonly listenerName = 'CombatMode';
+
+  // 敌对生物列表 - 参考原maicraft
+  private readonly hostileEntityNames = [
+    'zombie', 'skeleton', 'creeper', 'spider', 'cave_spider',
+    'enderman', 'witch', 'blaze', 'ghast', 'magma_cube',
+    'slime', 'piglin', 'hoglin', 'zoglin', 'drowned',
+    'husk', 'stray', 'phantom', 'pillager', 'vindicator',
+    'evoker', 'vex', 'ravager', 'shulker'
+  ];
+
+  // 战斗状态
+  private currentEnemy: any | null = null;
+  private lastAttackTime: number = 0;
+  private combatStartTime: number = 0;
+  private threatCount: number = 0;
 
   constructor(context: RuntimeContext) {
     super(context);
-  }
-
-  async activate(reason: string): Promise<void> {
-    await super.activate(reason);
-
-    // 启动战斗逻辑
-    this.combatTask = this.runCombatLogic();
-  }
-
-  async deactivate(reason: string): Promise<void> {
-    await super.deactivate(reason);
-
-    // 停止战斗逻辑
-    this.combatTask = null;
+    // 重新设置logger以使用正确的名称
+    this.logger = getLogger(this.name);
   }
 
   /**
-   * 战斗逻辑
+   * 激活模式
    */
-  private async runCombatLogic(): Promise<void> {
-    while (this.isActive) {
-      // 查找最近的敌对实体
-      const nearestEnemy = this.findNearestEnemy();
+  protected async onActivate(reason: string): Promise<void> {
+    this.combatStartTime = Date.now();
+    this.currentEnemy = null;
+    this.lastAttackTime = 0;
+    this.threatCount = 0;
 
-      if (!nearestEnemy) {
-        // 没有敌人，退出战斗模式
-        break;
-      }
+    this.logger.info(`⚔️ 进入战斗状态: ${reason}`);
 
-      // 执行战斗动作
-      try {
-        await this.context.executor.execute(ActionIds.KILL_MOB, {
-          entity: nearestEnemy.name,
-          timeout: 30,
-        });
-      } catch (error) {
-        this.context.logger.error('战斗动作执行失败:', error);
-      }
-
-      await this.sleep(500);
+    // 记录战斗开始到思考日志
+    if (this.state?.memory) {
+      this.state.memory.recordThought(`⚔️ 开始战斗: ${reason}`);
     }
   }
 
   /**
-   * 查找最近的敌对实体
+   * 停用模式
+   */
+  protected async onDeactivate(reason: string): Promise<void> {
+    this.logger.info(`✌️ 退出战斗状态: ${reason}`);
+
+    // 记录战斗结束到思考日志
+    if (this.state?.memory) {
+      const duration = ((Date.now() - this.combatStartTime) / 1000).toFixed(1);
+      this.state.memory.recordThought(`✌️ 战斗结束，持续时间: ${duration}秒，原因: ${reason}`);
+    }
+
+    // 清理战斗状态
+    this.currentEnemy = null;
+    this.threatCount = 0;
+  }
+
+  /**
+   * 模式主逻辑
+   */
+  async execute(): Promise<void> {
+    if (!this.state) {
+      return;
+    }
+
+    try {
+      // 查找最近的敌人
+      const nearestEnemy = this.findNearestEnemy();
+
+      if (!nearestEnemy) {
+        this.logger.debug('🔍 战斗模式下没有发现敌人，等待威胁检测...');
+        return;
+      }
+
+      // 检查是否是新的敌人
+      if (!this.currentEnemy || this.currentEnemy.id !== nearestEnemy.id) {
+        this.currentEnemy = nearestEnemy;
+        this.logger.info(`🎯 锁定新目标: ${nearestEnemy.name} (距离: ${nearestEnemy.distance.toFixed(1)}m)`);
+      }
+
+      // 检查攻击冷却（避免过于频繁的攻击）
+      const now = Date.now();
+      const cooldownMs = 1000; // 1秒冷却
+
+      if (now - this.lastAttackTime < cooldownMs) {
+        return; // 攻击冷却中
+      }
+
+      // 执行攻击
+      await this.performAttack(nearestEnemy);
+
+    } catch (error) {
+      this.logger.error('❌ 战斗执行异常:', undefined, error as Error);
+
+      if (this.state?.memory) {
+        this.state.memory.recordThought(`❌ 战斗异常: ${error}`);
+      }
+    }
+  }
+
+  /**
+   * 检查自动转换
+   */
+  async checkTransitions(): Promise<string[]> {
+    const targetModes: string[] = [];
+
+    // 检查是否应该退出战斗
+    if (this.shouldExitCombat()) {
+      targetModes.push(ModeManager.MODE_TYPES.MAIN);
+    }
+
+    // 检查是否超时
+    if (this.isExpired()) {
+      targetModes.push(ModeManager.MODE_TYPES.MAIN);
+    }
+
+    return targetModes;
+  }
+
+  /**
+   * GameStateListener: 实体更新处理
+   */
+  async onEntitiesUpdated(entities: any[]): Promise<void> {
+    // 计算威胁数量
+    const hostileEntities = entities.filter((e: any) =>
+      this.hostileEntityNames.includes(e.name?.toLowerCase())
+    );
+
+    const previousThreatCount = this.threatCount;
+    this.threatCount = hostileEntities.length;
+
+    // 威胁出现时切换到战斗模式
+    if (previousThreatCount === 0 && this.threatCount > 0) {
+      const nearestEnemy = hostileEntities.reduce((nearest: any, current: any) =>
+        (current.distance < nearest.distance ? current : nearest)
+      );
+
+      this.logger.info(`⚠️ 检测到威胁: ${nearestEnemy.name} (距离: ${nearestEnemy.distance.toFixed(1)}m)`);
+
+      // 触发模式切换
+      if (this.state?.modeManager && this.state.modeManager.getCurrentMode() !== this.type) {
+        await this.state.modeManager.setMode(this.type, `检测到威胁生物: ${nearestEnemy.name}`);
+      }
+    }
+    // 威胁消除时退出战斗模式
+    else if (previousThreatCount > 0 && this.threatCount === 0) {
+      this.logger.info('✅ 威胁消除');
+
+      // 触发模式切换
+      if (this.state?.modeManager && this.state.modeManager.getCurrentMode() === this.type) {
+        await this.state.modeManager.setMode(ModeManager.MODE_TYPES.MAIN, '威胁消除');
+      }
+    }
+  }
+
+  /**
+   * 查找最近的敌人
    */
   private findNearestEnemy(): any | null {
-    const entities = this.context.gameState.nearbyEntities || [];
+    if (!this.state?.context?.gameState?.nearbyEntities) {
+      return null;
+    }
 
-    // 查找最近的敌对生物
-    const enemies = entities.filter((e: any) => ['zombie', 'skeleton', 'spider', 'creeper'].includes(e.name));
+    const entities = this.state.context.gameState.nearbyEntities;
+    const enemies = entities.filter((e: any) =>
+      this.hostileEntityNames.includes(e.name?.toLowerCase())
+    );
 
     if (enemies.length === 0) {
       return null;
     }
 
     // 返回最近的敌人
-    return enemies.reduce((nearest: any, current: any) => (current.distance < nearest.distance ? current : nearest));
+    return enemies.reduce((nearest: any, current: any) =>
+      (current.distance < nearest.distance ? current : nearest)
+    );
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  /**
+   * 执行攻击
+   */
+  private async performAttack(enemy: any): Promise<void> {
+    try {
+      this.logger.info(`⚔️ 攻击目标: ${enemy.name} (距离: ${enemy.distance.toFixed(1)}m)`);
+      this.lastAttackTime = Date.now();
+
+      // 执行攻击动作
+      const result = await this.state!.context.executor.execute(ActionIds.KILL_MOB, {
+        entity: enemy.name,
+        timeout: 30,
+      });
+
+      if (result.success) {
+        this.logger.info(`✅ 成功击杀: ${enemy.name}`);
+
+        // 记录战斗结果到思考日志
+        if (this.state?.memory) {
+          this.state.memory.recordThought(`⚔️ 成功击杀 ${enemy.name}`);
+        }
+
+        // 清理当前敌人，下次循环会寻找新目标
+        this.currentEnemy = null;
+      } else {
+        this.logger.warn(`⚠️ 战斗失败: ${result.message}`);
+
+        if (this.state?.memory) {
+          this.state.memory.recordThought(`⚠️ 战斗失败: ${result.message}`);
+        }
+      }
+    } catch (error) {
+      this.logger.error('❌ 攻击动作执行异常:', undefined, error as Error);
+
+      if (this.state?.memory) {
+        this.state.memory.recordThought(`❌ 攻击异常: ${error}`);
+      }
+    }
+  }
+
+  /**
+   * 判断是否应该退出战斗
+   * 参考原maicraft设计：威胁消除时立即退出
+   */
+  private shouldExitCombat(): boolean {
+    return this.threatCount === 0;
+  }
+
+  /**
+   * 获取战斗统计信息
+   */
+  getCombatStats(): {
+    duration: number;
+    threatCount: number;
+    currentEnemy: string | null;
+  } {
+    return {
+      duration: this.getRunningTime(),
+      threatCount: this.threatCount,
+      currentEnemy: this.currentEnemy?.name || null,
+    };
   }
 }

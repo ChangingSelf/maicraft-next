@@ -1,9 +1,11 @@
 /**
  * 主决策循环
  *
- * 职责：循环控制
+ * 参考原maicraft的run_execute_loop设计
+ * 职责：
  * - 检查中断
- * - 委托策略管理器执行决策
+ * - 通知游戏状态更新
+ * - 执行当前模式逻辑
  * - 定期评估任务
  */
 
@@ -11,13 +13,10 @@ import type { AgentState } from '../types';
 import { LLMManager } from '@/llm/LLMManager';
 import { BaseLoop } from './BaseLoop';
 import { promptManager, initAllTemplates } from '../prompt';
-import { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
-import { PromptDataCollector } from './PromptDataCollector';
-import { DecisionStrategyManager, AutoModeSwitchStrategy, LLMDecisionStrategy } from '../decision';
+import { ModeManager } from '../mode/ModeManager';
 
 export class MainDecisionLoop extends BaseLoop<AgentState> {
   private llmManager: LLMManager;
-  private strategyManager: DecisionStrategyManager;
   private evaluationCounter: number = 0;
   private promptsInitialized: boolean = false;
 
@@ -33,31 +32,11 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       this.promptsInitialized = true;
       this.logger.info('✅ 提示词模板初始化完成');
     }
-
-    // 初始化策略管理器
-    this.strategyManager = new DecisionStrategyManager();
-    this.registerStrategies(state);
-  }
-
-  /**
-   * 注册所有决策策略
-   */
-  private registerStrategies(state: AgentState): void {
-    // 创建动作提示词生成器和数据收集器
-    const actionPromptGenerator = new ActionPromptGenerator(state.context.executor);
-    const dataCollector = new PromptDataCollector(state, actionPromptGenerator);
-
-    // 注册策略（按优先级自动排序）
-    this.strategyManager.addStrategy(new AutoModeSwitchStrategy());
-    this.strategyManager.addStrategy(new LLMDecisionStrategy(this.llmManager, dataCollector));
-
-    // 输出策略统计
-    const stats = this.strategyManager.getStats();
-    this.logger.info(`✅ 已注册 ${stats.totalStrategies} 个决策策略`);
   }
 
   /**
    * 执行一次循环迭代
+   * 参考原maicraft的run_execute_loop和next_thinking设计
    */
   protected async runLoopIteration(): Promise<void> {
     // 1. 检查中断
@@ -69,20 +48,81 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       return;
     }
 
-    // 2. 委托策略管理器执行决策
-    const executed = await this.strategyManager.executeStrategies(this.state);
+    // 2. 通知游戏状态更新
+    await this.notifyGameStateUpdate();
 
-    // 3. 如果没有策略执行，等待一段时间
-    if (!executed) {
-      this.logger.debug('⏸️ 没有可执行的策略，等待中...');
-      await this.sleep(1000);
+    // 3. 检查模式自动切换
+    const modeSwitched = await this.state.modeManager.checkAutoTransitions();
+    if (modeSwitched) {
+      this.logger.debug('✨ 模式已自动切换');
+      // 模式切换后，跳过本次决策，让新模式在下次循环中执行
+      await this.sleep(500);
       return;
     }
 
-    // 4. 定期评估任务
+    // 4. 执行当前模式逻辑
+    await this.executeCurrentMode();
+
+    // 5. 定期评估任务
     this.evaluationCounter++;
     if (this.evaluationCounter % 5 === 0) {
       await this.evaluateTask();
+    }
+
+    // 6. 根据当前模式调整等待时间
+    await this.adjustSleepDelay();
+  }
+
+  /**
+   * 通知游戏状态更新
+   * 替代原maicraft的环境监听器机制
+   */
+  private async notifyGameStateUpdate(): Promise<void> {
+    try {
+      const gameState = this.state.context.gameState;
+      await this.state.modeManager.notifyGameStateUpdate(gameState);
+    } catch (error) {
+      this.logger.error('❌ 游戏状态通知失败:', undefined, error as Error);
+    }
+  }
+
+  /**
+   * 执行当前模式逻辑
+   * 参考原maicraft：直接调用当前模式的执行方法
+   */
+  private async executeCurrentMode(): Promise<void> {
+    try {
+      await this.state.modeManager.executeCurrentMode();
+    } catch (error) {
+      this.logger.error('❌ 模式执行失败:', undefined, error as Error);
+
+      // 安全机制：严重错误时强制恢复到主模式
+      if (this.state.modeManager.getCurrentMode() !== ModeManager.MODE_TYPES.MAIN) {
+        this.logger.warn('🔄 检测到模式执行异常，尝试恢复到主模式');
+        await this.state.modeManager.forceRecoverToMain('模式执行异常恢复');
+      }
+    }
+  }
+
+  /**
+   * 根据当前模式调整等待时间
+   */
+  private async adjustSleepDelay(): Promise<void> {
+    const currentMode = this.state.modeManager.getCurrentMode();
+
+    switch (currentMode) {
+      case ModeManager.MODE_TYPES.COMBAT:
+        // 战斗模式需要快速响应
+        await this.sleep(200);
+        break;
+      case ModeManager.MODE_TYPES.MAIN:
+        // 主模式正常间隔
+        await this.sleep(100);
+        break;
+      default:
+        // 其他模式默认间隔
+        await this.sleep(500);
+        break;
     }
   }
 
@@ -116,7 +156,7 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       // 使用系统提示词模板
       const systemPrompt = promptManager.generatePrompt('task_evaluation_system', {
         bot_name: this.state.context.gameState.playerName || 'Bot',
-        player_name: this.state.context.gameState.playerName || 'Player'
+        player_name: this.state.context.gameState.playerName || 'Player',
       });
       const userPrompt = prompt;
 

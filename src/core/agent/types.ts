@@ -25,6 +25,7 @@ export interface AgentState {
   readonly modeManager: ModeManager;
   readonly planningManager: GoalPlanningManager;
   readonly memory: MemoryManager;
+  readonly llmManager: any; // LLMManager 类型
 
   // 中断控制
   readonly interrupt: InterruptController;
