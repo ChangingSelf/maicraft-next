@@ -113,15 +113,15 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       // 生成评估提示词
       const prompt = promptManager.generatePrompt('task_evaluation', evaluationData);
 
-      const messages = [
-        {
-          role: 'user' as const,
-          content: prompt,
-        },
-      ];
+      // 使用系统提示词模板
+      const systemPrompt = promptManager.generatePrompt('task_evaluation_system', {
+        bot_name: this.state.context.gameState.playerName || 'Bot',
+        player_name: this.state.context.gameState.playerName || 'Player'
+      });
+      const userPrompt = prompt;
 
-      const response = await this.llmManager.chat(messages);
-      const evaluation = response.choices[0]?.message?.content;
+      const response = await this.llmManager.chatCompletion(userPrompt, systemPrompt);
+      const evaluation = response.success ? response.content : null;
 
       if (evaluation) {
         // 记录评估结果

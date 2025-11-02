@@ -4,8 +4,7 @@
 
 import type { AgentState } from '../types';
 import type { ConversationEntry } from '../memory/types';
-import { LLMManager } from '@/llm/LLMManager';
-import type { LLMResponse } from '@/llm/types';
+import type { LLMManager, LLMClientResponse } from '@/llm/LLMManager';
 import { promptManager } from '../prompt';
 import { ActionIds } from '@/core/actions/ActionIds';
 import { BaseLoop } from './BaseLoop';
@@ -94,22 +93,18 @@ export class ChatLoop extends BaseLoop<AgentState> {
       const recentConversations = this.state.memory.conversation.getRecent(10);
       const conversationText = recentConversations.map(c => `[${c.speaker}]: ${c.message}`).join('\n');
 
-      const prompt = promptManager.generatePrompt('chat_response', {
+      const userPrompt = promptManager.generatePrompt('chat_response', {
         player_name: this.state.context.gameState.playerName || 'Bot',
         recent_conversations: conversationText,
         current_activity: this.state.planningManager.getCurrentTask()?.title || '空闲中',
         position: `位置: (${this.state.context.gameState.blockPosition.x}, ${this.state.context.gameState.blockPosition.y}, ${this.state.context.gameState.blockPosition.z})`,
       });
 
-      // 将字符串提示词转换为 ChatMessage 格式
-      const messages = [
-        {
-          role: 'user' as const,
-          content: prompt,
-        },
-      ];
-
-      const response = await this.llmManager.chat(messages);
+      const systemPrompt = promptManager.generatePrompt('chat_response_system', {
+        bot_name: this.state.context.gameState.playerName || 'Bot',
+        player_name: this.state.context.gameState.playerName || 'Player'
+      });
+      const response = await this.llmManager.chatCompletion(userPrompt, systemPrompt);
 
       const message = this.parseChatResponse(response);
 
@@ -131,22 +126,18 @@ export class ChatLoop extends BaseLoop<AgentState> {
       const recentConversations = this.state.memory.conversation.getRecent(5);
       const conversationText = recentConversations.map(c => `[${c.speaker}]: ${c.message}`).join('\n');
 
-      const prompt = promptManager.generatePrompt('chat_initiate', {
+      const userPrompt = promptManager.generatePrompt('chat_initiate', {
         player_name: this.state.context.gameState.playerName || 'Bot',
         recent_conversations: conversationText,
         current_activity: this.state.planningManager.getCurrentTask()?.title || '空闲中',
         position: `位置: (${this.state.context.gameState.blockPosition.x}, ${this.state.context.gameState.blockPosition.y}, ${this.state.context.gameState.blockPosition.z})`,
       });
 
-      // 将字符串提示词转换为 ChatMessage 格式
-      const messages = [
-        {
-          role: 'user' as const,
-          content: prompt,
-        },
-      ];
-
-      const response = await this.llmManager.chat(messages);
+      const systemPrompt = promptManager.generatePrompt('chat_initiate_system', {
+        bot_name: this.state.context.gameState.playerName || 'Bot',
+        player_name: this.state.context.gameState.playerName || 'Player'
+      });
+      const response = await this.llmManager.chatCompletion(userPrompt, systemPrompt);
 
       const message = this.parseChatResponse(response);
 
@@ -163,9 +154,14 @@ export class ChatLoop extends BaseLoop<AgentState> {
   /**
    * 解析聊天响应
    */
-  private parseChatResponse(response: LLMResponse): string | null {
-    // 从 LLMResponse 中提取文本内容
-    const content = response.choices[0]?.message?.content || '';
+  private parseChatResponse(response: LLMClientResponse): string | null {
+    // 从 LLMClientResponse 中提取文本内容
+    const content = response.success ? response.content || '' : '';
+
+    if (!response.success) {
+      this.logger.error('LLM聊天调用失败', { error: response.error });
+      return null;
+    }
 
     if (!content) {
       return null;

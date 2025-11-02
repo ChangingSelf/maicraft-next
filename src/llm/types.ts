@@ -31,6 +31,20 @@ export interface ChatMessage {
   role: MessageRole;
   content: string;
   name?: string; // 可选的消息名称
+  tool_calls?: ToolCall[]; // 工具调用
+  tool_call_id?: string; // 工具调用响应ID
+}
+
+/**
+ * 工具调用接口
+ */
+export interface ToolCall {
+  id: string;
+  type: string;
+  function: {
+    name: string;
+    arguments: string;
+  };
 }
 
 /**
@@ -74,6 +88,8 @@ export interface LLMRequestConfig {
   stop?: string | string[];
   stream?: boolean;
   timeout?: number;
+  tools?: any[]; // 工具列表
+  tool_choice?: any; // 工具选择策略
 }
 
 /**

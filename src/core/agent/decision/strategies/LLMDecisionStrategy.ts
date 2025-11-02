@@ -7,9 +7,7 @@
 import type { AgentState, ActionCall } from '../../types';
 import type { DecisionStrategy } from '../types';
 import { StrategyGroup } from '../types';
-import type { LLMManager } from '@/llm/LLMManager';
-import type { LLMResponse } from '@/llm/types';
-import { MessageRole } from '@/llm/types';
+import type { LLMManager, LLMClientResponse } from '@/llm/LLMManager';
 import type { ActionId } from '@/core/actions/ActionIds';
 import { getLogger, type Logger } from '@/utils/Logger';
 import { promptManager, parseThinkingMultiple } from '../../prompt';
@@ -44,18 +42,15 @@ export class LLMDecisionStrategy implements DecisionStrategy {
     inputData.basic_info = basicInfo;
 
     // 4. 生成 main_thinking 提示词
-    const prompt = promptManager.generatePrompt('main_thinking', inputData);
+    const userPrompt = promptManager.generatePrompt('main_thinking', inputData);
     this.logger.info('💭 生成提示词完成');
 
-    // 5. 调用 LLM
-    const messages = [
-      {
-        role: MessageRole.USER,
-        content: prompt,
-      },
-    ];
-
-    const response = await this.llmManager.chat(messages);
+    // 5. 调用 LLM - 正确使用system/user角色
+    const systemPrompt = promptManager.generatePrompt('main_thinking_system', {
+      bot_name: state.context.gameState.playerName || 'Mai',
+      player_name: state.context.gameState.playerName || 'Player',
+    });
+    const response = await this.llmManager.chatCompletion(userPrompt, systemPrompt);
     this.logger.info('🤖 LLM 响应完成');
 
     // 6. 解析响应
@@ -89,11 +84,16 @@ export class LLMDecisionStrategy implements DecisionStrategy {
   /**
    * 解析 LLM 响应
    */
-  private parseResponse(response: LLMResponse): {
+  private parseResponse(response: LLMClientResponse): {
     thinking: string | null;
     actions: ActionCall[];
   } {
-    const content = response.choices[0]?.message?.content || '';
+    const content = response.success ? response.content || '' : '';
+
+    if (!response.success) {
+      this.logger.error('⚠️ LLM 调用失败', { error: response.error });
+      return { thinking: null, actions: [] };
+    }
 
     if (!content) {
       this.logger.warn('⚠️ LLM 响应内容为空');

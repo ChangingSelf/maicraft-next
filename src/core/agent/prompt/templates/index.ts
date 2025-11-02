@@ -7,6 +7,7 @@ export { initMainThinkingTemplate } from './main_thinking';
 export { initChatResponseTemplate } from './chat_response';
 export { initChatInitiateTemplate } from './chat_initiate';
 export { initTaskEvaluationTemplate } from './task_evaluation';
+export { initSystemPromptTemplates } from './system_prompts';
 
 /**
  * 初始化所有核心模板
@@ -18,6 +19,7 @@ import { initMainThinkingTemplate } from './main_thinking';
 import { initChatResponseTemplate } from './chat_response';
 import { initChatInitiateTemplate } from './chat_initiate';
 import { initTaskEvaluationTemplate } from './task_evaluation';
+import { initSystemPromptTemplates } from './system_prompts';
 
 export function initAllCoreTemplates(): void {
   initBasicInfoTemplate();
@@ -25,4 +27,5 @@ export function initAllCoreTemplates(): void {
   initChatResponseTemplate();
   initChatInitiateTemplate();
   initTaskEvaluationTemplate();
+  initSystemPromptTemplates();
 }
