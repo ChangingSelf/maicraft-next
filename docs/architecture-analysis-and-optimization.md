@@ -1,6 +1,7 @@
 # Maicraft-Next 架构分析与优化建议
 
 **生成日期**: 2025-11-02  
+**更新日期**: 2025-11-02  
 **项目版本**: 2.0  
 **分析者**: AI Assistant
 
@@ -24,12 +25,11 @@
 
 ### 📊 主要发现
 
-本次分析发现了 **10 个主要架构问题**，涉及：
+本次分析发现了 **7 个主要架构问题**，涉及：
 
-- **职责边界模糊** (4个问题)
-- **依赖关系混乱** (3个问题)
+- **职责边界模糊** (3个问题)
+- **依赖关系混乱** (2个问题)
 - **资源管理不当** (2个问题)
-- **代码重复和不一致** (1个问题)
 
 ### ⚡ 优化收益
 
@@ -48,131 +48,7 @@
 
 ---
 
-### 🔴 问题 2: RuntimeContext 创建重复和不一致 (严重)
-
-#### 问题描述
-
-`RuntimeContext` 在多个地方被创建，导致上下文不一致：
-
-**位置 1: Agent.ts - createContext()**
-
-```typescript:101:114
-private createContext(bot: Bot, config: Config): RuntimeContext {
-  return {
-    bot,
-    executor: this.executor, // 使用外部传入的 executor
-    gameState: globalGameState,
-    blockCache: this.executor['blockCache'] || new BlockCache(),
-    containerCache: this.executor['containerCache'] || new ContainerCache(),
-    locationManager: this.executor['locationManager'] || new LocationManager(),
-    events: this.executor.getEventEmitter(),
-    interruptSignal: new InterruptSignal(),
-    logger: this.externalLogger,
-    config,
-  };
-}
-```
-
-**位置 2: ActionExecutor.ts - execute()**
-
-```typescript:87:98
-const context: RuntimeContext = {
-  bot: this.bot,
-  executor: this,
-  gameState: globalGameState,
-  blockCache: this.blockCache,
-  containerCache: this.containerCache,
-  locationManager: this.locationManager,
-  events: this.events,
-  interruptSignal,
-  logger: actionLogger,
-  config: this.config,
-};
-```
-
-#### 问题
-
-1. **缓存来源不一致**: Agent 尝试从 executor 获取缓存，但 executor 内部也有自己的缓存
-2. **InterruptSignal 不同**: 每次创建新的 InterruptSignal，无法统一中断控制
-3. **职责不清**: 谁负责创建和管理 RuntimeContext？
-4. **资源浪费**: 可能创建多个相同类型的实例
-
-#### 优化建议
-
-**引入单一的 ContextManager**
-
-```typescript
-/**
- * 上下文管理器 - 统一管理 RuntimeContext
- */
-class ContextManager {
-  private context?: RuntimeContext;
-
-  createContext(params: { bot: Bot; executor: ActionExecutor; config: Config; logger: Logger }): RuntimeContext {
-    if (this.context) {
-      throw new Error('Context already created');
-    }
-
-    const { bot, executor, config, logger } = params;
-
-    // 创建共享的缓存实例
-    const blockCache = new BlockCache();
-    const containerCache = new ContainerCache();
-    const locationManager = new LocationManager();
-
-    // 注入到 executor
-    executor.setBlockCache(blockCache);
-    executor.setContainerCache(containerCache);
-    executor.setLocationManager(locationManager);
-
-    // 创建共享的 InterruptSignal
-    const globalInterruptSignal = new InterruptSignal();
-
-    this.context = {
-      bot,
-      executor,
-      gameState: globalGameState,
-      blockCache,
-      containerCache,
-      locationManager,
-      events: executor.getEventEmitter(),
-      interruptSignal: globalInterruptSignal,
-      logger,
-      config,
-    };
-
-    return this.context;
-  }
-
-  getContext(): RuntimeContext {
-    if (!this.context) {
-      throw new Error('Context not created');
-    }
-    return this.context;
-  }
-
-  /**
-   * 为特定动作创建上下文（带专用 logger 和 interruptSignal）
-   */
-  createActionContext(actionName: string): RuntimeContext {
-    const baseContext = this.getContext();
-
-    return {
-      ...baseContext,
-      logger: createPrefixedLogger(baseContext.logger, actionName),
-      interruptSignal: new InterruptSignal(), // 每个动作独立的中断信号
-    };
-  }
-
-  cleanup(): void {
-    this.context = undefined;
-  }
-}
-```
-
----
-
-### 🟡 问题 3: ActionExecutor 职责混乱 (中等)
+### 🟡 问题 2: ActionExecutor 职责混乱 (中等)
 
 #### 问题描述
 
@@ -343,7 +219,7 @@ export class ActionPromptGenerator {
 
 ---
 
-### 🟡 问题 4: MainDecisionLoop 数据收集职责过重 (中等)
+### 🟡 问题 3: MainDecisionLoop 数据收集职责过重 (中等)
 
 #### 问题描述
 
@@ -638,7 +514,7 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
 
 ---
 
-### 🟡 问题 5: 全局状态使用不规范 (中等)
+### 🟡 问题 4: 全局状态使用不规范 (中等)
 
 #### 问题描述
 
@@ -726,7 +602,7 @@ ServiceLocator.register('gameState', mockGameState);
 
 ---
 
-### 🟡 问题 6: ModeManager 和决策循环职责重叠 (中等)
+### 🟡 问题 5: ModeManager 和决策循环职责重叠 (中等)
 
 #### 问题描述
 
@@ -884,301 +760,8 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
 
 ---
 
-### 🔴 问题 7: 缓存系统实现不完整 (严重)
 
-#### 问题描述
-
-`BlockCache`, `ContainerCache`, `LocationManager` 都是占位实现：
-
-```typescript:9:55
-export class BlockCache {
-  private cache: Map<string, any> = new Map();
-  private logger: Logger;
-
-  constructor() {
-    this.logger = getLogger('BlockCache');
-  }
-
-  /**
-   * 获取方块
-   */
-  getBlock(x: number, y: number, z: number): any | null {
-    const key = `${x},${y},${z}`;
-    return this.cache.get(key) || null;
-  }
-
-  /**
-   * 设置方块
-   */
-  setBlock(x: number, y: number, z: number, block: any): void {
-    const key = `${x},${y},${z}`;
-    this.cache.set(key, block);
-  }
-
-  /**
-   * 保存缓存
-   */
-  async save(): Promise<void> {
-    // TODO: 实现持久化
-    this.logger.info('BlockCache 保存完成');
-  }
-
-  /**
-   * 加载缓存
-   */
-  async load(): Promise<void> {
-    // TODO: 实现加载
-    this.logger.info('BlockCache 加载完成');
-  }
-
-  /**
-   * 清空缓存
-   */
-  clear(): void {
-    this.cache.clear();
-  }
-}
-```
-
-#### 问题
-
-1. **接口不明确** - 没有定义接口，只有实现
-2. **功能不完整** - save/load 只是占位
-3. **类型不安全** - 使用 `any` 类型
-4. **职责不清** - 缓存策略（LRU、TTL）在哪里？
-
-#### 优化建议
-
-**定义清晰的接口和实现**
-
-```typescript
-/**
- * 缓存接口
- */
-interface ICache<K, V> {
-  get(key: K): V | null;
-  set(key: K, value: V): void;
-  has(key: K): boolean;
-  delete(key: K): boolean;
-  clear(): void;
-  size(): number;
-}
-
-/**
- * 持久化缓存接口
- */
-interface IPersistentCache<K, V> extends ICache<K, V> {
-  save(): Promise<void>;
-  load(): Promise<void>;
-}
-
-/**
- * 方块位置
- */
-interface BlockPosition {
-  x: number;
-  y: number;
-  z: number;
-}
-
-/**
- * 方块信息
- */
-interface BlockInfo {
-  type: string;
-  name: string;
-  position: BlockPosition;
-  metadata?: any;
-  timestamp: number;
-}
-
-/**
- * LRU 缓存实现
- */
-class LRUCache<K, V> implements ICache<K, V> {
-  private cache: Map<K, V>;
-  private readonly maxSize: number;
-
-  constructor(maxSize: number = 1000) {
-    this.cache = new Map();
-    this.maxSize = maxSize;
-  }
-
-  get(key: K): V | null {
-    const value = this.cache.get(key);
-    if (value !== undefined) {
-      // LRU: 访问后移到最后
-      this.cache.delete(key);
-      this.cache.set(key, value);
-      return value;
-    }
-    return null;
-  }
-
-  set(key: K, value: V): void {
-    // 如果已存在，先删除
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    }
-
-    // 如果超过容量，删除最早的
-    if (this.cache.size >= this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
-    }
-
-    this.cache.set(key, value);
-  }
-
-  has(key: K): boolean {
-    return this.cache.has(key);
-  }
-
-  delete(key: K): boolean {
-    return this.cache.delete(key);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  size(): number {
-    return this.cache.size;
-  }
-
-  entries(): IterableIterator<[K, V]> {
-    return this.cache.entries();
-  }
-}
-
-/**
- * 方块缓存实现
- */
-export class BlockCache implements IPersistentCache<string, BlockInfo> {
-  private cache: LRUCache<string, BlockInfo>;
-  private logger: Logger;
-  private persistPath: string;
-
-  constructor(options?: { maxSize?: number; persistPath?: string }) {
-    this.cache = new LRUCache(options?.maxSize || 10000);
-    this.persistPath = options?.persistPath || 'data/block_cache.json';
-    this.logger = getLogger('BlockCache');
-  }
-
-  get(key: string): BlockInfo | null {
-    return this.cache.get(key);
-  }
-
-  set(key: string, value: BlockInfo): void {
-    this.cache.set(key, value);
-  }
-
-  has(key: string): boolean {
-    return this.cache.has(key);
-  }
-
-  delete(key: string): boolean {
-    return this.cache.delete(key);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  size(): number {
-    return this.cache.size();
-  }
-
-  /**
-   * 通过坐标获取方块
-   */
-  getBlock(x: number, y: number, z: number): BlockInfo | null {
-    const key = this.makeKey(x, y, z);
-    return this.get(key);
-  }
-
-  /**
-   * 通过坐标设置方块
-   */
-  setBlock(x: number, y: number, z: number, block: BlockInfo): void {
-    const key = this.makeKey(x, y, z);
-    this.set(key, block);
-  }
-
-  /**
-   * 保存到文件
-   */
-  async save(): Promise<void> {
-    try {
-      const data: Array<[string, BlockInfo]> = [];
-      for (const [key, value] of this.cache.entries()) {
-        data.push([key, value]);
-      }
-
-      await fs.writeFile(this.persistPath, JSON.stringify(data, null, 2), 'utf-8');
-
-      this.logger.info(`保存了 ${data.length} 个方块缓存`);
-    } catch (error) {
-      this.logger.error('保存方块缓存失败', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 从文件加载
-   */
-  async load(): Promise<void> {
-    try {
-      const content = await fs.readFile(this.persistPath, 'utf-8');
-      const data: Array<[string, BlockInfo]> = JSON.parse(content);
-
-      this.clear();
-      for (const [key, value] of data) {
-        this.set(key, value);
-      }
-
-      this.logger.info(`加载了 ${data.length} 个方块缓存`);
-    } catch (error) {
-      if ((error as any).code === 'ENOENT') {
-        this.logger.info('方块缓存文件不存在，跳过加载');
-      } else {
-        this.logger.error('加载方块缓存失败', error);
-        throw error;
-      }
-    }
-  }
-
-  /**
-   * 清理过期缓存
-   */
-  cleanupExpired(maxAge: number = 3600000): void {
-    const now = Date.now();
-    const keysToDelete: string[] = [];
-
-    for (const [key, value] of this.cache.entries()) {
-      if (now - value.timestamp > maxAge) {
-        keysToDelete.push(key);
-      }
-    }
-
-    for (const key of keysToDelete) {
-      this.delete(key);
-    }
-
-    if (keysToDelete.length > 0) {
-      this.logger.info(`清理了 ${keysToDelete.length} 个过期方块缓存`);
-    }
-  }
-
-  private makeKey(x: number, y: number, z: number): string {
-    return `${x},${y},${z}`;
-  }
-}
-```
-
----
-
-### 🟠 问题 8: LLMManager 在多处创建 (中等)
+### 🟠 问题 6: LLMManager 在多处创建 (中等)
 
 #### 问题描述
 
@@ -1251,7 +834,7 @@ constructor(state: AgentState, llmManager: LLMManager) {
 
 ---
 
-### 🟠 问题 9: 事件监听设置分散 (中等)
+### 🟠 问题 7: 事件监听设置分散 (中等)
 
 #### 问题描述
 
@@ -1557,7 +1140,7 @@ class Agent {
 
 ---
 
-### 🟡 问题 10: 提示词系统初始化时机不当 (中等)
+### 🟡 问题 8: 提示词系统初始化时机不当 (中等)
 
 #### 问题描述
 
@@ -2181,9 +1764,9 @@ class MaicraftNext {
 
 ### 🔴 高优先级（立即处理）
 
-1. **Agent 类重构** - 使用依赖注入，分离职责
-2. **RuntimeContext 统一管理** - 引入 ContextManager
-3. **缓存系统实现** - 完善 BlockCache 等
+1. **ActionExecutor 职责分离** - 移除提示词生成职责，创建 ActionPromptGenerator
+2. **MainDecisionLoop 数据收集重构** - 引入 PromptDataCollector
+3. **事件监听统一管理** - 引入 EventRouter
 
 **预期收益**:
 
@@ -2197,10 +1780,9 @@ class MaicraftNext {
 
 ### 🟡 中优先级（近期处理）
 
-4. **ActionExecutor 职责分离** - 移除缓存管理职责
-5. **MainDecisionLoop 数据收集重构** - 引入 PromptDataCollector
-6. **事件监听统一管理** - 引入 EventRouter
-7. **提示词系统初始化优化** - 在启动时初始化
+4. **提示词系统初始化优化** - 在启动时初始化
+5. **LLMManager 单例管理** - 使用工厂确保单例
+6. **全局状态访问规范** - 统一使用 context 或服务定位器
 
 **预期收益**:
 
@@ -2214,9 +1796,8 @@ class MaicraftNext {
 
 ### 🟢 低优先级（长期优化）
 
-8. **全局状态访问规范** - 统一使用 context 或服务定位器
-9. **LLMManager 单例管理** - 使用工厂确保单例
-10. **ModeManager 和决策循环解耦** - 引入策略模式
+7. **ModeManager 和决策循环解耦** - 引入策略模式
+8. **引入依赖注入容器** - 全面使用 DI 管理依赖
 
 **预期收益**:
 
@@ -2230,83 +1811,60 @@ class MaicraftNext {
 
 ## 实施路线图
 
-### 第一阶段：基础重构 (2-3 周)
+### 第一阶段：职责分离 (2-3 周)
 
-**目标**: 解决最紧急的架构问题
+**目标**: 解决最紧急的职责不清问题
 
 **任务列表**:
 
-- [ ] 创建 `ContextManager` 类
-- [ ] 创建 `AgentContextFactory` 类
-- [ ] 重构 `Agent` 构造函数，使用工厂创建状态
-- [ ] 完善 `BlockCache`, `ContainerCache`, `LocationManager`
+- [ ] 创建 `ActionPromptGenerator` 类，从 ActionExecutor 中分离提示词生成
+- [ ] 创建 `PromptDataCollector` 类，从 MainDecisionLoop 中分离数据收集
+- [ ] 创建 `EventRouter` 和事件处理器，从多个类中统一事件监听
 - [ ] 编写单元测试覆盖重构部分
 
 **成功标准**:
 
-- Agent 类不再直接创建子系统
-- RuntimeContext 只在一处创建
-- 缓存系统功能完整
-
----
-
-### 第二阶段：职责分离 (2-3 周)
-
-**目标**: 分离过重的职责
-
-**任务列表**:
-
-- [ ] 创建 `ActionPromptGenerator` 类
-- [ ] 从 `ActionExecutor` 移除缓存管理
-- [ ] 创建 `PromptDataCollector` 类
-- [ ] 简化 `MainDecisionLoop.getAllData()`
-- [ ] 创建 `EventRouter` 和事件处理器
-- [ ] 迁移所有事件监听到事件处理器
-
-**成功标准**:
-
-- 每个类的职责单一清晰
+- ActionExecutor 只负责动作执行
+- MainDecisionLoop 只负责决策循环逻辑
 - 事件监听统一管理
-- 提示词数据收集独立
 
 ---
 
-### 第三阶段：依赖注入 (1-2 周)
+### 第二阶段：系统优化 (2-3 周)
 
-**目标**: 引入依赖注入，提高可测试性
+**目标**: 解决系统级配置和资源管理问题
 
 **任务列表**:
 
-- [ ] 创建 `DIContainer` 类
-- [ ] 在 `main.ts` 中注册所有服务
-- [ ] 修改各个类使用依赖注入
-- [ ] 编写测试验证 DI 工作正常
+- [ ] 将提示词系统初始化移至应用启动时
+- [ ] 实现 `LLMManagerFactory` 确保单例模式
+- [ ] 规范全局状态访问，减少直接导入 `globalGameState`
+- [ ] 添加配置验证机制
 
 **成功标准**:
 
-- 所有依赖通过 DI 容器管理
-- 单元测试覆盖率 > 70%
-- 集成测试通过
+- 提示词系统在启动时初始化
+- LLMManager 单例保证
+- 全局状态访问规范化
 
 ---
 
-### 第四阶段：持续优化 (长期)
+### 第三阶段：架构重构 (长期)
 
-**目标**: 持续改进架构质量
+**目标**: 引入现代架构模式
 
 **任务列表**:
 
-- [ ] 引入策略模式优化决策流程
+- [ ] 引入策略模式优化 ModeManager 和决策循环
+- [ ] 创建 `DIContainer` 全面使用依赖注入
 - [ ] 完善错误处理机制
-- [ ] 添加配置验证
 - [ ] 优化性能瓶颈
-- [ ] 完善文档
 
 **成功标准**:
 
-- 代码质量持续提升
+- 架构更加清晰和可扩展
+- 依赖注入全面应用
 - 测试覆盖率 > 80%
-- 性能指标达标
 
 ---
 
@@ -2333,31 +1891,53 @@ const agent = new Agent(state, llmManager, logger);
 
 ---
 
-### 对比 2: RuntimeContext 创建
+### 对比 2: ActionExecutor 职责分离
 
 **重构前**:
 
 ```typescript
-// Agent.ts 中创建
-const context = this.createContext(bot, config);
+// ActionExecutor 承担过多职责
+export class ActionExecutor {
+  // 缓存管理
+  private blockCache: BlockCache;
+  private containerCache: ContainerCache;
 
-// ActionExecutor.ts 中又创建
-const context: RuntimeContext = {
-  bot: this.bot,
-  executor: this,
-  // ...
-};
+  // 事件发射
+  private events: EventEmitter;
+
+  // 提示词生成
+  generatePrompt(): string {
+    // 复杂的提示词生成逻辑
+  }
+
+  // 动作执行
+  async execute(actionId: T, params: ActionParamsMap[T]) {
+    // 执行逻辑
+  }
+}
 ```
 
 **重构后**:
 
 ```typescript
-// 统一由 ContextManager 创建
-const contextManager = new ContextManager();
-const context = contextManager.createContext({ bot, executor, config, logger });
+// ActionExecutor 只负责动作执行
+export class ActionExecutor {
+  constructor(contextManager: ContextManager, logger: Logger) {}
 
-// ActionExecutor 使用专用上下文
-const actionContext = contextManager.createActionContext(actionName);
+  async execute(actionId: T, params: ActionParamsMap[T]) {
+    const context = this.contextManager.createActionContext(actionName);
+    // 只关注执行逻辑
+  }
+}
+
+// 提示词生成分离到独立类
+export class ActionPromptGenerator {
+  constructor(private executor: ActionExecutor) {}
+
+  generatePrompt(): string {
+    // 专门负责提示词生成
+  }
+}
 ```
 
 ---
@@ -2397,15 +1977,20 @@ eventRouter.cleanup(bot);
 
 ## 总结
 
-本次架构分析发现了 **10 个主要问题**，涵盖职责分离、依赖管理、资源管理等多个方面。通过实施本文档提出的优化建议，可以显著提升代码质量、可维护性和可测试性。
+本次架构分析发现了 **8 个主要架构问题**，涵盖职责分离、依赖管理、资源管理等多个方面。其中 **3 个问题已解决**，**5 个问题尚待解决**。通过实施本文档提出的优化建议，可以显著提升代码质量、可维护性和可测试性。
 
-**关键改进**:
+**已解决的关键问题**:
 
-1. ✅ **职责单一** - 每个类专注于单一职责
-2. ✅ **依赖注入** - 通过 DI 容器管理依赖
-3. ✅ **分层架构** - 清晰的层次结构
-4. ✅ **统一管理** - 上下文、事件、错误统一管理
-5. ✅ **可测试性** - 易于编写单元测试
+1. ✅ **RuntimeContext 统一管理** - 通过 ContextManager 统一创建和管理
+2. ✅ **缓存系统实现** - BlockCache、ContainerCache、LocationManager 已实现完整功能
+3. ✅ **ActionExecutor 缓存管理分离** - 不再直接管理缓存实例
+
+**剩余关键改进**:
+
+1. 🔄 **职责单一** - ActionExecutor 仍承担提示词生成职责
+2. 🔄 **统一管理** - 事件监听仍分散在多个类中
+3. 🔄 **依赖注入** - 尚未引入 DI 容器
+4. 🔄 **系统优化** - 提示词初始化和 LLMManager 单例管理待完善
 
 **实施建议**:
 

@@ -152,38 +152,4 @@ export class ActionExecutor {
     const context = this.contextManager.getContext();
     return context.events;
   }
-
-  /**
-   * 生成 LLM 提示词
-   */
-  generatePrompt(): string {
-    const actions = this.getRegisteredActions();
-
-    if (actions.length === 0) {
-      return '# 可用动作\n\n暂无可用动作';
-    }
-
-    const lines: string[] = ['# 可用动作', ''];
-
-    for (const action of actions) {
-      lines.push(`## ${action.name}`);
-      lines.push(action.description);
-      lines.push('');
-      lines.push('```json');
-      lines.push(
-        JSON.stringify(
-          {
-            action_type: action.id,
-            ...action.getParamsSchema?.(),
-          },
-          null,
-          2,
-        ),
-      );
-      lines.push('```');
-      lines.push('');
-    }
-
-    return lines.join('\n');
-  }
 }

@@ -9,14 +9,19 @@ import { LLMManager } from '@/llm/LLMManager';
 import type { LLMResponse } from '@/llm/types';
 import { BaseLoop } from './BaseLoop';
 import { promptManager, initAllTemplates, parseThinkingMultiple } from '../prompt';
+import { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
 
 export class MainDecisionLoop extends BaseLoop<AgentState> {
   private llmManager: any; // LLMManager type
   private evaluationCounter: number = 0;
   private promptsInitialized: boolean = false;
+  private actionPromptGenerator: ActionPromptGenerator;
 
   constructor(state: AgentState, llmManager?: any) {
     super(state, 'MainDecisionLoop');
+
+    // 创建动作提示词生成器
+    this.actionPromptGenerator = new ActionPromptGenerator(state.context.executor);
 
     // 使用传入的 llmManager 或创建新实例
     this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
@@ -178,7 +183,7 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
     });
 
     // 获取动态生成的动作提示词
-    const availableActions = this.state.context.executor.generatePrompt();
+    const availableActions = this.actionPromptGenerator.generatePrompt();
 
     // 返回 main_thinking 模板需要的所有参数
     return {

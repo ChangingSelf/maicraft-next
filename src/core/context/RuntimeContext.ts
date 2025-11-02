@@ -12,6 +12,7 @@ import { Bot } from 'mineflayer';
 import { GameState } from '../state/GameState';
 import { EventEmitter } from '../events/EventEmitter';
 import { InterruptSignal } from '../interrupt/InterruptSignal';
+import type { ActionExecutor } from '../actions/ActionExecutor';
 
 /**
  * Logger 接口
@@ -49,17 +50,6 @@ export interface ContainerCache {
  */
 export interface LocationManager {
   // 后续实现
-}
-
-/**
- * 动作执行器接口（前向声明）
- */
-export interface ActionExecutor {
-  // 后续实现
-  execute(actionId: string, params: any): Promise<any>;
-  interruptAll(reason: string): void;
-  generatePrompt(): string;
-  getEventEmitter(): any;
 }
 
 /**
