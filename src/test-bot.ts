@@ -9,10 +9,11 @@
  */
 
 import { createBot, Bot } from 'mineflayer';
-import { globalGameState, ActionExecutor, ActionIds } from './core';
+import { ActionExecutor, ActionIds } from './core';
 import { BlockCache } from './core/cache/BlockCache';
 import { ContainerCache } from './core/cache/ContainerCache';
 import { LocationManager } from './core/cache/LocationManager';
+import { ContextManager } from './core/context/ContextManager';
 import { getLogger } from './utils/Logger';
 import {
   ChatAction,
@@ -68,9 +69,7 @@ const logger = getLogger('test-bot');
 class MaicraftTestBot {
   private bot!: Bot;
   private executor!: ActionExecutor;
-  private blockCache!: BlockCache;
-  private containerCache!: ContainerCache;
-  private locationManager!: LocationManager;
+  private contextManager!: ContextManager;
 
   /**
    * 初始化并连接
@@ -154,25 +153,21 @@ class MaicraftTestBot {
   private async initializeCore() {
     logger.info('初始化核心系统...');
 
-    // 1. 初始化 GameState
-    globalGameState.initialize(this.bot);
-    logger.info('✅ GameState 初始化完成');
-
-    // 2. 创建上下文管理器
-    const contextManager = new ContextManager();
-    contextManager.createContext({
+    // 1. 创建上下文管理器（这会自动创建和初始化 GameState）
+    this.contextManager = new ContextManager();
+    this.contextManager.createContext({
       bot: this.bot,
       executor: null as any, // 先传 null，稍后注入真正的 executor
       config: {},
       logger,
     });
-    logger.info('✅ ContextManager 创建完成');
+    logger.info('✅ ContextManager 和 GameState 初始化完成');
 
-    // 3. 创建 ActionExecutor
-    this.executor = new ActionExecutor(contextManager, logger);
+    // 2. 创建 ActionExecutor
+    this.executor = new ActionExecutor(this.contextManager, logger);
 
     // 更新 ContextManager 中的 executor 引用
-    contextManager.updateExecutor(this.executor);
+    this.contextManager.updateExecutor(this.executor);
     logger.info('✅ ActionExecutor 创建完成');
 
     // 4. 注册所有 P0 动作
@@ -282,8 +277,9 @@ class MaicraftTestBot {
         break;
 
       case 'status':
-        this.bot.chat(`生命: ${globalGameState.health}/20, 饥饿: ${globalGameState.food}/20`);
-        this.bot.chat(`等级: ${globalGameState.level}, 经验: ${globalGameState.experience}`);
+        const gameState = this.contextManager.getContext().gameState;
+        this.bot.chat(`生命: ${gameState.health}/20, 饥饿: ${gameState.food}/20`);
+        this.bot.chat(`等级: ${gameState.level}, 经验: ${gameState.experience}`);
         break;
       case 'chat':
         if (args.length < 1) {
@@ -296,7 +292,7 @@ class MaicraftTestBot {
         break;
 
       case 'pos':
-        const pos = globalGameState.blockPosition;
+        const pos = this.contextManager.getContext().gameState.blockPosition;
         this.bot.chat(`位置: (${pos.x}, ${pos.y}, ${pos.z})`);
         break;
 

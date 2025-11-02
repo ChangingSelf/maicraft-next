@@ -219,7 +219,7 @@ export class ActionPromptGenerator {
 
 ---
 
-### 🟡 问题 3: MainDecisionLoop 数据收集职责过重 (中等)
+### 🟡 问题 3: MainDecisionLoop 数据收集职责过重 (已解决)
 
 #### 问题描述
 
@@ -514,28 +514,31 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
 
 ---
 
-### 🟡 问题 4: 全局状态使用不规范 (中等)
+### 🟢 问题 4: 全局状态使用不规范 (已解决)
 
 #### 问题描述
 
-`globalGameState` 的使用方式不一致：
+`GameState` 的使用方式不一致：
 
-**直接导入使用**
+**直接导入使用（已修复）**
 
-```typescript:25:25
+```typescript
+// ❌ 旧方式：直接导入全局实例
 import { globalGameState } from '@/core/state/GameState';
+const health = globalGameState.health;
 ```
 
-**通过 context 访问**
+**通过 context 访问（推荐）**
 
-```typescript:73:79
-const gameContext: GameContext = {
-  gameState: context.gameState,
-  blockCache: context.blockCache,
-  containerCache: context.containerCache,
-  locationManager: context.locationManager,
-  logger: context.logger,
-};
+```typescript
+// ✅ 新方式：通过 RuntimeContext 访问
+class SomeClass {
+  constructor(private context: RuntimeContext) {}
+
+  doSomething() {
+    const health = this.context.gameState.health;
+  }
+}
 ```
 
 #### 问题
@@ -547,14 +550,14 @@ const gameContext: GameContext = {
 
 #### 优化建议
 
-**统一通过 RuntimeContext 访问**
+**统一通过 RuntimeContext 访问（已实施）**
 
 ```typescript
-// ❌ 不要这样
+// ❌ 不要这样：直接导入全局实例
 import { globalGameState } from '@/core/state/GameState';
 const health = globalGameState.health;
 
-// ✅ 应该这样
+// ✅ 应该这样：通过 RuntimeContext 访问
 class SomeClass {
   constructor(private context: RuntimeContext) {}
 
@@ -564,41 +567,11 @@ class SomeClass {
 }
 ```
 
-**如果需要全局访问，使用服务定位器模式**
+**实施细节：**
 
-```typescript
-/**
- * 服务定位器 - 用于需要全局访问但又希望保持可测试性的场景
- */
-class ServiceLocator {
-  private static instances = new Map<string, any>();
-
-  static register<T>(name: string, instance: T): void {
-    this.instances.set(name, instance);
-  }
-
-  static get<T>(name: string): T {
-    const instance = this.instances.get(name);
-    if (!instance) {
-      throw new Error(`Service ${name} not registered`);
-    }
-    return instance as T;
-  }
-
-  static clear(): void {
-    this.instances.clear();
-  }
-}
-
-// 注册
-ServiceLocator.register('gameState', globalGameState);
-
-// 使用
-const gameState = ServiceLocator.get<GameState>('gameState');
-
-// 测试时可以替换
-ServiceLocator.register('gameState', mockGameState);
-```
+1. **ContextManager 创建 GameState 实例** - 不再使用全局单例
+2. **所有访问通过 context** - 确保依赖明确和可测试
+3. **移除直接导入** - 清理代码中的全局状态直接访问
 
 ---
 
@@ -1977,13 +1950,14 @@ eventRouter.cleanup(bot);
 
 ## 总结
 
-本次架构分析发现了 **8 个主要架构问题**，涵盖职责分离、依赖管理、资源管理等多个方面。其中 **3 个问题已解决**，**5 个问题尚待解决**。通过实施本文档提出的优化建议，可以显著提升代码质量、可维护性和可测试性。
+本次架构分析发现了 **8 个主要架构问题**，涵盖职责分离、依赖管理、资源管理等多个方面。其中 **4 个问题已解决**，**4 个问题尚待解决**。通过实施本文档提出的优化建议，可以显著提升代码质量、可维护性和可测试性。
 
 **已解决的关键问题**:
 
 1. ✅ **RuntimeContext 统一管理** - 通过 ContextManager 统一创建和管理
 2. ✅ **缓存系统实现** - BlockCache、ContainerCache、LocationManager 已实现完整功能
 3. ✅ **ActionExecutor 缓存管理分离** - 不再直接管理缓存实例
+4. ✅ **全局状态访问规范** - 统一通过 RuntimeContext 访问，移除直接导入
 
 **剩余关键改进**:
 

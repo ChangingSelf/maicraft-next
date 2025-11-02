@@ -16,7 +16,7 @@ import { ContainerCache } from '../cache/ContainerCache';
 import { LocationManager } from '../location/LocationManager';
 import { InterruptSignal } from '../interrupt/InterruptSignal';
 import { EventEmitter } from '../events/EventEmitter';
-import { globalGameState } from '../state/GameState';
+import { GameState } from '../state/GameState';
 
 /**
  * 上下文管理器
@@ -34,6 +34,10 @@ export class ContextManager {
 
     const { bot, executor, config, logger } = params;
 
+    // 创建 GameState 实例
+    const gameState = new GameState();
+    gameState.initialize(bot);
+
     // 创建共享的缓存实例（全局唯一）
     const blockCache = new BlockCache();
     const containerCache = new ContainerCache();
@@ -48,7 +52,7 @@ export class ContextManager {
     this.context = {
       bot,
       executor: executor || ({} as ActionExecutor), // 临时赋值，后续会更新
-      gameState: globalGameState,
+      gameState,
       blockCache,
       containerCache,
       locationManager,
@@ -88,6 +92,10 @@ export class ContextManager {
    * 清理上下文（用于测试或重启）
    */
   cleanup(): void {
+    if (this.context) {
+      // 清理 GameState
+      this.context.gameState.cleanup();
+    }
     this.context = undefined;
   }
 

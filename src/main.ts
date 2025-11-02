@@ -17,7 +17,6 @@ import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as collectBlock } from 'mineflayer-collectblock-colalab';
 
 // 核心系统
-import { globalGameState } from '@/core/state/GameState';
 import { ActionExecutor } from '@/core/actions/ActionExecutor';
 import { ContextManager } from '@/core/context/ContextManager';
 
@@ -355,10 +354,14 @@ class MaicraftNext {
     // 停止当前agent
     if (this.agent) {
       await this.agent.stop();
+      this.agent = undefined; // 清除引用
     }
 
     // 重新连接到Minecraft
     await this.connectToMinecraft();
+
+    // 重新初始化LLM（总是重新初始化，因为可能被关闭）
+    await this.initializeLLM();
 
     // 重新初始化核心系统
     await this.initializeCore();
@@ -383,9 +386,8 @@ class MaicraftNext {
 
     this.logger.info('初始化核心系统...');
 
-    // 1. GameState已在bot连接时自动初始化
-    // globalGameState 是全局实例，在 bot 登录时自动更新
-    this.logger.info('✅ GameState已就绪');
+    // 1. GameState将由 ContextManager 创建和管理
+    this.logger.info('✅ GameState将由ContextManager管理');
 
     // 2. 创建上下文管理器
     this.contextManager = new ContextManager();
@@ -535,13 +537,13 @@ class MaicraftNext {
       }
     }
 
-    // 3. 清理GameState
-    if (globalGameState) {
+    // 3. 清理ContextManager（包括GameState）
+    if (this.contextManager) {
       try {
-        globalGameState.cleanup();
-        this.logger?.info('✅ GameState已清理');
+        this.contextManager.cleanup();
+        this.logger?.info('✅ ContextManager已清理');
       } catch (error) {
-        this.logger?.error('清理GameState时出错', undefined, error as Error);
+        this.logger?.error('清理ContextManager时出错', undefined, error as Error);
       }
     }
 
