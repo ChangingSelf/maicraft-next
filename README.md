@@ -129,6 +129,7 @@ pnpm start
 - **[动作系统](docs/action-system.md)** - 15个核心动作的设计与实现
 - **[代理系统](docs/agent-system.md)** - Agent 主协调器及其子系统
 - **[决策循环](docs/decision-loop.md)** - MainDecisionLoop 和 ChatLoop 的工作机制
+- **[决策策略系统](docs/decision-strategy-system.md)** - 策略模式 + 责任链模式的决策架构 ✨新增
 
 #### AI 能力
 
