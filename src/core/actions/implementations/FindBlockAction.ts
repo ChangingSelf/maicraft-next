@@ -63,7 +63,12 @@ export class FindBlockAction extends BaseAction<FindBlockParams> {
 
       // 保存到方块缓存
       for (const pos of blocks) {
-        context.blockCache.addBlock(block, true, pos);
+        context.blockCache.setBlock(pos.x, pos.y, pos.z, {
+          name: block,
+          type: blockType.id,
+          position: pos,
+          timestamp: Date.now()
+        });
       }
 
       return this.success(`找到 ${blocks.length} 个 ${block}`, {

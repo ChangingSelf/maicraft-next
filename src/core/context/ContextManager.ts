@@ -34,13 +34,22 @@ export class ContextManager {
 
     const { bot, executor, config, logger } = params;
 
-    // 创建 GameState 实例
+    // 创建 GameState 实例（包含缓存系统）
     const gameState = new GameState();
     gameState.initialize(bot);
 
-    // 创建共享的缓存实例（全局唯一）
-    const blockCache = new BlockCache();
-    const containerCache = new ContainerCache();
+    // 等待 GameState 初始化完成以获取缓存实例
+    setTimeout(() => {
+      // 确保 GameState 中的缓存已初始化
+      if (!gameState.blockCache) {
+        gameState.blockCache = new BlockCache();
+      }
+      if (!gameState.containerCache) {
+        gameState.containerCache = new ContainerCache();
+      }
+    }, 100);
+
+    // 创建位置管理器
     const locationManager = new LocationManager();
 
     // 创建全局共享的中断信号（用于系统级中断）
@@ -53,8 +62,8 @@ export class ContextManager {
       bot,
       executor: executor || ({} as ActionExecutor), // 临时赋值，后续会更新
       gameState,
-      blockCache,
-      containerCache,
+      blockCache: gameState.blockCache!,
+      containerCache: gameState.containerCache!,
       locationManager,
       events,
       interruptSignal: globalInterruptSignal,

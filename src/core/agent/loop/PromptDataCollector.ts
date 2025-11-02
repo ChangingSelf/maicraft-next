@@ -3,6 +3,7 @@
  * 专门负责收集和格式化 LLM 提示词所需数据
  */
 
+import { getLogger, type Logger } from '@/utils/Logger';
 import type { AgentState } from '../types';
 import type { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
 
@@ -48,10 +49,14 @@ export interface MainThinkingData {
 }
 
 export class PromptDataCollector {
+  private logger: Logger;
+
   constructor(
     private state: AgentState,
     private actionPromptGenerator: ActionPromptGenerator,
-  ) {}
+  ) {
+    this.logger = getLogger('PromptDataCollector');
+  }
 
   /**
    * 收集基础信息
@@ -204,15 +209,158 @@ export class PromptDataCollector {
   }
 
   private getNearbyBlocksInfo(): string {
-    // TODO: 实现附近方块扫描功能
-    // 可以通过 bot.findBlocks 或其他方法获取
-    return '附近方块信息需要扫描';
+    try {
+      const { gameState } = this.state.context;
+      const nearbyBlocks = gameState.getNearbyBlocks?.(16) || [];
+
+      // 调试日志
+      this.logger.debug(`🔍 获取周围方块: 找到 ${nearbyBlocks.length} 个方块`);
+      if (nearbyBlocks.length > 0) {
+        this.logger.debug(`📍 方块列表: ${nearbyBlocks.slice(0, 5).map(b => b.name).join(', ')}${nearbyBlocks.length > 5 ? '...' : ''}`);
+      }
+
+      if (nearbyBlocks.length === 0) {
+        return '附近没有重要方块';
+      }
+
+      // 过滤重要方块并按距离排序
+      const importantPatterns = [
+        'chest', 'furnace', 'crafting_table', 'bed', 'door', 'torch', 'workbench',
+        'ore', 'log', 'wood', 'sapling', 'diamond', 'emerald', 'gold', 'iron',
+        'coal', 'stone', 'planks', 'brick', 'glass', 'wool', 'bookshelf'
+      ];
+
+      const importantBlocks = nearbyBlocks.filter(block =>
+        importantPatterns.some(pattern => block.name.includes(pattern))
+      );
+
+      if (importantBlocks.length === 0) {
+        return '附近没有发现重要方块';
+      }
+
+      // 计算距离并排序，显示最近的方块
+      const botPosition = this.state.context.gameState.blockPosition;
+      importantBlocks.sort((a, b) => {
+        const distA = Math.sqrt(
+          Math.pow(a.position.x - botPosition.x, 2) +
+          Math.pow(a.position.y - botPosition.y, 2) +
+          Math.pow(a.position.z - botPosition.z, 2)
+        );
+        const distB = Math.sqrt(
+          Math.pow(b.position.x - botPosition.x, 2) +
+          Math.pow(b.position.y - botPosition.y, 2) +
+          Math.pow(b.position.z - botPosition.z, 2)
+        );
+        return distA - distB;
+      });
+
+      // 生成详细信息，包含坐标
+      const blockLines: string[] = [];
+
+      // 显示每个重要方块的详细信息
+      for (const block of importantBlocks.slice(0, 15)) { // 最多显示15个方块
+        const pos = block.position;
+        const distance = Math.sqrt(
+          Math.pow(pos.x - botPosition.x, 2) +
+          Math.pow(pos.y - botPosition.y, 2) +
+          Math.pow(pos.z - botPosition.z, 2)
+        );
+
+        let line = `  ${block.name} at (${pos.x}, ${pos.y}, ${pos.z})`;
+        line += ` [距离: ${distance.toFixed(1)}格]`;
+
+        // 添加特殊方块的状态信息
+        if (block.state && Object.keys(block.state).length > 0) {
+          const stateStr = Object.entries(block.state)
+            .map(([key, value]) => `${key}:${value}`)
+            .join(', ');
+          line += ` [${stateStr}]`;
+        }
+
+        blockLines.push(line);
+      }
+
+      return `附近重要方块 (${importantBlocks.length}个):\n${blockLines.join('\n')}`;
+    } catch (error) {
+      return '获取附近方块信息失败';
+    }
   }
 
   private getContainerCacheInfo(): string {
-    // TODO: 如果有容器缓存系统，从这里获取
-    // 暂时返回空信息
-    return '暂无容器缓存信息';
+    try {
+      const { gameState } = this.state.context;
+      const nearbyContainers = gameState.getNearbyContainers?.(32) || [];
+
+      // 调试日志
+      this.logger.debug(`📦 获取容器信息: 找到 ${nearbyContainers.length} 个容器`);
+      if (nearbyContainers.length > 0) {
+        this.logger.debug(`📦 容器列表: ${nearbyContainers.slice(0, 3).map(c => c.type).join(', ')}${nearbyContainers.length > 3 ? '...' : ''}`);
+      }
+
+      if (nearbyContainers.length === 0) {
+        return '附近没有已知的容器';
+      }
+
+      // 按距离排序容器
+      nearbyContainers.sort((a, b) => {
+        const distA = a.position.distanceTo(gameState.blockPosition);
+        const distB = b.position.distanceTo(gameState.blockPosition);
+        return distA - distB;
+      });
+
+      const containerLines: string[] = [];
+
+      for (const container of nearbyContainers.slice(0, 8)) { // 最多显示8个容器
+        const pos = container.position;
+        const distance = pos.distanceTo(gameState.blockPosition);
+
+        let line = `  ${container.type}: ${container.name || '未命名容器'}`;
+        line += ` at (${pos.x}, ${pos.y}, ${pos.z})`;
+        line += ` [距离: ${distance.toFixed(1)}格]`;
+
+        containerLines.push(line);
+
+        // 显示物品信息
+        if (container.items && container.items.length > 0) {
+          // 显示前几种重要物品
+          const importantItems = container.items
+            .filter(item =>
+              item.name.includes('diamond') ||
+              item.name.includes('iron') ||
+              item.name.includes('gold') ||
+              item.name.includes('emerald') ||
+              item.name.includes('tool') ||
+              item.name.includes('sword') ||
+              item.count >= 16
+            )
+            .slice(0, 5);
+
+          if (importantItems.length > 0) {
+            const itemDetails = importantItems.map(item => `${item.name}×${item.count}`).join(', ');
+            containerLines.push(`    物品: ${itemDetails}`);
+          } else {
+            containerLines.push(`    物品: ${container.items.length}种 (共${container.items.reduce((sum, item) => sum + item.count, 0)}个)`);
+          }
+        } else {
+          containerLines.push(`    物品: 空`);
+        }
+
+        // 显示容器状态（如熔炉燃料、进度等）
+        if (container.state && Object.keys(container.state).length > 0) {
+          const stateDetails = Object.entries(container.state)
+            .filter(([key, value]) => key !== 'items') // 避免重复显示物品
+            .map(([key, value]) => `${key}:${value}`)
+            .join(', ');
+          if (stateDetails) {
+            containerLines.push(`    状态: ${stateDetails}`);
+          }
+        }
+      }
+
+      return `附近容器 (${nearbyContainers.length}个):\n${containerLines.join('\n')}`;
+    } catch (error) {
+      return '获取容器信息失败';
+    }
   }
 
   private getChatHistory(): string {

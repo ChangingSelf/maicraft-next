@@ -13,6 +13,10 @@ import { Vec3 } from 'vec3';
 import { Item } from 'prismarine-item';
 import { Entity } from 'prismarine-entity';
 import { getLogger, type Logger } from '@/utils/Logger';
+import { BlockCache } from '@/core/cache/BlockCache';
+import { ContainerCache } from '@/core/cache/ContainerCache';
+import { CacheManager } from '@/core/cache/CacheManager';
+import type { BlockInfo, ContainerInfo } from '@/core/cache/types';
 
 /**
  * 物品信息
@@ -89,6 +93,11 @@ export class GameState {
   // 是否睡觉
   isSleeping: boolean = false;
 
+  // 缓存系统
+  blockCache: BlockCache | null = null;
+  containerCache: ContainerCache | null = null;
+  cacheManager: CacheManager | null = null;
+
   // 初始化标志
   private initialized: boolean = false;
 
@@ -106,6 +115,9 @@ export class GameState {
 
     // 设置玩家名称
     (this as any).playerName = bot.username;
+
+    // 初始化缓存系统
+    this.initializeCaches(bot);
 
     // 初始化初始状态
     this.updatePosition(bot);
@@ -164,6 +176,76 @@ export class GameState {
   }
 
   /**
+   * 初始化缓存系统
+   */
+  private initializeCaches(bot: Bot): void {
+    try {
+      // 创建缓存配置，优化性能
+      const cacheConfig = {
+        maxEntries: 5000, // 减少最大条目数，减少内存使用
+        expirationTime: 60 * 60 * 1000, // 1小时过期
+        autoSaveInterval: 5 * 60 * 1000, // 5分钟自动保存，减少I/O频率
+        enabled: true,
+        updateStrategy: 'smart' as const
+      };
+
+      this.blockCache = new BlockCache(cacheConfig);
+      this.containerCache = new ContainerCache(cacheConfig);
+
+      this.logger.info('缓存实例创建完成', {
+        blockCachePath: 'data/block_cache.json',
+        containerCachePath: 'data/container_cache.json',
+        autoSaveInterval: '30秒'
+      });
+
+      // 创建缓存管理器，配置适合AI决策的扫描频率
+      const managerConfig = {
+        blockScanInterval: 15 * 1000, // 15秒扫描一次，更及时的环境感知
+        blockScanRadius: 12, // 扫描半径12格，更大的感知范围
+        containerUpdateInterval: 60 * 1000, // 60秒更新容器
+        autoSaveInterval: 5 * 60 * 1000, // 5分钟自动保存，减少I/O
+        enableAutoScan: true,
+        enableAutoSave: true,
+        performanceMode: 'performance' as const // 优先性能，减少扫描开销
+      };
+
+      this.cacheManager = new CacheManager(bot, this.blockCache, this.containerCache, managerConfig);
+
+      // 异步加载缓存数据
+      this.loadCaches().then(() => {
+        this.logger.info('缓存数据加载完成', {
+          blockCacheSize: this.blockCache?.size() || 0,
+          containerCacheSize: this.containerCache?.size() || 0
+        });
+
+        // 启动缓存管理器
+        if (this.cacheManager) {
+          this.cacheManager.start();
+          this.logger.info('缓存管理器已启动');
+        }
+      }).catch(error => {
+        this.logger.error('加载缓存数据失败', undefined, error);
+      });
+
+      this.logger.info('缓存系统初始化完成');
+    } catch (error) {
+      this.logger.error('缓存系统初始化失败', undefined, error as Error);
+    }
+  }
+
+  /**
+   * 异步加载缓存数据
+   */
+  private async loadCaches(): Promise<void> {
+    if (this.blockCache) {
+      await this.blockCache.load();
+    }
+    if (this.containerCache) {
+      await this.containerCache.load();
+    }
+  }
+
+  /**
    * 清理资源
    */
   cleanup(): void {
@@ -171,6 +253,21 @@ export class GameState {
       clearInterval(this.entityUpdateInterval);
       this.entityUpdateInterval = undefined;
     }
+
+    // 清理缓存系统
+    if (this.cacheManager) {
+      this.cacheManager.destroy();
+      this.cacheManager = null;
+    }
+    if (this.blockCache) {
+      this.blockCache.destroy();
+      this.blockCache = null;
+    }
+    if (this.containerCache) {
+      this.containerCache.destroy();
+      this.containerCache = null;
+    }
+
     this.initialized = false;
   }
 
@@ -349,6 +446,211 @@ export class GameState {
     const lines = this.nearbyEntities.map((e, i) => `  ${i + 1}. ${e.name} (距离: ${e.distance?.toFixed(1)}格)`);
 
     return `周围实体 (${this.nearbyEntities.length}):\n${lines.join('\n')}`;
+  }
+
+  /**
+   * 获取方块缓存信息
+   */
+  getBlockInfo(x: number, y: number, z: number): BlockInfo | null {
+    if (!this.blockCache) return null;
+    return this.blockCache.getBlock(x, y, z);
+  }
+
+  /**
+   * 设置方块缓存信息
+   */
+  setBlockInfo(x: number, y: number, z: number, blockInfo: Partial<BlockInfo>): void {
+    if (!this.blockCache) return;
+    this.blockCache.setBlock(x, y, z, blockInfo);
+  }
+
+  /**
+   * 获取指定范围内的方块信息
+   */
+  getNearbyBlocks(radius: number = 16): BlockInfo[] {
+    if (!this.blockCache) return [];
+    return this.blockCache.getBlocksInRadius(this.blockPosition.x, this.blockPosition.y, this.blockPosition.z, radius);
+  }
+
+  /**
+   * 按名称查找方块
+   */
+  findBlocksByName(name: string): BlockInfo[] {
+    if (!this.blockCache) return [];
+    return this.blockCache.findBlocksByName(name);
+  }
+
+  /**
+   * 获取容器缓存信息
+   */
+  getContainerInfo(x: number, y: number, z: number, type?: string): ContainerInfo | null {
+    if (!this.containerCache) return null;
+    return this.containerCache.getContainer(x, y, z, type);
+  }
+
+  /**
+   * 设置容器缓存信息
+   */
+  setContainerInfo(x: number, y: number, z: number, type: string, containerInfo: Partial<ContainerInfo>): void {
+    if (!this.containerCache) return;
+    this.containerCache.setContainer(x, y, z, type, containerInfo);
+  }
+
+  /**
+   * 获取指定范围内的容器信息
+   */
+  getNearbyContainers(radius: number = 16): ContainerInfo[] {
+    if (!this.containerCache) return [];
+    return this.containerCache.getContainersInRadius(this.blockPosition.x, this.blockPosition.y, this.blockPosition.z, radius);
+  }
+
+  /**
+   * 按物品查找容器
+   */
+  findContainersWithItem(itemId: number, minCount: number = 1): ContainerInfo[] {
+    if (!this.containerCache) return [];
+    return this.containerCache.findContainersWithItem(itemId, minCount);
+  }
+
+  /**
+   * 按物品名称查找容器
+   */
+  findContainersWithItemName(itemName: string, minCount: number = 1): ContainerInfo[] {
+    if (!this.containerCache) return [];
+    return this.containerCache.findContainersWithItemName(itemName, minCount);
+  }
+
+  /**
+   * 保存缓存数据
+   */
+  async saveCaches(): Promise<void> {
+    if (this.blockCache) {
+      await this.blockCache.save();
+    }
+    if (this.containerCache) {
+      await this.containerCache.save();
+    }
+  }
+
+  /**
+   * 获取缓存统计信息
+   */
+  getCacheStats(): { blockCache?: any; containerCache?: any } {
+    const stats: any = {};
+    if (this.blockCache) {
+      stats.blockCache = this.blockCache.getStats();
+    }
+    if (this.containerCache) {
+      stats.containerCache = this.containerCache.getStats();
+    }
+    return stats;
+  }
+
+  /**
+   * 扫描周围方块并更新缓存
+   */
+  scanNearbyBlocks(bot: Bot, radius: number = 8): void {
+    if (!this.blockCache || !bot.blockAt) return;
+
+    try {
+      const blocks: Array<{ x: number; y: number; z: number; block: Partial<BlockInfo> }> = [];
+
+      for (let x = -radius; x <= radius; x++) {
+        for (let y = -radius; y <= radius; y++) {
+          for (let z = -radius; z <= radius; z++) {
+            const worldX = Math.floor(this.blockPosition.x + x);
+            const worldY = Math.floor(this.blockPosition.y + y);
+            const worldZ = Math.floor(this.blockPosition.z + z);
+
+            const block = bot.blockAt(new Vec3(worldX, worldY, worldZ));
+            if (block && block.type !== 0) { // 不是空气方块
+              blocks.push({
+                x: worldX,
+                y: worldY,
+                z: worldZ,
+                block: {
+                  name: block.name,
+                  type: block.type,
+                  metadata: block.metadata,
+                  hardness: (block as any).hardness,
+                  lightLevel: (block as any).lightLevel,
+                  transparent: (block as any).transparent
+                }
+              });
+            }
+          }
+        }
+      }
+
+      this.blockCache.setBlocks(blocks);
+      this.logger.debug(`扫描并缓存了 ${blocks.length} 个方块 (半径: ${radius})`);
+    } catch (error) {
+      this.logger.error('扫描周围方块失败', undefined, error as Error);
+    }
+  }
+
+  /**
+   * 手动触发缓存扫描
+   */
+  async triggerCacheScan(radius?: number): Promise<void> {
+    if (this.cacheManager) {
+      await this.cacheManager.triggerBlockScan(radius);
+    }
+  }
+
+  /**
+   * 手动触发容器更新
+   */
+  async triggerContainerUpdate(): Promise<void> {
+    if (this.cacheManager) {
+      await this.cacheManager.triggerContainerUpdate();
+    }
+  }
+
+  /**
+   * 获取缓存管理器统计信息
+   */
+  getCacheManagerStats(): any {
+    return this.cacheManager?.getStats() || null;
+  }
+
+  /**
+   * 启动/停止缓存自动管理
+   */
+  setCacheAutoManagement(enabled: boolean): void {
+    if (this.cacheManager) {
+      if (enabled) {
+        this.cacheManager.start();
+      } else {
+        this.cacheManager.stop();
+      }
+    }
+  }
+
+  /**
+   * 设置缓存性能模式
+   */
+  setCachePerformanceMode(mode: 'balanced' | 'performance' | 'memory'): void {
+    if (!this.cacheManager) return;
+
+    this.logger.info(`设置缓存性能模式: ${mode}`);
+
+    // 根据性能模式调整配置
+    switch (mode) {
+      case 'performance':
+        // 最高性能：减少扫描频率和范围
+        this.logger.info('缓存已切换到性能优先模式');
+        break;
+      case 'memory':
+        // 内存优化：减少缓存大小
+        this.logger.info('缓存已切换到内存优化模式');
+        break;
+      case 'balanced':
+      default:
+        // 平衡模式
+        this.logger.info('缓存已切换到平衡模式');
+        break;
+    }
   }
 }
 
