@@ -30,7 +30,7 @@ export class ContainerCache {
       autoSaveInterval: 10 * 60 * 1000, // 10分钟
       enabled: true,
       updateStrategy: 'smart',
-      ...config
+      ...config,
     };
 
     // 初始化统计信息
@@ -40,12 +40,12 @@ export class ContainerCache {
       lastUpdate: Date.now(),
       hitRate: 0,
       totalQueries: 0,
-      totalHits: 0
+      totalHits: 0,
     };
 
     this.logger.info('ContainerCache 初始化完成', {
       config: this.config,
-      persistPath: this.persistPath
+      persistPath: this.persistPath,
     });
 
     // 启动自动保存
@@ -122,7 +122,7 @@ export class ContainerCache {
       items: container.items || [],
       lastAccessed: now,
       size: container.size || this.getDefaultContainerSize(type),
-      ...container
+      ...container,
     };
 
     this.cache.set(key, containerInfo);
@@ -142,7 +142,7 @@ export class ContainerCache {
       brewing_stand: 5,
       dispenser: 9,
       hopper: 5,
-      shulker_box: 27
+      shulker_box: 27,
     };
     return sizes[type] || 9;
   }
@@ -173,10 +173,7 @@ export class ContainerCache {
     }
 
     // 查找是否有相同的物品可以堆叠
-    const existingItem = container.items.find(existing =>
-      existing.itemId === item.itemId &&
-      existing.name === item.name
-    );
+    const existingItem = container.items.find(existing => existing.itemId === item.itemId && existing.name === item.name);
 
     if (existingItem) {
       existingItem.count += item.count;
@@ -247,8 +244,8 @@ export class ContainerCache {
 
       const distance = Math.sqrt(
         Math.pow(containerInfo.position.x - centerX, 2) +
-        Math.pow(containerInfo.position.y - centerY, 2) +
-        Math.pow(containerInfo.position.z - centerZ, 2)
+          Math.pow(containerInfo.position.y - centerY, 2) +
+          Math.pow(containerInfo.position.z - centerZ, 2),
       );
 
       if (distance <= radius) {
@@ -289,9 +286,7 @@ export class ContainerCache {
         continue;
       }
 
-      const totalItems = containerInfo.items
-        .filter(item => item.itemId === itemId)
-        .reduce((sum, item) => sum + item.count, 0);
+      const totalItems = containerInfo.items.filter(item => item.itemId === itemId).reduce((sum, item) => sum + item.count, 0);
 
       if (totalItems >= minCount) {
         containers.push(containerInfo);
@@ -406,7 +401,7 @@ export class ContainerCache {
         version: '1.0',
         timestamp: Date.now(),
         stats: this.stats,
-        entries: data
+        entries: data,
       };
 
       await fs.writeFile(this.persistPath, JSON.stringify(saveData, null, 2), 'utf-8');

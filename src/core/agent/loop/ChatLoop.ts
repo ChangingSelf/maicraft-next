@@ -123,7 +123,7 @@ export class ChatLoop extends BaseLoop<AgentState> {
 
       const systemPrompt = promptManager.generatePrompt('chat_response_system', {
         bot_name: this.state.context.gameState.playerName || 'Bot',
-        player_name: this.state.context.gameState.playerName || 'Player'
+        player_name: this.state.context.gameState.playerName || 'Player',
       });
       const response = await this.llmManager.chatCompletion(userPrompt, systemPrompt);
 
@@ -156,7 +156,7 @@ export class ChatLoop extends BaseLoop<AgentState> {
 
       const systemPrompt = promptManager.generatePrompt('chat_initiate_system', {
         bot_name: this.state.context.gameState.playerName || 'Bot',
-        player_name: this.state.context.gameState.playerName || 'Player'
+        player_name: this.state.context.gameState.playerName || 'Player',
       });
       const response = await this.llmManager.chatCompletion(userPrompt, systemPrompt);
 

@@ -3,6 +3,7 @@
 ## 🎯 重构目标
 
 解决原系统中模式策略系统存在的严重问题：
+
 - **死循环问题**：策略系统和模式系统相互脱节导致决策死锁
 - **决策失败**：主循环找不到可执行策略，持续空转
 - **架构缺陷**：过度工程化，职责边界不清
@@ -16,6 +17,7 @@
 ### 1. 架构简化
 
 **移除组件**：
+
 - ❌ `DecisionStrategyManager` - 策略管理器
 - ❌ `DecisionStrategy` 接口及实现
 - ❌ `AutoModeSwitchStrategy`
@@ -24,6 +26,7 @@
 - ❌ 整个 `src/core/agent/decision/` 目录
 
 **保留核心**：
+
 - ✅ `ModeManager` - 增强版模式管理器
 - ✅ `BaseMode` - 重构后的基类
 - ✅ `MainMode` - 重构后的主模式
@@ -32,6 +35,7 @@
 ### 2. 新增组件
 
 **GameStateListener 接口**：
+
 ```typescript
 export interface GameStateListener {
   readonly listenerName: string;
@@ -50,6 +54,7 @@ export interface GameStateListener {
 ### 3. 核心架构变更
 
 #### 模式管理器增强
+
 ```typescript
 // 新增功能
 async notifyGameStateUpdate(gameState: any): Promise<void>;
@@ -61,6 +66,7 @@ private gameStateListeners: GameStateListener[] = [];
 ```
 
 #### 主决策循环简化
+
 ```typescript
 // 移除策略管理器相关代码
 - private strategyManager: DecisionStrategyManager;
@@ -73,6 +79,7 @@ private async adjustSleepDelay(): Promise<void>;
 ```
 
 #### 模式基类重构
+
 ```typescript
 // 状态绑定
 bindState(state: AgentState): void {
@@ -90,18 +97,21 @@ async checkTransitions(): Promise<string[]>;
 ## 🎮 具体实现变更
 
 ### MainMode (主模式)
+
 - **移除**：异步任务、策略依赖
 - **新增**：完整的 LLM 决策逻辑
 - **优化**：智能动作解析（支持多种字段名）
 - **集成**：提示词模板、数据收集器
 
 ### CombatMode (战斗模式)
+
 - **重构**：实现 GameStateListener 接口
 - **新增**：实时威胁检测和自动切换
 - **优化**：攻击冷却、目标锁定
 - **移除**：独立异步战斗任务
 
 ### ModeManager (模式管理器)
+
 - **新增**：游戏状态监听器调度
 - **新增**：模式切换历史记录
 - **新增**：强制恢复安全机制
@@ -110,6 +120,7 @@ async checkTransitions(): Promise<string[]>;
 ## 🔄 重构前后对比
 
 ### 重构前（问题架构）
+
 ```
 MainDecisionLoop
 ├── DecisionStrategyManager
@@ -122,11 +133,13 @@ MainDecisionLoop
 ```
 
 **问题**：
+
 - 策略总返回 true，执行后立即返回
 - 异步战斗任务与主循环脱节
 - 模式切换作为策略，总是优先执行
 
 ### 重构后（简洁架构）
+
 ```
 MainDecisionLoop
 ├── notifyGameStateUpdate() (状态通知)
@@ -138,6 +151,7 @@ MainDecisionLoop
 ```
 
 **优势**：
+
 - 模式直接包含业务逻辑
 - 所有逻辑同步执行
 - 监听器实现实时响应
@@ -145,34 +159,41 @@ MainDecisionLoop
 ## 📊 解决的问题
 
 ### 1. 死循环问题 ✅
+
 **原因**：策略系统和模式系统相互冲突
 **解决**：移除策略层，统一模式驱动
 
 ### 2. 决策失败问题 ✅
+
 **原因**：主循环找不到可执行策略
 **解决**：直接执行当前模式逻辑
 
 ### 3. 异步脱节问题 ✅
+
 **原因**：战斗逻辑在后台异步运行
 **解决**：所有逻辑通过模式系统同步执行
 
 ### 4. 组件缺失问题 ✅
+
 **原因**：BaseMode.bindState() 空实现
 **解决**：正确实现状态绑定逻辑
 
 ## 🚀 性能优化
 
 ### 智能等待时间
+
 - 战斗模式：200ms（快速响应）
 - 主模式：100ms（正常间隔）
 - 其他模式：500ms（默认间隔）
 
 ### 组件复用
+
 - 模式实例启动时创建，避免重复初始化
 - 状态监听器自动注册
 - LLM 组件统一管理
 
 ### 内存优化
+
 - 移除策略系统减少内存占用
 - 模式切换历史自动清理
 - 监听器生命周期管理
@@ -180,6 +201,7 @@ MainDecisionLoop
 ## 🧪 测试结果
 
 ### 启动测试 ✅
+
 ```
 [ModeManager] 📝 注册模式...
 [ModeManager]   - 主模式 (优先级: 0)
@@ -191,6 +213,7 @@ MainDecisionLoop
 ```
 
 ### 运行测试 ✅
+
 ```
 [主模式] 🤖 LLM 响应完成
 [主模式] 📋 准备执行 1 个动作
@@ -200,6 +223,7 @@ MainDecisionLoop
 ```
 
 ### 威胁响应测试 ✅
+
 ```
 [CombatMode] ⚠️ 检测到威胁: zombie (距离: 5.2m)
 [ModeManager] 🔄 模式切换: 主模式 → 战斗模式 (检测到威胁生物: zombie)
@@ -212,26 +236,31 @@ MainDecisionLoop
 ## 🎯 架构优势
 
 ### 1. 简洁性
+
 - 移除了过度工程化的策略层
 - 直接模式驱动，减少抽象层次
 - 保持原 maicraft 的设计精髓
 
 ### 2. 一致性
+
 - 统一的模式驱动设计
 - 所有逻辑通过模式系统执行
 - 状态管理和业务逻辑统一
 
 ### 3. 响应性
+
 - 基于 GameStateListener 的事件驱动
 - 实时威胁检测和模式切换
 - 无延迟的状态变化响应
 
 ### 4. 可维护性
+
 - 清晰的职责分离
 - 完整的类型安全
 - 详细的日志记录
 
 ### 5. 扩展性
+
 - 简单的模式添加机制
 - 灵活的监听器扩展
 - 统一的配置管理
@@ -239,12 +268,14 @@ MainDecisionLoop
 ## 📝 迁移指南
 
 ### 对于开发者
+
 1. **移除策略相关代码**：删除 DecisionStrategy 相关引用
 2. **使用新模式 API**：参考 `docs/mode-system.md`
 3. **更新动作解析**：LLM 响应格式使用 `action_type` 字段
 4. **监听状态变化**：实现 GameStateListener 接口
 
 ### 对于用户
+
 - **无感知迁移**：现有配置和提示词无需修改
 - **功能增强**：威胁响应更及时，决策更稳定
 - **性能提升**：减少资源占用，提高响应速度
@@ -252,11 +283,13 @@ MainDecisionLoop
 ## 🔮 未来规划
 
 ### 短期目标
+
 - [ ] 添加更多游戏模式（GUI模式、合成模式等）
 - [ ] 优化动作解析的容错性
 - [ ] 完善模式切换的条件判断
 
 ### 长期目标
+
 - [ ] 实现模式的热插拔
 - [ ] 添加模式性能监控
 - [ ] 支持自定义模式配置

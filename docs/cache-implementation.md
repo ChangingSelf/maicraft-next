@@ -42,6 +42,7 @@
 ### 主要特性
 
 #### 方块缓存功能
+
 - ✅ 基础 CRUD 操作（创建、读取、更新、删除）
 - ✅ 按名称精确查找方块
 - ✅ 按正则表达式模糊匹配查找
@@ -53,6 +54,7 @@
 - ✅ 统计信息收集（命中率、查询次数等）
 
 #### 容器缓存功能
+
 - ✅ 多种容器类型支持（箱子、熔炉、酿造台等）
 - ✅ 容器物品的增删改操作
 - ✅ 按物品查找容器
@@ -63,6 +65,7 @@
 - ✅ 统计信息收集
 
 #### 缓存管理功能
+
 - ✅ 自动方块扫描（每10秒，半径8格）
 - ✅ 智能扫描策略（位置变化触发）
 - ✅ 容器位置自动更新
@@ -97,6 +100,7 @@ gameState.setCacheAutoManagement(enabled): void
 ### PromptDataCollector 集成
 
 缓存信息已集成到提示词数据收集中：
+
 - `getNearbyBlocksInfo()`: 获取附近重要方块信息
 - `getContainerCacheInfo()`: 获取附近容器信息
 
@@ -105,6 +109,7 @@ gameState.setCacheAutoManagement(enabled): void
 ## 配置选项
 
 ### BlockCache 配置
+
 ```typescript
 {
   maxEntries: 10000,              // 最大缓存条目数
@@ -116,6 +121,7 @@ gameState.setCacheAutoManagement(enabled): void
 ```
 
 ### ContainerCache 配置
+
 ```typescript
 {
   maxEntries: 1000,               // 最大缓存条目数
@@ -127,6 +133,7 @@ gameState.setCacheAutoManagement(enabled): void
 ```
 
 ### CacheManager 配置
+
 ```typescript
 {
   blockScanInterval: 10 * 1000,   // 方块扫描间隔（10秒）
@@ -180,17 +187,20 @@ gameState.setCacheAutoManagement(true);
 ## 性能考虑
 
 ### 内存使用
+
 - 方块缓存默认限制 10000 条目
 - 容器缓存默认限制 1000 条目
 - 自动清理过期条目
 - LRU 驱逐策略
 
 ### 磁盘 I/O
+
 - 异步保存，不阻塞主线程
 - 增量更新，减少磁盘写入
 - JSON 格式，易于调试
 
 ### CPU 使用
+
 - 智能扫描策略，避免重复扫描
 - 缓存命中减少重复计算
 - 批量操作优化
@@ -198,10 +208,12 @@ gameState.setCacheAutoManagement(true);
 ## 数据存储
 
 ### 文件位置
+
 - 方块缓存：`data/block_cache.json`
 - 容器缓存：`data/container_cache.json`
 
 ### 数据格式
+
 ```json
 {
   "version": "1.0",
@@ -213,7 +225,12 @@ gameState.setCacheAutoManagement(true);
     "totalHits": 300
   },
   "entries": [
-    ["key", { /* 缓存数据 */ }]
+    [
+      "key",
+      {
+        /* 缓存数据 */
+      }
+    ]
   ]
 }
 ```
@@ -221,10 +238,12 @@ gameState.setCacheAutoManagement(true);
 ## 测试
 
 ### 单元测试
+
 - 位置：`src/core/cache/__tests__/CacheSystem.test.ts`
 - 测试覆盖：基本功能、过期机制、统计信息、数据结构验证
 
 ### 测试结果
+
 ```
 √ BlockCache 基本功能 (3 ms)
 √ ContainerCache 基本功能 (1 ms)
@@ -238,6 +257,7 @@ gameState.setCacheAutoManagement(true);
 ## 未来扩展
 
 ### 计划功能
+
 - [ ] 缓存预热策略
 - [ ] 多维度索引优化
 - [ ] 分布式缓存支持
@@ -246,6 +266,7 @@ gameState.setCacheAutoManagement(true);
 - [ ] 缓存压缩存储
 
 ### 优化方向
+
 - [ ] 内存使用优化
 - [ ] 查询性能提升
 - [ ] 网络同步支持

@@ -30,7 +30,7 @@ export class BlockCache {
       autoSaveInterval: 5 * 60 * 1000, // 5分钟
       enabled: true,
       updateStrategy: 'smart',
-      ...config
+      ...config,
     };
 
     // 初始化统计信息
@@ -40,12 +40,12 @@ export class BlockCache {
       lastUpdate: Date.now(),
       hitRate: 0,
       totalQueries: 0,
-      totalHits: 0
+      totalHits: 0,
     };
 
     this.logger.info('BlockCache 初始化完成', {
       config: this.config,
-      persistPath: this.persistPath
+      persistPath: this.persistPath,
     });
 
     // 启动自动保存
@@ -105,7 +105,7 @@ export class BlockCache {
       type: block.type || 0,
       position: new Vec3(x, y, z),
       timestamp: now,
-      ...block
+      ...block,
     };
 
     this.cache.set(key, blockInfo);
@@ -153,9 +153,7 @@ export class BlockCache {
       }
 
       const distance = Math.sqrt(
-        Math.pow(blockInfo.position.x - centerX, 2) +
-        Math.pow(blockInfo.position.y - centerY, 2) +
-        Math.pow(blockInfo.position.z - centerZ, 2)
+        Math.pow(blockInfo.position.x - centerX, 2) + Math.pow(blockInfo.position.y - centerY, 2) + Math.pow(blockInfo.position.z - centerZ, 2),
       );
 
       if (distance <= radius) {
@@ -288,7 +286,7 @@ export class BlockCache {
         version: '1.0',
         timestamp: Date.now(),
         stats: this.stats,
-        entries: data
+        entries: data,
       };
 
       await fs.writeFile(this.persistPath, JSON.stringify(saveData, null, 2), 'utf-8');

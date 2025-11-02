@@ -112,7 +112,6 @@ export class FurnaceMode extends BaseMode {
 
       // 执行LLM决策
       await this.executeLLMDecision();
-
     } catch (error) {
       this.logger.error('❌ 熔炉模式执行异常:', undefined, error as Error);
 
@@ -315,7 +314,6 @@ export class FurnaceMode extends BaseMode {
 
       // 更新熔炉状态
       await this.updateFurnaceState();
-
     } catch (error) {
       this.logger.error('❌ 熔炉动作解析执行异常:', undefined, error as Error);
     }
@@ -358,9 +356,7 @@ export class FurnaceMode extends BaseMode {
       // 记录到思考日志
       if (this.state.memory) {
         const actionText = action.action_type === 'take_items' ? '取出' : '放入';
-        this.state.memory.recordThought(
-          `🔥 熔炉操作: ${actionText} ${action.item} x${action.count} (${action.slot}槽)`
-        );
+        this.state.memory.recordThought(`🔥 熔炉操作: ${actionText} ${action.item} x${action.count} (${action.slot}槽)`);
       }
 
       return result;

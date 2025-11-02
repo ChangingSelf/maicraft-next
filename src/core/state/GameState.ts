@@ -186,7 +186,7 @@ export class GameState {
         expirationTime: 60 * 60 * 1000, // 1小时过期
         autoSaveInterval: 5 * 60 * 1000, // 5分钟自动保存，减少I/O频率
         enabled: true,
-        updateStrategy: 'smart' as const
+        updateStrategy: 'smart' as const,
       };
 
       this.blockCache = new BlockCache(cacheConfig);
@@ -195,7 +195,7 @@ export class GameState {
       this.logger.info('缓存实例创建完成', {
         blockCachePath: 'data/block_cache.json',
         containerCachePath: 'data/container_cache.json',
-        autoSaveInterval: '30秒'
+        autoSaveInterval: '30秒',
       });
 
       // 创建缓存管理器，配置适合AI决策的扫描频率
@@ -206,26 +206,28 @@ export class GameState {
         autoSaveInterval: 5 * 60 * 1000, // 5分钟自动保存，减少I/O
         enableAutoScan: true,
         enableAutoSave: true,
-        performanceMode: 'performance' as const // 优先性能，减少扫描开销
+        performanceMode: 'performance' as const, // 优先性能，减少扫描开销
       };
 
       this.cacheManager = new CacheManager(bot, this.blockCache, this.containerCache, managerConfig);
 
       // 异步加载缓存数据
-      this.loadCaches().then(() => {
-        this.logger.info('缓存数据加载完成', {
-          blockCacheSize: this.blockCache?.size() || 0,
-          containerCacheSize: this.containerCache?.size() || 0
-        });
+      this.loadCaches()
+        .then(() => {
+          this.logger.info('缓存数据加载完成', {
+            blockCacheSize: this.blockCache?.size() || 0,
+            containerCacheSize: this.containerCache?.size() || 0,
+          });
 
-        // 启动缓存管理器
-        if (this.cacheManager) {
-          this.cacheManager.start();
-          this.logger.info('缓存管理器已启动');
-        }
-      }).catch(error => {
-        this.logger.error('加载缓存数据失败', undefined, error);
-      });
+          // 启动缓存管理器
+          if (this.cacheManager) {
+            this.cacheManager.start();
+            this.logger.info('缓存管理器已启动');
+          }
+        })
+        .catch(error => {
+          this.logger.error('加载缓存数据失败', undefined, error);
+        });
 
       this.logger.info('缓存系统初始化完成');
     } catch (error) {
@@ -563,7 +565,8 @@ export class GameState {
             const worldZ = Math.floor(this.blockPosition.z + z);
 
             const block = bot.blockAt(new Vec3(worldX, worldY, worldZ));
-            if (block && block.type !== 0) { // 不是空气方块
+            if (block && block.type !== 0) {
+              // 不是空气方块
               blocks.push({
                 x: worldX,
                 y: worldY,
@@ -574,8 +577,8 @@ export class GameState {
                   metadata: block.metadata,
                   hardness: (block as any).hardness,
                   lightLevel: (block as any).lightLevel,
-                  transparent: (block as any).transparent
-                }
+                  transparent: (block as any).transparent,
+                },
               });
             }
           }

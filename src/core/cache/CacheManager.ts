@@ -39,7 +39,7 @@ export class CacheManager {
     private bot: Bot,
     private blockCache: BlockCache | null,
     private containerCache: ContainerCache | null,
-    config?: Partial<CacheManagerConfig>
+    config?: Partial<CacheManagerConfig>,
   ) {
     this.logger = getLogger('CacheManager');
     this.config = {
@@ -49,7 +49,7 @@ export class CacheManager {
       autoSaveInterval: 5 * 60 * 1000, // 5分钟
       enableAutoScan: true,
       enableAutoSave: true,
-      ...config
+      ...config,
     };
 
     this.logger.info('缓存管理器初始化完成', { config: this.config });
@@ -184,9 +184,9 @@ export class CacheManager {
       const scanStartY = Math.max(0, centerPos.y - 4); // 不扫描过深的地底
       const scanEndY = Math.min(centerPos.y + 8, 255); // 不扫描过高的天空
 
-      scanLoop:
-      for (let x = -radius; x <= radius; x++) {
-        for (let y = scanEndY; y >= scanStartY; y--) { // 限制扫描高度范围
+      scanLoop: for (let x = -radius; x <= radius; x++) {
+        for (let y = scanEndY; y >= scanStartY; y--) {
+          // 限制扫描高度范围
           for (let z = -radius; z <= radius; z++) {
             // 性能控制：检查扫描时间
             if (Date.now() - scanStartTime > maxScanTime) {
@@ -207,7 +207,8 @@ export class CacheManager {
             try {
               totalBlocks++;
               const block = this.bot.blockAt(new Vec3(worldX, worldY, worldZ));
-              if (block && block.type !== 0) { // 不是空气方块
+              if (block && block.type !== 0) {
+                // 不是空气方块
                 // 只缓存重要的方块
                 if (this.isImportantBlock(block)) {
                   importantBlocks++;
@@ -222,8 +223,8 @@ export class CacheManager {
                       hardness: (block as any).hardness,
                       lightLevel: (block as any).lightLevel,
                       transparent: (block as any).transparent,
-                      state: this.getBlockState(block)
-                    }
+                      state: this.getBlockState(block),
+                    },
                   });
                 }
               }
@@ -241,7 +242,6 @@ export class CacheManager {
       } else {
         this.logger.debug(`扫描完成: 总方块 ${totalBlocks}, 没有发现重要方块`);
       }
-
     } catch (error) {
       this.logger.error('方块扫描失败', undefined, error as Error);
     } finally {
@@ -255,14 +255,51 @@ export class CacheManager {
   private isImportantBlock(block: any): boolean {
     // 扩展重要方块列表，包含更多常见方块
     const importantPatterns = [
-      'chest', 'furnace', 'crafting_table', 'workbench', 'bed',
-      'door', 'torch', 'lantern', 'ore', 'log', 'wood', 'sapling',
-      'diamond', 'emerald', 'gold', 'iron', 'coal', 'stone',
-      'crop', 'farm', 'flower', 'tree', 'leaves', 'grass', 'dirt',
-      'sand', 'gravel', 'water', 'lava', 'cobblestone', 'planks',
-      'glass', 'brick', 'wool', 'bookshelf', 'ender_chest',
-      'hopper', 'dispenser', 'dropper', 'brewing_stand',
-      'anvil', 'enchanting_table', 'beacon', 'jukebox', 'note_block'
+      'chest',
+      'furnace',
+      'crafting_table',
+      'workbench',
+      'bed',
+      'door',
+      'torch',
+      'lantern',
+      'ore',
+      'log',
+      'wood',
+      'sapling',
+      'diamond',
+      'emerald',
+      'gold',
+      'iron',
+      'coal',
+      'stone',
+      'crop',
+      'farm',
+      'flower',
+      'tree',
+      'leaves',
+      'grass',
+      'dirt',
+      'sand',
+      'gravel',
+      'water',
+      'lava',
+      'cobblestone',
+      'planks',
+      'glass',
+      'brick',
+      'wool',
+      'bookshelf',
+      'ender_chest',
+      'hopper',
+      'dispenser',
+      'dropper',
+      'brewing_stand',
+      'anvil',
+      'enchanting_table',
+      'beacon',
+      'jukebox',
+      'note_block',
     ];
 
     const blockName = block.name.toLowerCase();
@@ -299,7 +336,6 @@ export class CacheManager {
       if (block.name.includes('door') || block.name.includes('gate') || block.name.includes('lever')) {
         state.open = this.isBlockOpen(block);
       }
-
     } catch (error) {
       // 忽略状态获取错误
     }
@@ -355,9 +391,8 @@ export class CacheManager {
             position: pos,
             items: [], // 空物品列表，需要实际打开才能获取
             lastAccessed: Date.now(),
-            size: this.getContainerSize(containerType)
+            size: this.getContainerSize(containerType),
           });
-
         } catch (error) {
           // 忽略单个容器的错误
         }
@@ -382,7 +417,7 @@ export class CacheManager {
         const blocks = this.bot.findBlocks({
           matching: this.bot.registry.blocksByName[type]?.id || 0,
           maxDistance: radius,
-          count: 10 // 最多找10个
+          count: 10, // 最多找10个
         });
 
         for (const blockPos of blocks) {
@@ -420,7 +455,7 @@ export class CacheManager {
       brewing_stand: 5,
       dispenser: 9,
       hopper: 5,
-      shulker_box: 27
+      shulker_box: 27,
     };
     return sizes[type] || 9;
   }
@@ -474,7 +509,7 @@ export class CacheManager {
     const stats: any = {
       isScanning: this.isScanning,
       lastScanPosition: this.lastScanPosition,
-      config: this.config
+      config: this.config,
     };
 
     if (this.blockCache) {

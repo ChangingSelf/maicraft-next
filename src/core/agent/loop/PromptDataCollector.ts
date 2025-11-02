@@ -216,7 +216,12 @@ export class PromptDataCollector {
       // 调试日志
       this.logger.debug(`🔍 获取周围方块: 找到 ${nearbyBlocks.length} 个方块`);
       if (nearbyBlocks.length > 0) {
-        this.logger.debug(`📍 方块列表: ${nearbyBlocks.slice(0, 5).map(b => b.name).join(', ')}${nearbyBlocks.length > 5 ? '...' : ''}`);
+        this.logger.debug(
+          `📍 方块列表: ${nearbyBlocks
+            .slice(0, 5)
+            .map(b => b.name)
+            .join(', ')}${nearbyBlocks.length > 5 ? '...' : ''}`,
+        );
       }
 
       if (nearbyBlocks.length === 0) {
@@ -225,14 +230,31 @@ export class PromptDataCollector {
 
       // 过滤重要方块并按距离排序
       const importantPatterns = [
-        'chest', 'furnace', 'crafting_table', 'bed', 'door', 'torch', 'workbench',
-        'ore', 'log', 'wood', 'sapling', 'diamond', 'emerald', 'gold', 'iron',
-        'coal', 'stone', 'planks', 'brick', 'glass', 'wool', 'bookshelf'
+        'chest',
+        'furnace',
+        'crafting_table',
+        'bed',
+        'door',
+        'torch',
+        'workbench',
+        'ore',
+        'log',
+        'wood',
+        'sapling',
+        'diamond',
+        'emerald',
+        'gold',
+        'iron',
+        'coal',
+        'stone',
+        'planks',
+        'brick',
+        'glass',
+        'wool',
+        'bookshelf',
       ];
 
-      const importantBlocks = nearbyBlocks.filter(block =>
-        importantPatterns.some(pattern => block.name.includes(pattern))
-      );
+      const importantBlocks = nearbyBlocks.filter(block => importantPatterns.some(pattern => block.name.includes(pattern)));
 
       if (importantBlocks.length === 0) {
         return '附近没有发现重要方块';
@@ -242,14 +264,10 @@ export class PromptDataCollector {
       const botPosition = this.state.context.gameState.blockPosition;
       importantBlocks.sort((a, b) => {
         const distA = Math.sqrt(
-          Math.pow(a.position.x - botPosition.x, 2) +
-          Math.pow(a.position.y - botPosition.y, 2) +
-          Math.pow(a.position.z - botPosition.z, 2)
+          Math.pow(a.position.x - botPosition.x, 2) + Math.pow(a.position.y - botPosition.y, 2) + Math.pow(a.position.z - botPosition.z, 2),
         );
         const distB = Math.sqrt(
-          Math.pow(b.position.x - botPosition.x, 2) +
-          Math.pow(b.position.y - botPosition.y, 2) +
-          Math.pow(b.position.z - botPosition.z, 2)
+          Math.pow(b.position.x - botPosition.x, 2) + Math.pow(b.position.y - botPosition.y, 2) + Math.pow(b.position.z - botPosition.z, 2),
         );
         return distA - distB;
       });
@@ -258,13 +276,10 @@ export class PromptDataCollector {
       const blockLines: string[] = [];
 
       // 显示每个重要方块的详细信息
-      for (const block of importantBlocks.slice(0, 15)) { // 最多显示15个方块
+      for (const block of importantBlocks.slice(0, 15)) {
+        // 最多显示15个方块
         const pos = block.position;
-        const distance = Math.sqrt(
-          Math.pow(pos.x - botPosition.x, 2) +
-          Math.pow(pos.y - botPosition.y, 2) +
-          Math.pow(pos.z - botPosition.z, 2)
-        );
+        const distance = Math.sqrt(Math.pow(pos.x - botPosition.x, 2) + Math.pow(pos.y - botPosition.y, 2) + Math.pow(pos.z - botPosition.z, 2));
 
         let line = `  ${block.name} at (${pos.x}, ${pos.y}, ${pos.z})`;
         line += ` [距离: ${distance.toFixed(1)}格]`;
@@ -294,7 +309,12 @@ export class PromptDataCollector {
       // 调试日志
       this.logger.debug(`📦 获取容器信息: 找到 ${nearbyContainers.length} 个容器`);
       if (nearbyContainers.length > 0) {
-        this.logger.debug(`📦 容器列表: ${nearbyContainers.slice(0, 3).map(c => c.type).join(', ')}${nearbyContainers.length > 3 ? '...' : ''}`);
+        this.logger.debug(
+          `📦 容器列表: ${nearbyContainers
+            .slice(0, 3)
+            .map(c => c.type)
+            .join(', ')}${nearbyContainers.length > 3 ? '...' : ''}`,
+        );
       }
 
       if (nearbyContainers.length === 0) {
@@ -310,7 +330,8 @@ export class PromptDataCollector {
 
       const containerLines: string[] = [];
 
-      for (const container of nearbyContainers.slice(0, 8)) { // 最多显示8个容器
+      for (const container of nearbyContainers.slice(0, 8)) {
+        // 最多显示8个容器
         const pos = container.position;
         const distance = pos.distanceTo(gameState.blockPosition);
 
@@ -324,14 +345,15 @@ export class PromptDataCollector {
         if (container.items && container.items.length > 0) {
           // 显示前几种重要物品
           const importantItems = container.items
-            .filter(item =>
-              item.name.includes('diamond') ||
-              item.name.includes('iron') ||
-              item.name.includes('gold') ||
-              item.name.includes('emerald') ||
-              item.name.includes('tool') ||
-              item.name.includes('sword') ||
-              item.count >= 16
+            .filter(
+              item =>
+                item.name.includes('diamond') ||
+                item.name.includes('iron') ||
+                item.name.includes('gold') ||
+                item.name.includes('emerald') ||
+                item.name.includes('tool') ||
+                item.name.includes('sword') ||
+                item.count >= 16,
             )
             .slice(0, 5);
 

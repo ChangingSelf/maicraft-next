@@ -88,8 +88,10 @@ export class ModeManager {
     this.logger.info(`  - ${mode.name} (优先级: ${mode.priority})`);
 
     // 如果模式实现了GameStateListener，自动注册
-    if (mode.enabled && (mode.onGameStateUpdated || mode.onEntitiesUpdated ||
-        mode.onBlocksUpdated || mode.onInventoryUpdated || mode.onHealthUpdated)) {
+    if (
+      mode.enabled &&
+      (mode.onGameStateUpdated || mode.onEntitiesUpdated || mode.onBlocksUpdated || mode.onInventoryUpdated || mode.onHealthUpdated)
+    ) {
       this.gameStateListeners.push(mode);
       this.logger.debug(`    📡 注册为游戏状态监听器: ${mode.listenerName}`);
     }

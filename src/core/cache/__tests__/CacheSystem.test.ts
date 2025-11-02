@@ -13,7 +13,7 @@ describe('缓存系统基本功能测试', () => {
       name: 'oak_log',
       type: 17,
       position: { x: 10, y: 64, z: 20 },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     const block = mockCache.get('10,64,20');
@@ -35,10 +35,10 @@ describe('缓存系统基本功能测试', () => {
       position: { x: 10, y: 64, z: 20 },
       items: [
         { itemId: 1, name: 'stone', count: 64 },
-        { itemId: 264, name: 'diamond', count: 5 }
+        { itemId: 264, name: 'diamond', count: 5 },
       ],
       lastAccessed: Date.now(),
-      size: 27
+      size: 27,
     });
 
     const container = mockCache.get('chest:10,64,20');
@@ -47,9 +47,7 @@ describe('缓存系统基本功能测试', () => {
     expect(container.items).toHaveLength(2);
 
     // 测试按物品查找
-    const containersWithDiamond = Array.from(mockCache.values()).filter(c =>
-      c.items.some((item: any) => item.itemId === 264)
-    );
+    const containersWithDiamond = Array.from(mockCache.values()).filter(c => c.items.some((item: any) => item.itemId === 264));
     expect(containersWithDiamond).toHaveLength(1);
   });
 
@@ -61,13 +59,13 @@ describe('缓存系统基本功能测试', () => {
     // 添加一个过期的条目
     mockCache.set('expired', {
       name: 'old_block',
-      timestamp: Date.now() - expirationTime - 1000 // 1秒前过期
+      timestamp: Date.now() - expirationTime - 1000, // 1秒前过期
     });
 
     // 添加一个有效的条目
     mockCache.set('valid', {
       name: 'new_block',
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     // 清理过期条目
@@ -91,7 +89,7 @@ describe('缓存系统基本功能测试', () => {
       lastUpdate: Date.now(),
       hitRate: 0.75,
       totalQueries: 100,
-      totalHits: 75
+      totalHits: 75,
     };
 
     expect(stats.totalEntries).toBe(10);
@@ -112,8 +110,8 @@ describe('缓存系统基本功能测试', () => {
       lightLevel: 0,
       state: {
         facing: 'north',
-        metadata: 0
-      }
+        metadata: 0,
+      },
     };
 
     expect(blockInfo.name).toBe('oak_log');
@@ -138,18 +136,16 @@ describe('缓存系统基本功能测试', () => {
           name: 'diamond',
           count: 5,
           durability: undefined,
-          enchantments: [
-            { name: 'efficiency', level: 3 }
-          ],
-          customName: '超级钻石'
-        }
+          enchantments: [{ name: 'efficiency', level: 3 }],
+          customName: '超级钻石',
+        },
       ],
       lastAccessed: Date.now(),
       size: 27,
       locked: false,
       state: {
-        customName: '宝箱'
-      }
+        customName: '宝箱',
+      },
     };
 
     expect(containerInfo.type).toBe('chest');
@@ -171,7 +167,7 @@ describe('缓存系统基本功能测试', () => {
       expirationTime: 30 * 60 * 1000, // 30分钟
       autoSaveInterval: 5 * 60 * 1000, // 5分钟
       enabled: true,
-      updateStrategy: 'smart'
+      updateStrategy: 'smart',
     };
 
     expect(cacheConfig.maxEntries).toBe(10000);

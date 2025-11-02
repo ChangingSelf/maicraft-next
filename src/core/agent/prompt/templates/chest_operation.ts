@@ -69,25 +69,19 @@ export const chestOperationTemplate: PromptTemplate = {
       input: {
         chest_gui: '**箱子内容**: stone x128, dirt x64, coal x32, iron_ingot x16',
         bot_name: 'Bot',
-        player_name: 'Player'
+        player_name: 'Player',
       },
-      output: [
-        '{"action_type": "take_items", "item": "iron_ingot", "count": 16}',
-        '{"action_type": "take_items", "item": "coal", "count": 32}'
-      ]
+      output: ['{"action_type": "take_items", "item": "iron_ingot", "count": 16}', '{"action_type": "take_items", "item": "coal", "count": 32}'],
     },
     {
       input: {
         chest_gui: '**箱子内容**: oak_plank x64, cobblestone x256',
         bot_name: 'Bot',
-        player_name: 'Player'
+        player_name: 'Player',
       },
-      output: [
-        '{"action_type": "put_items", "item": "dirt", "count": 128}',
-        '{"action_type": "put_items", "item": "wood", "count": 64}'
-      ]
-    }
-  ]
+      output: ['{"action_type": "put_items", "item": "dirt", "count": 128}', '{"action_type": "put_items", "item": "wood", "count": 64}'],
+    },
+  ],
 };
 
 export const chestOperationSystemTemplate: PromptTemplate = {
@@ -131,7 +125,7 @@ export const chestOperationSystemTemplate: PromptTemplate = {
 
   requiredVariables: ['bot_name', 'player_name'],
 
-  examples: []
+  examples: [],
 };
 
 /**

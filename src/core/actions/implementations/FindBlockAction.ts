@@ -67,7 +67,7 @@ export class FindBlockAction extends BaseAction<FindBlockParams> {
           name: block,
           type: blockType.id,
           position: pos,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       }
 

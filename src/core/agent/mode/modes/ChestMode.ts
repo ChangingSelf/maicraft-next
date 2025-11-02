@@ -117,7 +117,6 @@ export class ChestMode extends BaseMode {
 
       // 执行LLM决策
       await this.executeLLMDecision();
-
     } catch (error) {
       this.logger.error('❌ 箱子模式执行异常:', undefined, error as Error);
 
@@ -293,7 +292,6 @@ export class ChestMode extends BaseMode {
 
       // 更新箱子状态
       await this.updateChestState();
-
     } catch (error) {
       this.logger.error('❌ 箱子动作解析执行异常:', undefined, error as Error);
     }
@@ -333,9 +331,7 @@ export class ChestMode extends BaseMode {
       // 记录到思考日志
       if (this.state.memory) {
         const actionText = action.action_type === 'take_items' ? '从箱子取出' : '放入箱子';
-        this.state.memory.recordThought(
-          `📦 箱子操作: ${actionText} ${action.item} x${action.count}`
-        );
+        this.state.memory.recordThought(`📦 箱子操作: ${actionText} ${action.item} x${action.count}`);
       }
 
       return result;

@@ -29,11 +29,30 @@ export class CombatMode extends BaseMode {
 
   // 敌对生物列表 - 参考原maicraft
   private readonly hostileEntityNames = [
-    'zombie', 'skeleton', 'creeper', 'spider', 'cave_spider',
-    'enderman', 'witch', 'blaze', 'ghast', 'magma_cube',
-    'slime', 'piglin', 'hoglin', 'zoglin', 'drowned',
-    'husk', 'stray', 'phantom', 'pillager', 'vindicator',
-    'evoker', 'vex', 'ravager', 'shulker'
+    'zombie',
+    'skeleton',
+    'creeper',
+    'spider',
+    'cave_spider',
+    'enderman',
+    'witch',
+    'blaze',
+    'ghast',
+    'magma_cube',
+    'slime',
+    'piglin',
+    'hoglin',
+    'zoglin',
+    'drowned',
+    'husk',
+    'stray',
+    'phantom',
+    'pillager',
+    'vindicator',
+    'evoker',
+    'vex',
+    'ravager',
+    'shulker',
   ];
 
   // 战斗状态
@@ -115,7 +134,6 @@ export class CombatMode extends BaseMode {
 
       // 执行攻击
       await this.performAttack(nearestEnemy);
-
     } catch (error) {
       this.logger.error('❌ 战斗执行异常:', undefined, error as Error);
 
@@ -149,18 +167,14 @@ export class CombatMode extends BaseMode {
    */
   async onEntitiesUpdated(entities: any[]): Promise<void> {
     // 计算威胁数量
-    const hostileEntities = entities.filter((e: any) =>
-      this.hostileEntityNames.includes(e.name?.toLowerCase())
-    );
+    const hostileEntities = entities.filter((e: any) => this.hostileEntityNames.includes(e.name?.toLowerCase()));
 
     const previousThreatCount = this.threatCount;
     this.threatCount = hostileEntities.length;
 
     // 威胁出现时切换到战斗模式
     if (previousThreatCount === 0 && this.threatCount > 0) {
-      const nearestEnemy = hostileEntities.reduce((nearest: any, current: any) =>
-        (current.distance < nearest.distance ? current : nearest)
-      );
+      const nearestEnemy = hostileEntities.reduce((nearest: any, current: any) => (current.distance < nearest.distance ? current : nearest));
 
       this.logger.info(`⚠️ 检测到威胁: ${nearestEnemy.name} (距离: ${nearestEnemy.distance.toFixed(1)}m)`);
 
@@ -189,18 +203,14 @@ export class CombatMode extends BaseMode {
     }
 
     const entities = this.state.context.gameState.nearbyEntities;
-    const enemies = entities.filter((e: any) =>
-      this.hostileEntityNames.includes(e.name?.toLowerCase())
-    );
+    const enemies = entities.filter((e: any) => this.hostileEntityNames.includes(e.name?.toLowerCase()));
 
     if (enemies.length === 0) {
       return null;
     }
 
     // 返回最近的敌人
-    return enemies.reduce((nearest: any, current: any) =>
-      (current.distance < nearest.distance ? current : nearest)
-    );
+    return enemies.reduce((nearest: any, current: any) => (current.distance < nearest.distance ? current : nearest));
   }
 
   /**

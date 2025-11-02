@@ -107,7 +107,6 @@ export class MainMode extends BaseMode {
     try {
       // 执行LLM决策
       await this.executeLLMDecision();
-
     } catch (error) {
       this.logger.error('❌ 主模式执行异常:', undefined, error as Error);
 
@@ -228,7 +227,6 @@ export class MainMode extends BaseMode {
           break;
         }
       }
-
     } catch (error) {
       this.logger.error('❌ 动作解析执行异常:', undefined, error as Error);
     }
@@ -245,9 +243,7 @@ export class MainMode extends BaseMode {
 
     const hostileMobs = ['zombie', 'skeleton', 'spider', 'creeper'];
     const entities = this.state.context.gameState.nearbyEntities || [];
-    const enemies = entities.filter((e: any) =>
-      hostileMobs.includes(e.name?.toLowerCase())
-    );
+    const enemies = entities.filter((e: any) => hostileMobs.includes(e.name?.toLowerCase()));
 
     return enemies.length > 0 && enemies[0].distance < 10;
   }
@@ -306,7 +302,6 @@ export class MainMode extends BaseMode {
         this.logger.warn(`⚠️ 切换到${targetMode}模式失败`);
         return null;
       }
-
     } catch (error) {
       this.logger.error(`❌ 处理GUI操作失败: ${actionName}`, undefined, error as Error);
       return null;

@@ -57,25 +57,25 @@ export const furnaceOperationTemplate: PromptTemplate = {
       input: {
         furnace_gui: '**输入槽**: 空\n**燃料槽**: 空\n**输出槽**: 空',
         bot_name: 'Bot',
-        player_name: 'Player'
+        player_name: 'Player',
       },
       output: [
         '{"action_type": "put_items", "slot": "fuel", "item": "coal", "count": 8}',
-        '{"action_type": "put_items", "slot": "input", "item": "iron_ore", "count": 16}'
-      ]
+        '{"action_type": "put_items", "slot": "input", "item": "iron_ore", "count": 16}',
+      ],
     },
     {
       input: {
         furnace_gui: '**输入槽**: 空\n**燃料槽**: coal x4\n**输出槽**: iron_ingot x16',
         bot_name: 'Bot',
-        player_name: 'Player'
+        player_name: 'Player',
       },
       output: [
         '{"action_type": "take_items", "slot": "output", "item": "iron_ingot", "count": 16}',
-        '{"action_type": "put_items", "slot": "input", "item": "iron_ore", "count": 16}'
-      ]
-    }
-  ]
+        '{"action_type": "put_items", "slot": "input", "item": "iron_ore", "count": 16}',
+      ],
+    },
+  ],
 };
 
 export const furnaceOperationSystemTemplate: PromptTemplate = {
@@ -115,7 +115,7 @@ export const furnaceOperationSystemTemplate: PromptTemplate = {
 
   requiredVariables: ['bot_name', 'player_name'],
 
-  examples: []
+  examples: [],
 };
 
 /**
