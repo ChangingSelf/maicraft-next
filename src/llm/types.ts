@@ -367,7 +367,7 @@ export const LLMConfigSchema = z.object({
 
 // 消息Schema
 export const ChatMessageSchema = z.object({
-  role: z.nativeEnum(MessageRole),
+  role: z.enum(['system', 'user', 'assistant']),
   content: z.string(),
   name: z.string().optional(),
 });
@@ -383,7 +383,6 @@ export const LLMRequestConfigSchema = z.object({
   presence_penalty: z.number().min(-2).max(2).optional(),
   stop: z.union([z.string(), z.array(z.string())]).optional(),
   stream: z.boolean().optional().default(false),
-  timeout: z.number().int().positive().optional(),
 });
 
 // 导出类型

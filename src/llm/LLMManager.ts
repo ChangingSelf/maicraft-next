@@ -15,7 +15,7 @@ import {
   MessageRole,
   TokenUsage,
   ToolCall,
-  UsageStats
+  UsageStats,
 } from './types.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
 import { UsageTracker } from './usage/UsageTracker.js';
@@ -66,11 +66,7 @@ export class LLMManager {
   /**
    * 简化的聊天接口 - 参考原maicraft的simple_chat
    */
-  async simpleChat(
-    prompt: string,
-    systemMessage?: string,
-    options?: Partial<LLMRequestConfig>
-  ): Promise<string> {
+  async simpleChat(prompt: string, systemMessage?: string, options?: Partial<LLMRequestConfig>): Promise<string> {
     const result = await this.chatCompletion(prompt, systemMessage, options);
 
     if (result.success) {
@@ -83,11 +79,7 @@ export class LLMManager {
   /**
    * 聊天完成接口 - 参考原maicraft的chat_completion
    */
-  async chatCompletion(
-    prompt: string,
-    systemMessage?: string,
-    options?: Partial<LLMRequestConfig>
-  ): Promise<LLMClientResponse> {
+  async chatCompletion(prompt: string, systemMessage?: string, options?: Partial<LLMRequestConfig>): Promise<LLMClientResponse> {
     if (!this.isActive) {
       return {
         success: false,
@@ -95,7 +87,7 @@ export class LLMManager {
         model: '',
         usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
         finish_reason: '',
-        error: 'LLM客户端未激活'
+        error: 'LLM客户端未激活',
       };
     }
 
@@ -106,13 +98,13 @@ export class LLMManager {
       if (systemMessage) {
         messages.push({
           role: MessageRole.SYSTEM,
-          content: systemMessage
+          content: systemMessage,
         });
       }
 
       messages.push({
         role: MessageRole.USER,
-        content: prompt
+        content: prompt,
       });
 
       // 构建请求参数
@@ -130,6 +122,7 @@ export class LLMManager {
         message_count: messages.length,
         has_system_message: !!systemMessage,
       });
+      this.logger.debug(prompt);
 
       // 发送请求
       const response = await this.activeProvider!.chat(requestConfig);
@@ -143,7 +136,7 @@ export class LLMManager {
         content: response.choices[0]?.message?.content || '',
         model: response.model,
         usage: response.usage,
-        finish_reason: response.choices[0]?.finish_reason || ''
+        finish_reason: response.choices[0]?.finish_reason || '',
       };
 
       // 处理工具调用
@@ -158,7 +151,6 @@ export class LLMManager {
       });
 
       return result;
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error('LLM请求失败', { error: errorMessage });
@@ -169,7 +161,7 @@ export class LLMManager {
         model: '',
         usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
         finish_reason: '',
-        error: errorMessage
+        error: errorMessage,
       };
     }
   }
@@ -177,16 +169,11 @@ export class LLMManager {
   /**
    * 工具调用接口 - 参考原maicraft的call_tool
    */
-  async callTool(
-    prompt: string,
-    tools: any[],
-    systemMessage?: string,
-    options?: Partial<LLMRequestConfig>
-  ): Promise<ToolCall[] | null> {
+  async callTool(prompt: string, tools: any[], systemMessage?: string, options?: Partial<LLMRequestConfig>): Promise<ToolCall[] | null> {
     const response = await this.chatCompletion(prompt, systemMessage, {
       tools,
       tool_choice: 'auto',
-      ...options
+      ...options,
     });
 
     if (!response.success) {
@@ -352,7 +339,7 @@ export class LLMManager {
       base_url: this.getActiveProviderConfig().base_url,
       temperature: this.getActiveProviderConfig().temperature,
       max_tokens: this.getActiveProviderConfig().max_tokens,
-      api_key_set: !!this.getActiveProviderConfig().api_key
+      api_key_set: !!this.getActiveProviderConfig().api_key,
     };
   }
 

@@ -71,23 +71,23 @@ export class OpenAIProvider implements ILLMProvider {
       max_tokens: validatedConfig.max_tokens,
     });
 
-    // 计算输入token数
-    const promptTokens = this.countTokens(validatedConfig.messages);
-
     return this.withRetry(async () => {
       try {
         // 发送请求
         const completion = await this.client.chat.completions.create({
           model: validatedConfig.model,
-          messages: validatedConfig.messages,
+          messages: validatedConfig.messages.map(msg => ({
+            role: msg.role as 'system' | 'user' | 'assistant',
+            content: msg.content,
+            name: msg.name,
+          })),
           max_tokens: validatedConfig.max_tokens,
           temperature: validatedConfig.temperature,
           top_p: validatedConfig.top_p,
           frequency_penalty: validatedConfig.frequency_penalty,
           presence_penalty: validatedConfig.presence_penalty,
           stop: validatedConfig.stop,
-          stream: validatedConfig.stream || false,
-          timeout: validatedConfig.timeout || this.config.timeout,
+          stream: false, // 暂时不支持流式
         });
 
         // 转换响应格式
@@ -96,7 +96,7 @@ export class OpenAIProvider implements ILLMProvider {
           object: completion.object,
           created: completion.created,
           model: completion.model,
-          choices: completion.choices.map(choice => ({
+          choices: completion.choices.map((choice: any) => ({
             index: choice.index,
             message: {
               role: choice.message.role as any,
@@ -105,16 +105,14 @@ export class OpenAIProvider implements ILLMProvider {
             finish_reason: choice.finish_reason || 'stop',
             logprobs: choice.logprobs as any,
           })),
-          usage: completion.usage || {
-            prompt_tokens: promptTokens,
-            completion_tokens: 0,
-            total_tokens: promptTokens,
-          },
+          usage: completion.usage!,
           provider: ProviderType.OPENAI,
         };
 
-        // 如果API没有返回使用统计，计算token数
+        // 如果API没有返回使用统计，才计算token数（兼容性处理）
         if (!completion.usage) {
+          this.logger.warn('API未返回token使用统计，使用tiktoken估算', { model: completion.model });
+          const promptTokens = this.countTokens(validatedConfig.messages as ChatMessage[]);
           const completionTokens = this.countTokens([response.choices[0].message]);
           response.usage = {
             prompt_tokens: promptTokens,
@@ -175,21 +173,21 @@ export class OpenAIProvider implements ILLMProvider {
   countTokens(messages: ChatMessage[]): number {
     let encoding;
 
-    try {
-      // 首先尝试使用模型特定的编码
-      encoding = encoding_for_model(this.config.model as any);
-    } catch (error) {
-      this.logger.debug('模型特定编码不可用，使用通用编码', {
-        error: error instanceof Error ? error.message : String(error),
+    // 对于非OpenAI官方API（如阿里云DashScope），直接使用通用编码
+    const isOfficialOpenAI =
+      this.config.base_url?.includes('openai.com') || !this.config.base_url || this.config.base_url === 'https://api.openai.com/v1';
+
+    if (!isOfficialOpenAI) {
+      this.logger.debug('使用第三方API，直接使用通用编码', {
+        base_url: this.config.base_url,
         model: this.config.model,
       });
 
       try {
-        // 对于未知模型，使用cl100k_base编码（GPT-3.5/4使用的编码）
         encoding = get_encoding('cl100k_base');
-      } catch (fallbackError) {
-        this.logger.warn('tiktoken编码获取失败，使用字符估算方法', {
-          error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+      } catch (error) {
+        this.logger.warn('通用编码获取失败，使用字符估算方法', {
+          error: error instanceof Error ? error.message : String(error),
           model: this.config.model,
         });
 
@@ -204,6 +202,38 @@ export class OpenAIProvider implements ILLMProvider {
         // 使用更准确的估算：英文约为0.25个token/字符，中文约为0.5个token/字符
         // 这里使用平均值0.35作为折中
         return Math.ceil(totalChars * 0.35);
+      }
+    } else {
+      try {
+        // 对于OpenAI官方API，尝试使用模型特定的编码
+        encoding = encoding_for_model(this.config.model as any);
+      } catch (error) {
+        this.logger.debug('模型特定编码不可用，使用通用编码', {
+          error: error instanceof Error ? error.message : String(error),
+          model: this.config.model,
+        });
+
+        try {
+          // 对于未知模型，使用cl100k_base编码（GPT-3.5/4使用的编码）
+          encoding = get_encoding('cl100k_base');
+        } catch (fallbackError) {
+          this.logger.warn('tiktoken编码获取失败，使用字符估算方法', {
+            error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+            model: this.config.model,
+          });
+
+          // 如果tiktoken完全失败，使用改进的字符数估算
+          let totalChars = 0;
+          for (const message of messages) {
+            totalChars += message.content.length;
+            if (message.name) {
+              totalChars += message.name.length;
+            }
+          }
+          // 使用更准确的估算：英文约为0.25个token/字符，中文约为0.5个token/字符
+          // 这里使用平均值0.35作为折中
+          return Math.ceil(totalChars * 0.35);
+        }
       }
     }
 
@@ -249,8 +279,7 @@ export class OpenAIProvider implements ILLMProvider {
       frequency_penalty: config.frequency_penalty,
       presence_penalty: config.presence_penalty,
       stop: config.stop,
-      stream: config.stream || false,
-      timeout: config.timeout || this.config.timeout,
+      stream: config.stream ?? false,
     };
 
     // 验证配置
@@ -279,7 +308,6 @@ export class OpenAIProvider implements ILLMProvider {
       presence_penalty: z.number().min(-2).max(2).optional(),
       stop: z.union([z.string(), z.array(z.string())]).optional(),
       stream: z.boolean().optional(),
-      timeout: z.number().int().positive().optional(),
     });
 
     return schema.parse(config);
