@@ -9,10 +9,10 @@
 
 ### 代码简化
 
-| 文件 | 重构前 | 重构后 | 减少 |
-|------|--------|--------|------|
-| **MainDecisionLoop.ts** | 248 行 | ~130 行 | **-47%** |
-| **决策逻辑** | 分散在多处 | 集中在策略中 | **模块化** |
+| 文件                    | 重构前     | 重构后       | 减少       |
+| ----------------------- | ---------- | ------------ | ---------- |
+| **MainDecisionLoop.ts** | 248 行     | ~130 行      | **-47%**   |
+| **决策逻辑**            | 分散在多处 | 集中在策略中 | **模块化** |
 
 ### 架构改进
 
@@ -23,7 +23,7 @@
 protected async runLoopIteration(): Promise<void> {
   // 检查中断
   if (interrupt...) { ... }
-  
+
   // ❌ 检查模式（职责重叠）
   if (!modeManager.canUseLLMDecision()) {
     const autoSwitched = await modeManager.checkAutoTransitions();
@@ -32,10 +32,10 @@ protected async runLoopIteration(): Promise<void> {
     }
     return;
   }
-  
+
   // ❌ 执行 LLM 决策（约100行代码）
   await executeDecisionCycle();
-  
+
   // 定期评估
   if (evaluationCounter % 5 === 0) {
     await evaluateTask();
@@ -44,6 +44,7 @@ protected async runLoopIteration(): Promise<void> {
 ```
 
 **问题**:
+
 - ❌ MainDecisionLoop 需要询问 ModeManager
 - ❌ 决策逻辑耦合在主循环中
 - ❌ 添加新行为需要修改主循环
@@ -77,6 +78,7 @@ protected async runLoopIteration(): Promise<void> {
 ```
 
 **改进**:
+
 - ✅ MainDecisionLoop 职责单一（循环控制）
 - ✅ 决策逻辑封装在策略中
 - ✅ 添加新行为只需创建策略类
@@ -116,14 +118,14 @@ class DecisionStrategyManager {
 
 ## ✨ 优势对比
 
-| 维度 | 重构前 | 重构后 |
-|------|--------|--------|
-| **MainDecisionLoop 复杂度** | 高（~250行） | 低（~130行） |
-| **职责清晰度** | 模糊 | 清晰 |
-| **添加新行为** | 需修改主循环 | 只需创建策略类 |
-| **测试难度** | 困难（耦合紧密） | 容易（策略独立） |
-| **插件支持** | 不支持 | 天然支持 |
-| **扩展性** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| 维度                        | 重构前           | 重构后           |
+| --------------------------- | ---------------- | ---------------- |
+| **MainDecisionLoop 复杂度** | 高（~250行）     | 低（~130行）     |
+| **职责清晰度**              | 模糊             | 清晰             |
+| **添加新行为**              | 需修改主循环     | 只需创建策略类   |
+| **测试难度**                | 困难（耦合紧密） | 容易（策略独立） |
+| **插件支持**                | 不支持           | 天然支持         |
+| **扩展性**                  | ⭐⭐⭐           | ⭐⭐⭐⭐⭐       |
 
 ---
 
@@ -135,13 +137,13 @@ class DecisionStrategyManager {
 // ❌ 需要在 MainDecisionLoop 中添加逻辑
 protected async runLoopIteration(): Promise<void> {
   // ... 现有逻辑
-  
+
   // 添加自动吃东西检查
   if (gameState.food < 6) {
     await this.autoEat();
     return;
   }
-  
+
   // ... 更多逻辑
 }
 ```
@@ -152,15 +154,15 @@ protected async runLoopIteration(): Promise<void> {
 // ✅ 创建独立的策略类
 class AutoEatStrategy implements DecisionStrategy {
   readonly name = '自动吃东西';
-  
+
   canExecute(state: AgentState): boolean {
     return state.context.gameState.food < 6;
   }
-  
+
   async execute(state: AgentState): Promise<void> {
     // 执行吃东西逻辑
   }
-  
+
   getPriority(): number {
     return 80; // 高优先级
   }
@@ -209,4 +211,3 @@ strategyManager.addStrategy(new AutoEatStrategy());
 **重构完成** ✅  
 **系统状态**: 稳定，无 linter 错误  
 **测试状态**: 编译通过，功能正常
-

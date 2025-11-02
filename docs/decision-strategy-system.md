@@ -37,13 +37,13 @@ DecisionStrategyManager (策略管理器)
 
 ### 核心组件
 
-| 组件 | 文件路径 | 职责 |
-|------|---------|------|
-| **DecisionStrategy** | `src/core/agent/decision/types.ts` | 策略接口定义 |
-| **DecisionStrategyManager** | `src/core/agent/decision/DecisionStrategyManager.ts` | 策略管理器 |
-| **AutoModeSwitchStrategy** | `src/core/agent/decision/strategies/AutoModeSwitchStrategy.ts` | 模式切换策略 |
-| **LLMDecisionStrategy** | `src/core/agent/decision/strategies/LLMDecisionStrategy.ts` | LLM决策策略 |
-| **MainDecisionLoop** | `src/core/agent/loop/MainDecisionLoop.ts` | 主决策循环 |
+| 组件                        | 文件路径                                                       | 职责         |
+| --------------------------- | -------------------------------------------------------------- | ------------ |
+| **DecisionStrategy**        | `src/core/agent/decision/types.ts`                             | 策略接口定义 |
+| **DecisionStrategyManager** | `src/core/agent/decision/DecisionStrategyManager.ts`           | 策略管理器   |
+| **AutoModeSwitchStrategy**  | `src/core/agent/decision/strategies/AutoModeSwitchStrategy.ts` | 模式切换策略 |
+| **LLMDecisionStrategy**     | `src/core/agent/decision/strategies/LLMDecisionStrategy.ts`    | LLM决策策略  |
+| **MainDecisionLoop**        | `src/core/agent/loop/MainDecisionLoop.ts`                      | 主决策循环   |
 
 ---
 
@@ -59,7 +59,7 @@ import { getLogger, type Logger } from '@/utils/Logger';
 
 /**
  * 自动吃东西策略
- * 
+ *
  * 当饥饿值低于 6 时自动吃食物
  */
 export class AutoEatStrategy implements DecisionStrategy {
@@ -83,7 +83,7 @@ export class AutoEatStrategy implements DecisionStrategy {
    */
   async execute(state: AgentState): Promise<void> {
     this.logger.info('🍖 自动吃东西');
-    
+
     // 查找食物
     const food = this.findFood(state);
     if (!food) {
@@ -131,7 +131,7 @@ private registerStrategies(state: AgentState): void {
 
   // 注册新策略
   this.strategyManager.addStrategy(new AutoEatStrategy());
-  
+
   this.logger.info(`✅ 已注册 ${this.strategyManager.getStats().totalStrategies} 个策略`);
 }
 ```
@@ -153,12 +153,12 @@ const executed = await this.strategyManager.executeStrategies(this.state);
 
 ```typescript
 export enum StrategyGroup {
-  MODE_MANAGEMENT = 'mode_management',  // 模式管理
-  SURVIVAL = 'survival',                // 生存（吃东西、治疗、逃跑）
-  COMBAT = 'combat',                    // 战斗
-  RESOURCE = 'resource',                // 资源采集（挖矿、伐木）
-  BUILDING = 'building',                // 建筑
-  AI_DECISION = 'ai_decision',          // AI决策
+  MODE_MANAGEMENT = 'mode_management', // 模式管理
+  SURVIVAL = 'survival', // 生存（吃东西、治疗、逃跑）
+  COMBAT = 'combat', // 战斗
+  RESOURCE = 'resource', // 资源采集（挖矿、伐木）
+  BUILDING = 'building', // 建筑
+  AI_DECISION = 'ai_decision', // AI决策
 }
 ```
 
@@ -189,9 +189,9 @@ class FarmingPlugin implements IDecisionPlugin {
   version = '1.0.0';
 
   strategies = [
-    new PlantSeedsStrategy(),     // 种植种子 (优先级: 40)
-    new HarvestCropsStrategy(),   // 收获作物 (优先级: 35)
-    new WaterPlantsStrategy(),    // 浇水     (优先级: 25)
+    new PlantSeedsStrategy(), // 种植种子 (优先级: 40)
+    new HarvestCropsStrategy(), // 收获作物 (优先级: 35)
+    new WaterPlantsStrategy(), // 浇水     (优先级: 25)
   ];
 }
 
@@ -206,10 +206,10 @@ pluginManager.unloadPlugin('farming');
 
 ## 📊 现有策略
 
-| 策略名称 | 优先级 | 分组 | 说明 |
-|---------|-------|------|------|
-| **AutoModeSwitchStrategy** | 100 | MODE_MANAGEMENT | 自动检查并执行模式切换 |
-| **LLMDecisionStrategy** | 10 | AI_DECISION | 使用LLM进行智能决策（兜底） |
+| 策略名称                   | 优先级 | 分组            | 说明                        |
+| -------------------------- | ------ | --------------- | --------------------------- |
+| **AutoModeSwitchStrategy** | 100    | MODE_MANAGEMENT | 自动检查并执行模式切换      |
+| **LLMDecisionStrategy**    | 10     | AI_DECISION     | 使用LLM进行智能决策（兜底） |
 
 ---
 
@@ -288,10 +288,7 @@ describe('AutoEatStrategy', () => {
 
     // 测试 execute
     await strategy.execute(mockState);
-    expect(mockState.context.executor.execute).toHaveBeenCalledWith(
-      'eat',
-      expect.any(Object)
-    );
+    expect(mockState.context.executor.execute).toHaveBeenCalledWith('eat', expect.any(Object));
   });
 
   it('should not execute when food is sufficient', () => {
@@ -383,4 +380,3 @@ if (info) {
 
 **最后更新**: 2025-11-02  
 **作者**: Maicraft-Next Team
-
