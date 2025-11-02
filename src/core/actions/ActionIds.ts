@@ -25,6 +25,8 @@ export const ActionIds = {
   // 容器操作
   USE_CHEST: 'use_chest',
   USE_FURNACE: 'use_furnace',
+  QUERY_CONTAINER: 'query_container',
+  MANAGE_CONTAINER: 'manage_container',
 
   // 生存
   EAT: 'eat',

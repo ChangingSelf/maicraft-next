@@ -203,15 +203,25 @@ export class MainMode extends BaseMode {
 
           this.logger.info(`🎬 执行动作 ${i + 1}/${actionMatches.length}: ${actionName}`);
 
-          // 执行动作
-          const result = await this.state!.context.executor.execute(actionName, actionJson.params || actionJson);
-
-          if (result.success) {
-            this.logger.info(`✅ 动作 ${i + 1}/${actionMatches.length}: 成功`);
+          // 检查是否是GUI操作，需要切换模式
+          if (this.isGUIAction(actionName)) {
+            const modeSwitchResult = await this.handleGUIAction(actionName, actionJson);
+            if (modeSwitchResult) {
+              this.logger.info(`✅ 动作 ${i + 1}/${actionMatches.length}: 切换到${modeSwitchResult}模式`);
+              // GUI模式切换后，停止后续动作执行
+              break;
+            }
           } else {
-            this.logger.warn(`⚠️ 动作 ${i + 1}/${actionMatches.length}: 失败 - ${result.message}`);
-            // 原maicraft设计：失败时停止后续动作
-            break;
+            // 执行普通动作
+            const result = await this.state!.context.executor.execute(actionName, actionJson.params || actionJson);
+
+            if (result.success) {
+              this.logger.info(`✅ 动作 ${i + 1}/${actionMatches.length}: 成功`);
+            } else {
+              this.logger.warn(`⚠️ 动作 ${i + 1}/${actionMatches.length}: 失败 - ${result.message}`);
+              // 原maicraft设计：失败时停止后续动作
+              break;
+            }
           }
         } catch (parseError) {
           this.logger.error(`❌ 动作 ${i + 1}/${actionMatches.length} 解析失败:`, undefined, parseError as Error);
@@ -240,6 +250,67 @@ export class MainMode extends BaseMode {
     );
 
     return enemies.length > 0 && enemies[0].distance < 10;
+  }
+
+  /**
+   * 判断是否是GUI操作
+   */
+  private isGUIAction(actionName: string): boolean {
+    return actionName === 'use_furnace' || actionName === 'use_chest';
+  }
+
+  /**
+   * 处理GUI操作，切换到相应模式
+   */
+  private async handleGUIAction(actionName: string, actionJson: any): Promise<string | null> {
+    if (!this.state || !this.state.modeManager) {
+      this.logger.warn('⚠️ 无法切换GUI模式：状态或模式管理器不可用');
+      return null;
+    }
+
+    try {
+      let targetMode: string | null = null;
+      let position: any = null;
+
+      if (actionName === 'use_furnace') {
+        targetMode = ModeManager.MODE_TYPES.FURNACE_GUI;
+        position = actionJson.position || actionJson.params?.position;
+      } else if (actionName === 'use_chest') {
+        targetMode = ModeManager.MODE_TYPES.CHEST_GUI;
+        position = actionJson.position || actionJson.params?.position;
+      }
+
+      if (!targetMode) {
+        this.logger.warn(`⚠️ 未知的GUI操作: ${actionName}`);
+        return null;
+      }
+
+      // 获取目标模式实例
+      const modeInstance = this.state.modeManager.getAllModes().find(mode => mode.type === targetMode);
+      if (!modeInstance) {
+        this.logger.warn(`⚠️ 找不到GUI模式: ${targetMode}`);
+        return null;
+      }
+
+      // 设置位置（如果是位置相关的GUI模式）
+      if (position && 'setPosition' in modeInstance) {
+        (modeInstance as any).setPosition(position);
+      }
+
+      // 切换到GUI模式
+      const success = await this.state.modeManager.setMode(targetMode, `LLM决策使用${actionName}`);
+
+      if (success) {
+        return targetMode;
+      } else {
+        this.logger.warn(`⚠️ 切换到${targetMode}模式失败`);
+        return null;
+      }
+
+    } catch (error) {
+      this.logger.error(`❌ 处理GUI操作失败: ${actionName}`, undefined, error as Error);
+      return null;
+    }
   }
 
   /**

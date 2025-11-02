@@ -13,6 +13,8 @@ import { BaseMode } from './BaseMode';
 import type { GameStateListener } from './GameStateListener';
 import { MainMode } from './modes/MainMode';
 import { CombatMode } from './modes/CombatMode';
+import { FurnaceMode } from './modes/FurnaceMode';
+import { ChestMode } from './modes/ChestMode';
 
 export class ModeManager {
   private modes: Map<string, BaseMode> = new Map();
@@ -63,6 +65,14 @@ export class ModeManager {
     const combatMode = new CombatMode(this.context);
     combatMode.bindState(this.state);
     this.registerMode(combatMode);
+
+    const furnaceMode = new FurnaceMode(this.context);
+    furnaceMode.bindState(this.state);
+    this.registerMode(furnaceMode);
+
+    const chestMode = new ChestMode(this.context);
+    chestMode.bindState(this.state);
+    this.registerMode(chestMode);
 
     // 注册游戏状态监听器
     this.registerGameStateListeners();
