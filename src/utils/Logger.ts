@@ -320,7 +320,14 @@ export class Logger {
   private writeToConsole(entry: LogEntry): void {
     const levelName = LOG_LEVEL_NAMES[entry.level];
     const moduleInfo = entry.context?.module ? `[${entry.context.module}] ` : '';
-    const contextStr = entry.context ? ` ${JSON.stringify(entry.context, null, 0)}` : '';
+
+    // 创建context副本，移除module字段（因为已经在模块前缀中显示了）
+    const contextForDisplay = entry.context ? { ...entry.context } : undefined;
+    if (contextForDisplay?.module) {
+      delete contextForDisplay.module;
+    }
+
+    const contextStr = contextForDisplay && Object.keys(contextForDisplay).length > 0 ? ` ${JSON.stringify(contextForDisplay, null, 0)}` : '';
 
     // 构建彩色消息
     const rawParts: string[] = [];
