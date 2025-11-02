@@ -25,7 +25,7 @@ export class TossItemAction extends BaseAction<TossItemParams> {
       // 查找物品
       const mcData = context.bot.registry;
       const itemMeta = mcData.itemsByName[item];
-      
+
       if (!itemMeta) {
         return this.failure(`未知物品: ${item}`);
       }
@@ -72,4 +72,3 @@ export class TossItemAction extends BaseAction<TossItemParams> {
     };
   }
 }
-

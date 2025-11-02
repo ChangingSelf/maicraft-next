@@ -75,14 +75,16 @@
 **设计目标**：消除 Maicraft Python 版本中 MCP 协议带来的跨进程通信开销
 
 **实现方式**：
+
 - 所有组件在同一进程内运行
 - 通过 TypeScript 类型系统保证接口安全
 - 内存直接调用，性能提升 10-50x
 
 **对比**：
+
 ```typescript
 // ❌ Maicraft Python: 跨进程调用
-const result = await mcpClient.callTool("move", { x: 100, y: 64, z: 200 });
+const result = await mcpClient.callTool('move', { x: 100, y: 64, z: 200 });
 
 // ✅ Maicraft-Next: 内存直调
 await executor.execute(ActionIds.MOVE, { x: 100, y: 64, z: 200 });
@@ -93,14 +95,16 @@ await executor.execute(ActionIds.MOVE, { x: 100, y: 64, z: 200 });
 **设计目标**：去除查询类动作，状态实时可访问
 
 **实现方式**：
+
 - `GameState` 通过 mineflayer bot 事件自动同步
 - 所有组件通过 `RuntimeContext` 访问全局状态
 - 零轮询开销
 
 **对比**：
+
 ```typescript
 // ❌ Maicraft Python: 需要查询
-const status = await mcpClient.callTool("query_player_status", {});
+const status = await mcpClient.callTool('query_player_status', {});
 const health = status.data.health;
 
 // ✅ Maicraft-Next: 直接访问
@@ -114,23 +118,25 @@ const inventory = context.gameState.inventory;
 **设计目标**：利用 TypeScript 类型系统，在编译时发现错误
 
 **实现方式**：
+
 - 所有动作参数都有完整的类型定义
 - 使用 `ActionIds` 常量避免拼写错误
 - IDE 自动补全和参数提示
 
 **示例**：
+
 ```typescript
 // ✅ 类型安全的动作调用
 await executor.execute(ActionIds.MINE_BLOCK, {
   name: 'iron_ore',
-  count: 10
+  count: 10,
 });
 
 // ❌ 编译时就会报错
 await executor.execute(ActionIds.MINE_BLOCK, {
   name: 'iron_ore',
   // count 必须是 number，不能是 string
-  count: "10"  // ← TypeScript 编译错误
+  count: '10', // ← TypeScript 编译错误
 });
 ```
 
@@ -139,6 +145,7 @@ await executor.execute(ActionIds.MINE_BLOCK, {
 **设计目标**：每个模块职责清晰，易于测试和维护
 
 **核心模块**：
+
 1. **Agent** - 主协调器，管理所有子系统
 2. **ActionExecutor** - 动作执行，连接到 bot
 3. **MemoryManager** - 记忆管理
@@ -149,6 +156,7 @@ await executor.execute(ActionIds.MINE_BLOCK, {
 8. **LLMManager** - LLM 调用管理
 
 **依赖关系**：
+
 - 通过 `RuntimeContext` 共享状态
 - 通过接口定义清晰的边界
 - 易于单元测试和集成测试
@@ -237,47 +245,53 @@ Minecraft Server Event
 ### Agent
 
 **职责**：
+
 - 主协调器，管理所有子系统
 - 初始化和生命周期管理
 - 协调决策循环的运行
 
 **关键方法**：
+
 ```typescript
 class Agent {
-  async start(): Promise<void>  // 启动 Agent
-  async stop(): Promise<void>   // 停止 Agent
-  getStatus(): AgentStatus      // 获取运行状态
+  async start(): Promise<void>; // 启动 Agent
+  async stop(): Promise<void>; // 停止 Agent
+  getStatus(): AgentStatus; // 获取运行状态
 }
 ```
 
 ### RuntimeContext
 
 **职责**：
+
 - 共享的运行时上下文
 - 提供所有组件访问核心服务的统一接口
 
 **包含内容**：
+
 ```typescript
 interface RuntimeContext {
-  bot: Bot;                      // Mineflayer bot 实例
-  gameState: GameState;          // 游戏状态
-  executor: ActionExecutor;      // 动作执行器
-  events: EventEmitter;          // 事件管理器
-  blockCache: BlockCache;        // 方块缓存
-  containerCache: ContainerCache;// 容器缓存
+  bot: Bot; // Mineflayer bot 实例
+  gameState: GameState; // 游戏状态
+  executor: ActionExecutor; // 动作执行器
+  events: EventEmitter; // 事件管理器
+  blockCache: BlockCache; // 方块缓存
+  containerCache: ContainerCache; // 容器缓存
   locationManager: LocationManager; // 地标管理
-  logger: Logger;                // 日志记录器
+  logger: Logger; // 日志记录器
 }
 ```
 
 ### ActionExecutor
 
 **职责**：
+
 - 动作注册和管理
 - 类型安全的动作调用
 - 中断机制
 
 **关键特性**：
+
 - 支持动态注册新动作
 - 使用 `ActionIds` 常量保证类型安全
 - 统一的错误处理和日志记录
@@ -285,10 +299,12 @@ interface RuntimeContext {
 ### GameState
 
 **职责**：
+
 - 实时同步游戏状态
 - 提供格式化的状态描述（用于 LLM）
 
 **同步的状态**：
+
 - 玩家状态：生命值、饥饿度、经验等
 - 位置信息：坐标、维度
 - 物品栏：物品列表、装备
@@ -326,17 +342,17 @@ interface RuntimeContext {
 
 ## 🎯 与 Maicraft Python 的对比
 
-| 特性 | Maicraft Python | Maicraft-Next |
-|------|-----------------|---------------|
-| **语言** | Python | TypeScript |
-| **架构** | Agent + MCP Server (双进程) | 单体架构 |
-| **通信** | MCP 协议 (stdio) | 内存直调 |
-| **状态访问** | 工具查询 | 实时访问 |
-| **动作数量** | 25+ (含查询类) | 15 核心动作 |
-| **类型检查** | 运行时 | 编译时 |
-| **记忆系统** | thinking_log | 4 种记忆类型 |
-| **任务管理** | to_do_list | Goal-Plan-Task |
-| **性能** | 基准 | 10-50x 提升 |
+| 特性         | Maicraft Python             | Maicraft-Next  |
+| ------------ | --------------------------- | -------------- |
+| **语言**     | Python                      | TypeScript     |
+| **架构**     | Agent + MCP Server (双进程) | 单体架构       |
+| **通信**     | MCP 协议 (stdio)            | 内存直调       |
+| **状态访问** | 工具查询                    | 实时访问       |
+| **动作数量** | 25+ (含查询类)              | 15 核心动作    |
+| **类型检查** | 运行时                      | 编译时         |
+| **记忆系统** | thinking_log                | 4 种记忆类型   |
+| **任务管理** | to_do_list                  | Goal-Plan-Task |
+| **性能**     | 基准                        | 10-50x 提升    |
 
 ---
 
@@ -349,4 +365,3 @@ interface RuntimeContext {
 ---
 
 _最后更新: 2025-11-01_
-

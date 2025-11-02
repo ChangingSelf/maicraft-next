@@ -22,6 +22,7 @@ Maicraft-Next 的事件系统是对 mineflayer 事件的薄层封装，设计目
 ### EventEmitter
 
 统一的事件管理器，支持：
+
 - 监听 mineflayer 事件
 - 发送自定义事件
 - 类型安全的事件处理
@@ -42,12 +43,12 @@ const events = new EventEmitter(bot);
 
 ```typescript
 // 生命值变化
-events.on('health', (data) => {
+events.on('health', data => {
   console.log(`生命值: ${data.health}`);
 });
 
 // 受到伤害
-events.on('entityHurt', (data) => {
+events.on('entityHurt', data => {
   console.log(`${data.entity.name} 受到伤害`);
 });
 
@@ -57,7 +58,7 @@ events.on('death', () => {
 });
 
 // 聊天消息
-events.on('chat', (data) => {
+events.on('chat', data => {
   console.log(`${data.username}: ${data.message}`);
 });
 ```
@@ -70,11 +71,11 @@ events.emit('actionComplete', {
   actionId: 'move',
   actionName: 'MoveAction',
   result: { success: true },
-  duration: 1500
+  duration: 1500,
 });
 
 // 监听自定义事件
-events.on('actionComplete', (data) => {
+events.on('actionComplete', data => {
   console.log(`动作 ${data.actionName} 完成，耗时 ${data.duration}ms`);
 });
 ```
@@ -85,43 +86,43 @@ events.on('actionComplete', (data) => {
 
 ### 生命和状态
 
-| 事件 | 说明 | 数据 |
-|------|------|------|
+| 事件     | 说明       | 数据               |
+| -------- | ---------- | ------------------ |
 | `health` | 生命值变化 | `{ health, food }` |
-| `death` | 死亡 | 无 |
-| `spawn` | 重生 | 无 |
-| `breath` | 氧气变化 | `{ breath }` |
+| `death`  | 死亡       | 无                 |
+| `spawn`  | 重生       | 无                 |
+| `breath` | 氧气变化   | `{ breath }`       |
 
 ### 实体和战斗
 
-| 事件 | 说明 | 数据 |
-|------|------|------|
-| `entityHurt` | 实体受伤 | `{ entity, damage }` |
-| `entityDead` | 实体死亡 | `{ entity }` |
+| 事件            | 说明     | 数据                       |
+| --------------- | -------- | -------------------------- |
+| `entityHurt`    | 实体受伤 | `{ entity, damage }`       |
+| `entityDead`    | 实体死亡 | `{ entity }`               |
 | `playerCollect` | 拾取物品 | `{ collector, collected }` |
 
 ### 环境
 
-| 事件 | 说明 | 数据 |
-|------|------|------|
-| `time` | 时间变化 | `{ time }` |
+| 事件      | 说明     | 数据                          |
+| --------- | -------- | ----------------------------- |
+| `time`    | 时间变化 | `{ time }`                    |
 | `weather` | 天气变化 | `{ isRaining, thunderState }` |
-| `rain` | 开始下雨 | 无 |
+| `rain`    | 开始下雨 | 无                            |
 
 ### 交互
 
-| 事件 | 说明 | 数据 |
-|------|------|------|
-| `chat` | 聊天消息 | `{ username, message }` |
-| `whisper` | 私聊消息 | `{ username, message }` |
-| `playerJoined` | 玩家加入 | `{ player }` |
-| `playerLeft` | 玩家离开 | `{ player }` |
+| 事件           | 说明     | 数据                    |
+| -------------- | -------- | ----------------------- |
+| `chat`         | 聊天消息 | `{ username, message }` |
+| `whisper`      | 私聊消息 | `{ username, message }` |
+| `playerJoined` | 玩家加入 | `{ player }`            |
+| `playerLeft`   | 玩家离开 | `{ player }`            |
 
 ### 移动
 
-| 事件 | 说明 | 数据 |
-|------|------|------|
-| `move` | 位置变化 | `{ position }` |
+| 事件         | 说明     | 数据           |
+| ------------ | -------- | -------------- |
+| `move`       | 位置变化 | `{ position }` |
 | `forcedMove` | 强制移动 | `{ position }` |
 
 ---
@@ -140,6 +141,7 @@ def on_health(event):
 ```
 
 **问题**：
+
 - 需要定义自己的事件类
 - 事件名与 mineflayer 不一致
 - 跨进程传递事件数据
@@ -148,12 +150,13 @@ def on_health(event):
 
 ```typescript
 // 直接使用 mineflayer 事件名
-events.on('health', (data) => {
+events.on('health', data => {
   console.log(`生命值: ${data.health}`);
 });
 ```
 
 **优势**：
+
 - 保持 mineflayer 事件名
 - 无跨进程开销
 - 类型安全
@@ -178,7 +181,7 @@ export class Agent {
     });
 
     // 监听受伤
-    events.on('entityHurt', (data) => {
+    events.on('entityHurt', data => {
       if (data.entity === this.state.context.bot.entity) {
         // 切换到战斗模式
         this.state.modeManager.switchMode(ModeType.COMBAT);
@@ -186,7 +189,7 @@ export class Agent {
     });
 
     // 监听聊天
-    events.on('chat', async (data) => {
+    events.on('chat', async data => {
       if (data.message.startsWith('@bot')) {
         // 触发聊天循环
         await this.chatLoop.handleMessage(data.username, data.message);
@@ -199,7 +202,7 @@ export class Agent {
       this.state.memory.experience.record({
         category: 'survival',
         lesson: '死亡了，需要更加小心',
-        importance: 'high'
+        importance: 'high',
       });
     });
   }
@@ -213,9 +216,9 @@ export class CombatMode extends Mode {
   async onEnter(): Promise<void> {
     // 监听战斗相关事件
     this.eventHandles.push(
-      this.context.events.on('entityHurt', (data) => {
+      this.context.events.on('entityHurt', data => {
         // 处理战斗伤害
-      })
+      }),
     );
   }
 
@@ -234,7 +237,9 @@ export class CombatMode extends Mode {
 
 ```typescript
 // ✅ 保存句柄并在不需要时移除
-const handle = events.on('health', () => { /* ... */ });
+const handle = events.on('health', () => {
+  /* ... */
+});
 
 // 清理
 handle.remove();
@@ -262,7 +267,7 @@ events.on('death', () => {
   logger.error('玩家死亡', {
     position: gameState.position,
     health: gameState.health,
-    killer: gameState.lastDamageSource
+    killer: gameState.lastDamageSource,
   });
 });
 ```
@@ -274,16 +279,16 @@ events.on('death', () => {
 executor.execute(ActionIds.MOVE, params).then(result => {
   events.emit('actionComplete', {
     action: 'move',
-    result
+    result,
   });
 });
 
 // 其他组件监听
-events.on('actionComplete', (data) => {
+events.on('actionComplete', data => {
   // 更新记忆
   memory.decision.record({
     action: data.action,
-    result: data.result
+    result: data.result,
   });
 });
 ```
@@ -298,4 +303,3 @@ events.on('actionComplete', (data) => {
 ---
 
 _最后更新: 2025-11-01_
-

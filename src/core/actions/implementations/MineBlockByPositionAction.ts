@@ -55,7 +55,7 @@ export class MineBlockByPositionAction extends BaseAction<MineBlockByPositionPar
           targetPos.z,
           4, // 到达距离
           64, // 最大移动距离
-          false // 不使用相对坐标
+          false, // 不使用相对坐标
         );
 
         if (!moveResult.success) {
@@ -68,7 +68,7 @@ export class MineBlockByPositionAction extends BaseAction<MineBlockByPositionPar
         context.logger.info('使用 collectBlock 插件挖掘');
         await (context.bot as any).collectBlock.collect(targetBlock, {
           ignoreNoPath: false,
-          count: 1
+          count: 1,
         });
       } else {
         // 使用基本的 dig 方法

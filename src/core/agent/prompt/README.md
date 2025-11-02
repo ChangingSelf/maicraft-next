@@ -53,18 +53,13 @@ const response = await llmManager.chat([{ role: 'user', content: prompt }]);
 
 ```typescript
 class PromptTemplate {
-  constructor(
-    name: string,
-    template: string,
-    description: string = '',
-    parameters: string[] = []
-  )
+  constructor(name: string, template: string, description: string = '', parameters: string[] = []);
 
   // 验证参数
-  validateParameters(params: Record<string, any>): string[]
+  validateParameters(params: Record<string, any>): string[];
 
   // 格式化模板
-  format(params: Record<string, any>): string
+  format(params: Record<string, any>): string;
 }
 ```
 
@@ -73,19 +68,19 @@ class PromptTemplate {
 ```typescript
 class PromptManager {
   // 注册模板
-  registerTemplate(template: PromptTemplate): boolean
+  registerTemplate(template: PromptTemplate): boolean;
 
   // 从字符串注册模板
-  registerTemplateFromString(name: string, templateStr: string, description?: string): boolean
+  registerTemplateFromString(name: string, templateStr: string, description?: string): boolean;
 
   // 获取模板
-  getTemplate(name: string): PromptTemplate | undefined
+  getTemplate(name: string): PromptTemplate | undefined;
 
   // 生成提示词（核心方法！）
-  generatePrompt(templateName: string, params: Record<string, any>): string
+  generatePrompt(templateName: string, params: Record<string, any>): string;
 
   // 列出所有模板
-  listTemplates(): Array<{ name: string; description: string }>
+  listTemplates(): Array<{ name: string; description: string }>;
 }
 ```
 
@@ -101,15 +96,15 @@ const prompt = promptManager.generatePrompt('main_thinking', params);
 
 ## 🔧 与原版 maicraft 的对应
 
-| maicraft (Python) | maicraft-next (TypeScript) |
-|-------------------|---------------------------|
-| `PromptTemplate` | `PromptTemplate` |
-| `PromptManager` | `PromptManager` |
-| `prompt_manager = PromptManager()` | `export const promptManager = new PromptManager()` |
-| `template.format(**kwargs)` | `template.format(params)` |
-| `prompt_manager.register_template(template)` | `promptManager.registerTemplate(template)` |
-| `prompt_manager.generate_prompt(name, **kwargs)` | `promptManager.generatePrompt(name, params)` |
-| `init_templates()` | `initTemplates()` |
+| maicraft (Python)                                | maicraft-next (TypeScript)                         |
+| ------------------------------------------------ | -------------------------------------------------- |
+| `PromptTemplate`                                 | `PromptTemplate`                                   |
+| `PromptManager`                                  | `PromptManager`                                    |
+| `prompt_manager = PromptManager()`               | `export const promptManager = new PromptManager()` |
+| `template.format(**kwargs)`                      | `template.format(params)`                          |
+| `prompt_manager.register_template(template)`     | `promptManager.registerTemplate(template)`         |
+| `prompt_manager.generate_prompt(name, **kwargs)` | `promptManager.generatePrompt(name, params)`       |
+| `init_templates()`                               | `initTemplates()`                                  |
 
 ## 📋 可用模板
 
@@ -118,6 +113,7 @@ const prompt = promptManager.generatePrompt('main_thinking', params);
 基础信息模板，包含玩家状态、目标、物品栏等信息。
 
 **参数**：
+
 - `bot_name`, `player_name`, `self_info`, `goal`, `to_do_list`
 - `self_status_info`, `inventory_info`, `position`
 - `nearby_block_info`, `container_cache_info`, `nearby_entities_info`
@@ -128,6 +124,7 @@ const prompt = promptManager.generatePrompt('main_thinking', params);
 主思考模板，用于主决策循环。
 
 **参数**：
+
 - `basic_info` - 通过 basic_info 模板生成
 - `eat_action` - 动态生成（饥饿时）
 - `kill_mob_action` - 动态生成（有敌对生物时）
@@ -149,8 +146,8 @@ export function initTemplates(): void {
       'my_template',
       `模板内容，使用 {param} 作为占位符`,
       '模板描述',
-      ['param1', 'param2']  // 参数列表（可选，会自动提取）
-    )
+      ['param1', 'param2'], // 参数列表（可选，会自动提取）
+    ),
   );
 }
 ```
@@ -168,9 +165,7 @@ const inputData = this.getAllData();
 const prompt = promptManager.generatePrompt('main_thinking', inputData);
 
 // 4. 调用 LLM
-const response = await this.llmManager.chat([
-  { role: 'user', content: prompt }
-]);
+const response = await this.llmManager.chat([{ role: 'user', content: prompt }]);
 ```
 
 ## 📖 相关文档

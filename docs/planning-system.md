@@ -18,6 +18,7 @@ todo_list = [
 ```
 
 **问题**：
+
 - 扁平结构，无层次关系
 - 无法表达任务依赖
 - 无进度追踪
@@ -32,15 +33,15 @@ todo_list = [
 const goal = await planning.createGoal({
   name: '建造房子',
   description: '在当前位置建造一个木质房子',
-  priority: 'high'
+  priority: 'high',
 });
 
 const plan = await planning.createPlan(goal.id, {
   name: '收集材料',
   tasks: [
     { name: '收集64个橡木', tracker: { type: 'inventory', item: 'oak_log', count: 64 } },
-    { name: '制作256个木板', tracker: { type: 'inventory', item: 'oak_planks', count: 256 } }
-  ]
+    { name: '制作256个木板', tracker: { type: 'inventory', item: 'oak_planks', count: 256 } },
+  ],
 });
 
 // ✅ 自动进度追踪
@@ -89,8 +90,8 @@ const goal = await planning.createGoal({
   priority: 'high',
   metadata: {
     location: { x: 100, y: 64, z: 200 },
-    type: 'building'
-  }
+    type: 'building',
+  },
 });
 ```
 
@@ -108,8 +109,8 @@ const plan = await planning.createPlan(goal.id, {
       tracker: {
         type: 'inventory',
         item: 'oak_log',
-        count: 64
-      }
+        count: 64,
+      },
     },
     {
       name: '制作256个木板',
@@ -117,10 +118,10 @@ const plan = await planning.createPlan(goal.id, {
       tracker: {
         type: 'inventory',
         item: 'oak_planks',
-        count: 256
-      }
-    }
-  ]
+        count: 256,
+      },
+    },
+  ],
 });
 ```
 
@@ -222,14 +223,14 @@ await planning.cancelGoal(goal.id);
 
 ## 🔄 与 Maicraft Python 的对比
 
-| 方面 | Maicraft Python | Maicraft-Next |
-|------|-----------------|---------------|
-| **结构** | 扁平的 todo_list | 三层 Goal-Plan-Task |
-| **层次** | 无层次关系 | 清晰的层次结构 |
-| **进度** | 无自动追踪 | 自动进度计算 |
-| **追踪器** | 手动检查 | 编程式追踪器 |
-| **依赖** | 无依赖管理 | 支持任务依赖 |
-| **复杂任务** | 难以管理 | 易于组织 |
+| 方面         | Maicraft Python  | Maicraft-Next       |
+| ------------ | ---------------- | ------------------- |
+| **结构**     | 扁平的 todo_list | 三层 Goal-Plan-Task |
+| **层次**     | 无层次关系       | 清晰的层次结构      |
+| **进度**     | 无自动追踪       | 自动进度计算        |
+| **追踪器**   | 手动检查         | 编程式追踪器        |
+| **依赖**     | 无依赖管理       | 支持任务依赖        |
+| **复杂任务** | 难以管理         | 易于组织            |
 
 ---
 
@@ -242,27 +243,27 @@ await planning.cancelGoal(goal.id);
 async think(): Promise<void> {
   // 1. 更新任务进度
   await this.state.planningManager.updateProgress();
-  
+
   // 2. 获取当前目标和计划
   const currentGoal = await this.state.planningManager.getCurrentGoal();
   const currentPlan = currentGoal?.plans[0];
-  
+
   // 3. 包含在 Prompt 中
   const prompt = `
     当前目标: ${currentGoal?.name}
     当前计划: ${currentPlan?.name}
     进度: ${currentPlan?.progress}%
-    
+
     未完成的任务:
     ${currentPlan?.tasks
       .filter(t => t.status !== 'completed')
       .map(t => `- ${t.name} (${t.progress}%)`)
       .join('\n')}
   `;
-  
+
   // 4. 调用 LLM 决策
   const response = await this.llmManager.chat(prompt);
-  
+
   // 5. 根据任务完成情况更新
   if (currentPlan?.progress === 100) {
     await this.state.planningManager.completePlan(currentPlan.id);
@@ -311,21 +312,21 @@ async think(): Promise<void> {
 
 ```typescript
 // 紧急任务
-await planning.createGoal({ 
+await planning.createGoal({
   name: '逃离危险',
-  priority: 'critical' 
+  priority: 'critical',
 });
 
 // 重要任务
-await planning.createGoal({ 
+await planning.createGoal({
   name: '建造房子',
-  priority: 'high' 
+  priority: 'high',
 });
 
 // 日常任务
-await planning.createGoal({ 
+await planning.createGoal({
   name: '整理物品栏',
-  priority: 'normal' 
+  priority: 'normal',
 });
 ```
 
@@ -347,7 +348,7 @@ setInterval(async () => {
 const goal = await planning.createGoal({
   name: '建造房子',
   description: '建造一个简单的木质房子',
-  priority: 'high'
+  priority: 'high',
 });
 
 // 计划1: 收集材料
@@ -356,17 +357,17 @@ const plan1 = await planning.createPlan(goal.id, {
   tasks: [
     {
       name: '收集64个橡木',
-      tracker: { type: 'inventory', item: 'oak_log', count: 64 }
+      tracker: { type: 'inventory', item: 'oak_log', count: 64 },
     },
     {
       name: '制作256个木板',
-      tracker: { type: 'inventory', item: 'oak_planks', count: 256 }
+      tracker: { type: 'inventory', item: 'oak_planks', count: 256 },
     },
     {
       name: '制作工作台',
-      tracker: { type: 'craft', item: 'crafting_table', count: 1 }
-    }
-  ]
+      tracker: { type: 'craft', item: 'crafting_table', count: 1 },
+    },
+  ],
 });
 
 // 计划2: 建造地基
@@ -375,13 +376,13 @@ const plan2 = await planning.createPlan(goal.id, {
   tasks: [
     {
       name: '到达建造地点',
-      tracker: { type: 'location', x: 100, y: 64, z: 200, radius: 5 }
+      tracker: { type: 'location', x: 100, y: 64, z: 200, radius: 5 },
     },
     {
       name: '放置地基方块',
-      tracker: { type: 'custom', checkFn: () => checkFoundation() }
-    }
-  ]
+      tracker: { type: 'custom', checkFn: () => checkFoundation() },
+    },
+  ],
 });
 
 // 自动更新进度
@@ -399,4 +400,3 @@ console.log(`目标进度: ${goal.progress}%`);
 ---
 
 _最后更新: 2025-11-01_
-

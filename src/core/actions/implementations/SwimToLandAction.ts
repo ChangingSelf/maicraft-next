@@ -105,4 +105,3 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
     };
   }
 }
-

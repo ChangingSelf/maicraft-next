@@ -194,12 +194,14 @@ graph TD
 ### 架构对比
 
 **Maicraft (Python + MCP)**
+
 ```
 Python Agent → MCP Client → (IPC/stdio) → MCP Server → Mineflayer Bot
 └──────────────────── 跨进程通信开销 ────────────────────┘
 ```
 
 **Maicraft-Next (纯 TypeScript)**
+
 ```
 TypeScript Agent → ActionExecutor → Mineflayer Bot
 └────────── 内存直调，零开销 ──────────┘
@@ -207,22 +209,23 @@ TypeScript Agent → ActionExecutor → Mineflayer Bot
 
 ### 主要改进
 
-| 方面 | Maicraft (Python) | Maicraft-Next (TypeScript) |
-|------|-------------------|----------------------------|
-| **架构** | Python Agent + MCP Server (双进程) | 纯 TypeScript 单体架构 |
-| **通信方式** | MCP 协议 (stdio/IPC) | 内存直接调用 |
-| **状态访问** | 通过工具查询（如 `query_player_status`） | GameState 实时访问 |
-| **动作数量** | 25+ 个（含多个查询类动作） | 15 个核心动作（去除查询类） |
-| **类型安全** | Python 动态类型 | TypeScript 静态类型 + 编译时检查 |
-| **记忆系统** | 简单的 thinking_log | 4种专门记忆类型 + 持久化 |
-| **任务管理** | 简单的 to_do_list | Goal-Plan-Task 层次化系统 |
-| **性能** | 跨进程开销 | 性能提升 10-50x |
+| 方面         | Maicraft (Python)                        | Maicraft-Next (TypeScript)       |
+| ------------ | ---------------------------------------- | -------------------------------- |
+| **架构**     | Python Agent + MCP Server (双进程)       | 纯 TypeScript 单体架构           |
+| **通信方式** | MCP 协议 (stdio/IPC)                     | 内存直接调用                     |
+| **状态访问** | 通过工具查询（如 `query_player_status`） | GameState 实时访问               |
+| **动作数量** | 25+ 个（含多个查询类动作）               | 15 个核心动作（去除查询类）      |
+| **类型安全** | Python 动态类型                          | TypeScript 静态类型 + 编译时检查 |
+| **记忆系统** | 简单的 thinking_log                      | 4种专门记忆类型 + 持久化         |
+| **任务管理** | 简单的 to_do_list                        | Goal-Plan-Task 层次化系统        |
+| **性能**     | 跨进程开销                               | 性能提升 10-50x                  |
 
 ### 核心设计理念
 
 #### 1. 去除查询动作，状态全局可访问 ✅
 
 **之前 (Maicraft Python)**
+
 ```python
 # ❌ 需要通过工具查询状态
 result = await mcp_client.call_tool("query_player_status", {})
@@ -230,6 +233,7 @@ health = result['data']['health']
 ```
 
 **现在 (Maicraft-Next)**
+
 ```typescript
 // ✅ 状态实时可访问，无需查询
 const health = gameState.health;

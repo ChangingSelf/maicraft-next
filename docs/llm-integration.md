@@ -23,6 +23,7 @@ Maicraft-Next 提供了 `LLMManager` 来统一管理所有 LLM 提供商的调�
 ### LLMManager
 
 统一的 LLM 管理器，负责：
+
 - 管理多个 LLM 提供商
 - 路由请求到合适的提供商
 - 统计用量和费用
@@ -30,11 +31,11 @@ Maicraft-Next 提供了 `LLMManager` 来统一管理所有 LLM 提供商的调�
 
 ### 支持的提供商
 
-| 提供商 | 状态 | 支持模型 |
-|--------|------|----------|
-| **OpenAI** | ✅ 已实现 | gpt-4, gpt-3.5-turbo, gpt-4-turbo |
-| **Azure OpenAI** | 🚧 开发中 | gpt-4, gpt-35-turbo |
-| **Anthropic Claude** | 🚧 开发中 | claude-3-opus, claude-3-sonnet |
+| 提供商               | 状态      | 支持模型                          |
+| -------------------- | --------- | --------------------------------- |
+| **OpenAI**           | ✅ 已实现 | gpt-4, gpt-3.5-turbo, gpt-4-turbo |
+| **Azure OpenAI**     | 🚧 开发中 | gpt-4, gpt-35-turbo               |
+| **Anthropic Claude** | 🚧 开发中 | claude-3-opus, claude-3-sonnet    |
 
 ---
 
@@ -54,8 +55,8 @@ const llmConfig = {
     api_key: 'sk-...',
     model: 'gpt-4',
     temperature: 0.7,
-    max_tokens: 2000
-  }
+    max_tokens: 2000,
+  },
 };
 
 const llmManager = new LLMManager(llmConfig, getLogger('LLM'));
@@ -67,7 +68,7 @@ const llmManager = new LLMManager(llmConfig, getLogger('LLM'));
 // 简单聊天
 const response = await llmManager.chat([
   { role: 'system', content: '你是一个 Minecraft AI 代理' },
-  { role: 'user', content: '我应该做什么？' }
+  { role: 'user', content: '我应该做什么？' },
 ]);
 
 console.log(response.content);
@@ -79,27 +80,24 @@ console.log(`费用: $${response.cost}`);
 
 ```typescript
 // 带工具的聊天
-const response = await llmManager.chat(
-  messages,
-  {
-    tools: [
-      {
-        name: 'move',
-        description: '移动到指定坐标',
-        parameters: {
-          type: 'object',
-          properties: {
-            x: { type: 'number' },
-            y: { type: 'number' },
-            z: { type: 'number' }
-          },
-          required: ['x', 'y', 'z']
-        }
-      }
-    ],
-    tool_choice: 'auto'
-  }
-);
+const response = await llmManager.chat(messages, {
+  tools: [
+    {
+      name: 'move',
+      description: '移动到指定坐标',
+      parameters: {
+        type: 'object',
+        properties: {
+          x: { type: 'number' },
+          y: { type: 'number' },
+          z: { type: 'number' },
+        },
+        required: ['x', 'y', 'z'],
+      },
+    },
+  ],
+  tool_choice: 'auto',
+});
 
 if (response.tool_calls) {
   for (const toolCall of response.tool_calls) {
@@ -153,14 +151,14 @@ await llmManager.loadUsageStats();
 
 ## 🔄 与 Maicraft Python 的对比
 
-| 方面 | Maicraft Python | Maicraft-Next |
-|------|-----------------|---------------|
-| **LLM 调用** | openai_client 模块 | LLMManager 统一管理 |
-| **提供商管理** | 单一提供商 | 多提供商支持 |
-| **用量统计** | 无 | 完整的统计系统 |
-| **错误处理** | 基础重试 | 完善的错误处理和重试 |
-| **流式响应** | 支持 | 支持 |
-| **工具调用** | 支持 | 支持 |
+| 方面           | Maicraft Python    | Maicraft-Next        |
+| -------------- | ------------------ | -------------------- |
+| **LLM 调用**   | openai_client 模块 | LLMManager 统一管理  |
+| **提供商管理** | 单一提供商         | 多提供商支持         |
+| **用量统计**   | 无                 | 完整的统计系统       |
+| **错误处理**   | 基础重试           | 完善的错误处理和重试 |
+| **流式响应**   | 支持               | 支持                 |
+| **工具调用**   | 支持               | 支持                 |
 
 ---
 
@@ -187,8 +185,8 @@ const llmConfig = {
     // ...
     retry_attempts: 3,
     retry_delay: 1000,
-    retry_exponential: true
-  }
+    retry_exponential: true,
+  },
 };
 ```
 
@@ -200,9 +198,9 @@ const llmConfig = {
     // ...
     rate_limit: {
       requests_per_minute: 60,
-      tokens_per_minute: 90000
-    }
-  }
+      tokens_per_minute: 90000,
+    },
+  },
 };
 ```
 
@@ -217,21 +215,21 @@ const llmConfig = {
 export class MainDecisionLoop {
   constructor(
     private state: AgentState,
-    private llmManager: LLMManager
+    private llmManager: LLMManager,
   ) {}
 
   async think(): Promise<void> {
     // 1. 生成 prompt
     const messages = [
       { role: 'system', content: this.getSystemPrompt() },
-      { role: 'user', content: this.getUserPrompt() }
+      { role: 'user', content: this.getUserPrompt() },
     ];
 
     // 2. 调用 LLM
     const response = await this.llmManager.chat(messages, {
       tools: this.getAvailableTools(),
       temperature: 0.7,
-      max_tokens: 2000
+      max_tokens: 2000,
     });
 
     // 3. 处理响应
@@ -251,12 +249,12 @@ export class MainDecisionLoop {
 ```typescript
 // 创造性任务：高温度
 const creativeResponse = await llmManager.chat(messages, {
-  temperature: 0.9
+  temperature: 0.9,
 });
 
 // 精确任务：低温度
 const preciseResponse = await llmManager.chat(messages, {
-  temperature: 0.3
+  temperature: 0.3,
 });
 ```
 
@@ -265,7 +263,7 @@ const preciseResponse = await llmManager.chat(messages, {
 ```typescript
 // 限制响应长度
 const response = await llmManager.chat(messages, {
-  max_tokens: 500  // 控制费用
+  max_tokens: 500, // 控制费用
 });
 
 // 截断历史消息
@@ -307,4 +305,3 @@ await llmManager.saveUsageStats();
 ---
 
 _最后更新: 2025-11-01_
-

@@ -116,4 +116,3 @@ export class EatAction extends BaseAction<EatParams> {
     };
   }
 }
-

@@ -26,9 +26,8 @@ export enum GoalType {
   /** goalPlaceBlock: 移动到适合放置方块的位置 */
   GoalPlaceBlock = 'goalPlaceBlock',
   /** goalLookAtBlock: 移动到可以看到指定方块面的位置 */
-  GoalLookAtBlock = 'goalLookAtBlock'
+  GoalLookAtBlock = 'goalLookAtBlock',
 }
-
 
 /**
  * 移动参数接口
@@ -186,9 +185,7 @@ export class MovementUtils {
           if (params.type === 'player' && params.player) {
             entity = bot.players[params.player]?.entity;
           } else if (params.type === 'entity' && params.entity) {
-            entity = bot.nearestEntity((e: any) =>
-              e.name?.toLocaleLowerCase() === params.entity?.toLocaleLowerCase()
-            );
+            entity = bot.nearestEntity((e: any) => e.name?.toLocaleLowerCase() === params.entity?.toLocaleLowerCase());
           }
 
           if (entity) {
@@ -218,7 +215,7 @@ export class MovementUtils {
             range: placeBlockOptions.options?.range ?? 4.5,
             LOS: placeBlockOptions.options?.LOS ?? true,
             faces: placeBlockOptions.options?.faces ?? [placeBlockOptions.faceVector],
-            facing: (placeBlockOptions.options?.facing ?? 'up') as 'up' | 'north' | 'east' | 'south' | 'west' | 'down'
+            facing: (placeBlockOptions.options?.facing ?? 'up') as 'up' | 'north' | 'east' | 'south' | 'west' | 'down',
           };
           return new GoalPlaceBlock(targetPosition, world, options);
         } else {
@@ -232,14 +229,14 @@ export class MovementUtils {
               range: 4.5,
               LOS: true,
               faces: [
-                new Vec3(0, 1, 0),   // up
-                new Vec3(0, -1, 0),  // down
-                new Vec3(0, 0, -1),  // north
-                new Vec3(0, 0, 1),   // south
-                new Vec3(1, 0, 0),   // east
-                new Vec3(-1, 0, 0)   // west
+                new Vec3(0, 1, 0), // up
+                new Vec3(0, -1, 0), // down
+                new Vec3(0, 0, -1), // north
+                new Vec3(0, 0, 1), // south
+                new Vec3(1, 0, 0), // east
+                new Vec3(-1, 0, 0), // west
               ],
-              facing: 'up'
+              facing: 'up',
             });
           } else {
             logger.warn('找不到参照方块，使用 GoalNear 作为回退目标');
@@ -305,10 +302,7 @@ export class MovementUtils {
   /**
    * 计算目标位置
    */
-  private static async calculateTargetPosition(
-    bot: Bot,
-    params: MovementParams
-  ): Promise<{ position: Vec3; description: string } | null> {
+  private static async calculateTargetPosition(bot: Bot, params: MovementParams): Promise<{ position: Vec3; description: string } | null> {
     const { type, x, y, z, block, player, entity, useRelativeCoords = false } = params;
 
     switch (type) {
@@ -340,7 +334,7 @@ export class MovementUtils {
         const blockPositions = bot.findBlocks({
           matching: [blockByName.id],
           maxDistance: 64,
-          count: 1
+          count: 1,
         });
 
         if (blockPositions.length === 0) {
@@ -365,9 +359,7 @@ export class MovementUtils {
       }
 
       case 'entity': {
-        const targetEntity = bot.nearestEntity((e: any) =>
-          e.name?.toLocaleLowerCase() === entity?.toLocaleLowerCase()
-        );
+        const targetEntity = bot.nearestEntity((e: any) => e.name?.toLocaleLowerCase() === entity?.toLocaleLowerCase());
         if (!targetEntity) {
           throw new Error(`附近未找到 ${entity} 类型的实体`);
         }
@@ -385,10 +377,7 @@ export class MovementUtils {
   /**
    * 执行移动操作
    */
-  static async moveTo(
-    bot: Bot,
-    params: MovementParams
-  ): Promise<MovementResult> {
+  static async moveTo(bot: Bot, params: MovementParams): Promise<MovementResult> {
     try {
       // 检查 pathfinder 插件
       if (!this.checkPathfinderAvailable(bot)) {
@@ -402,17 +391,17 @@ export class MovementUtils {
           finalPosition: {
             x: Number(botPos.x.toFixed(2)),
             y: Number(botPos.y.toFixed(2)),
-            z: Number(botPos.z.toFixed(2))
+            z: Number(botPos.z.toFixed(2)),
           },
           status: {
             reached: false,
             tooFar: false,
             invalidParams: false,
-            alreadyInRange: false
+            alreadyInRange: false,
           },
           error: 'PATHFINDER_NOT_LOADED',
           message: '路径寻找插件未加载，请先加载 mineflayer-pathfinder-mai 插件',
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
       }
 
@@ -429,17 +418,17 @@ export class MovementUtils {
           finalPosition: {
             x: Number(botPos.x.toFixed(2)),
             y: Number(botPos.y.toFixed(2)),
-            z: Number(botPos.z.toFixed(2))
+            z: Number(botPos.z.toFixed(2)),
           },
           status: {
             reached: false,
             tooFar: false,
             invalidParams: true,
-            alreadyInRange: false
+            alreadyInRange: false,
           },
           error: validation.error,
           message: validation.error || '参数验证失败',
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
       }
 
@@ -459,17 +448,17 @@ export class MovementUtils {
           finalPosition: {
             x: Number(botPos.x.toFixed(2)),
             y: Number(botPos.y.toFixed(2)),
-            z: Number(botPos.z.toFixed(2))
+            z: Number(botPos.z.toFixed(2)),
           },
           status: {
             reached: false,
             tooFar: false,
             invalidParams: true,
-            alreadyInRange: false
+            alreadyInRange: false,
           },
           error: 'CALCULATE_TARGET_FAILED',
           message: '计算目标位置失败',
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
       }
 
@@ -491,22 +480,22 @@ export class MovementUtils {
           targetPosition: {
             x: Number(targetPosition.x.toFixed(2)),
             y: Number(targetPosition.y.toFixed(2)),
-            z: Number(targetPosition.z.toFixed(2))
+            z: Number(targetPosition.z.toFixed(2)),
           },
           finalPosition: {
             x: Number(botPos.x.toFixed(2)),
             y: Number(botPos.y.toFixed(2)),
-            z: Number(botPos.z.toFixed(2))
+            z: Number(botPos.z.toFixed(2)),
           },
           status: {
             reached: false,
             tooFar: true,
             invalidParams: false,
-            alreadyInRange: false
+            alreadyInRange: false,
           },
           error: `目标距离过远 (${currentDistance.toFixed(2)} > ${maxDistance})，无法到达`,
           message: `目标距离过远 (${currentDistance.toFixed(2)} > ${maxDistance})，无法到达`,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
       }
 
@@ -520,21 +509,21 @@ export class MovementUtils {
           targetPosition: {
             x: Number(targetPosition.x.toFixed(2)),
             y: Number(targetPosition.y.toFixed(2)),
-            z: Number(targetPosition.z.toFixed(2))
+            z: Number(targetPosition.z.toFixed(2)),
           },
           finalPosition: {
             x: Number(botPos.x.toFixed(2)),
             y: Number(botPos.y.toFixed(2)),
-            z: Number(botPos.z.toFixed(2))
+            z: Number(botPos.z.toFixed(2)),
           },
           status: {
             reached: true,
             tooFar: false,
             invalidParams: false,
-            alreadyInRange: true
+            alreadyInRange: true,
           },
           message: `已在 ${targetDescription} 范围内，距离: ${currentDistance.toFixed(2)}`,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
       }
 
@@ -559,21 +548,21 @@ export class MovementUtils {
             targetPosition: {
               x: Number(targetPosition.x.toFixed(2)),
               y: Number(targetPosition.y.toFixed(2)),
-              z: Number(targetPosition.z.toFixed(2))
+              z: Number(targetPosition.z.toFixed(2)),
             },
             finalPosition: {
               x: Number(botPos.x.toFixed(2)),
               y: Number(botPos.y.toFixed(2)),
-              z: Number(botPos.z.toFixed(2))
+              z: Number(botPos.z.toFixed(2)),
             },
             status: {
               reached: true,
               tooFar: false,
               invalidParams: false,
-              alreadyInRange: false
+              alreadyInRange: false,
             },
             message: `成功移动到 ${targetDescription}，距离: ${finalDistance.toFixed(2)}`,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           };
         } else {
           logger.debug(`移动完成，最终距离: ${finalDistance.toFixed(2)} (目标距离: ${distance})`);
@@ -585,22 +574,22 @@ export class MovementUtils {
             targetPosition: {
               x: Number(targetPosition.x.toFixed(2)),
               y: Number(targetPosition.y.toFixed(2)),
-              z: Number(targetPosition.z.toFixed(2))
+              z: Number(targetPosition.z.toFixed(2)),
             },
             finalPosition: {
               x: Number(botPos.x.toFixed(2)),
               y: Number(botPos.y.toFixed(2)),
-              z: Number(botPos.z.toFixed(2))
+              z: Number(botPos.z.toFixed(2)),
             },
             status: {
               reached: false,
               tooFar: false,
               invalidParams: false,
-              alreadyInRange: false
+              alreadyInRange: false,
             },
             error: `移动完成，最终距离: ${finalDistance.toFixed(2)}`,
             message: `移动完成，最终距离: ${finalDistance.toFixed(2)} (目标距离: ${distance})`,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           };
         }
       } catch (error) {
@@ -618,17 +607,17 @@ export class MovementUtils {
         finalPosition: {
           x: Number(botPos.x.toFixed(2)),
           y: Number(botPos.y.toFixed(2)),
-          z: Number(botPos.z.toFixed(2))
+          z: Number(botPos.z.toFixed(2)),
         },
         status: {
           reached: false,
           tooFar: false,
           invalidParams: false,
-          alreadyInRange: false
+          alreadyInRange: false,
         },
         error: error instanceof Error ? error.message : String(error),
         message: `移动失败: ${error instanceof Error ? error.message : String(error)}`,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     }
   }
@@ -636,51 +625,36 @@ export class MovementUtils {
   /**
    * 移动到方块附近（用于挖掘、交互等）
    */
-  static async moveToBlock(
-    bot: Bot,
-    blockName: string,
-    distance: number = 4,
-    maxDistance: number = 64
-  ): Promise<MovementResult> {
+  static async moveToBlock(bot: Bot, blockName: string, distance: number = 4, maxDistance: number = 64): Promise<MovementResult> {
     return this.moveTo(bot, {
       type: 'block',
       block: blockName,
       distance,
-      maxDistance
+      maxDistance,
     });
   }
 
   /**
    * 移动到玩家附近
    */
-  static async moveToPlayer(
-    bot: Bot,
-    playerName: string,
-    distance: number = 3,
-    maxDistance: number = 100
-  ): Promise<MovementResult> {
+  static async moveToPlayer(bot: Bot, playerName: string, distance: number = 3, maxDistance: number = 100): Promise<MovementResult> {
     return this.moveTo(bot, {
       type: 'player',
       player: playerName,
       distance,
-      maxDistance
+      maxDistance,
     });
   }
 
   /**
    * 移动到实体附近
    */
-  static async moveToEntity(
-    bot: Bot,
-    entityName: string,
-    distance: number = 2,
-    maxDistance: number = 50
-  ): Promise<MovementResult> {
+  static async moveToEntity(bot: Bot, entityName: string, distance: number = 2, maxDistance: number = 50): Promise<MovementResult> {
     return this.moveTo(bot, {
       type: 'entity',
       entity: entityName,
       distance,
-      maxDistance
+      maxDistance,
     });
   }
 
@@ -694,7 +668,7 @@ export class MovementUtils {
     z: number,
     distance: number = 1,
     maxDistance: number = 200,
-    useRelativeCoords: boolean = false
+    useRelativeCoords: boolean = false,
   ): Promise<MovementResult> {
     return this.moveTo(bot, {
       type: 'coordinate',
@@ -703,8 +677,7 @@ export class MovementUtils {
       z,
       distance,
       maxDistance,
-      useRelativeCoords
+      useRelativeCoords,
     });
   }
 }
-

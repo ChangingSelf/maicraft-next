@@ -1,6 +1,6 @@
 /**
  * 聊天响应模板
- * 
+ *
  * 对应 maicraft 的聊天相关模板
  */
 
@@ -38,4 +38,3 @@ export function initChatResponseTemplate(): void {
     ),
   );
 }
-

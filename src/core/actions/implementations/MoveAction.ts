@@ -26,9 +26,7 @@ export class MoveAction extends BaseAction<MoveParams> {
 
       const currentPos = context.bot.entity.position;
 
-      context.logger.info(
-        `开始移动: 从 (${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)}) 到 (${x}, ${y}, ${z})`,
-      );
+      context.logger.info(`开始移动: 从 (${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)}) 到 (${x}, ${y}, ${z})`);
 
       // 使用 MovementUtils 进行移动
       const moveResult = await MovementUtils.moveToCoordinate(
@@ -38,7 +36,7 @@ export class MoveAction extends BaseAction<MoveParams> {
         Math.floor(z),
         1, // 到达距离
         200, // 最大移动距离
-        false // 不使用相对坐标
+        false, // 不使用相对坐标
       );
 
       if (moveResult.success) {
@@ -47,7 +45,7 @@ export class MoveAction extends BaseAction<MoveParams> {
           distance: moveResult.distance,
           position: moveResult.finalPosition,
           targetPosition: moveResult.targetPosition,
-          status: moveResult.status
+          status: moveResult.status,
         });
       } else {
         context.logger.warn(`移动失败: ${moveResult.message}`);

@@ -112,4 +112,3 @@ export class SetLocationAction extends BaseAction<SetLocationParams> {
     };
   }
 }
-

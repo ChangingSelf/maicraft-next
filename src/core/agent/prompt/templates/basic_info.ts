@@ -1,6 +1,6 @@
 /**
  * 基础信息模板
- * 
+ *
  * 对应 maicraft 的 basic_info 模板
  */
 
@@ -62,4 +62,3 @@ export function initBasicInfoTemplate(): void {
     ),
   );
 }
-

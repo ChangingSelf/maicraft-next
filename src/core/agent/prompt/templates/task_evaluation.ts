@@ -1,6 +1,6 @@
 /**
  * 任务评估模板
- * 
+ *
  * 对应 maicraft 的任务评估模板
  */
 
@@ -43,4 +43,3 @@ export function initTaskEvaluationTemplate(): void {
     ),
   );
 }
-

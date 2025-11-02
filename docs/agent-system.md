@@ -44,7 +44,9 @@ import { ActionExecutor } from '@/core/actions/ActionExecutor';
 import { LLMManager } from '@/llm/LLMManager';
 
 // 1. 创建 bot
-const bot = createBot({ /* ... */ });
+const bot = createBot({
+  /* ... */
+});
 
 // 2. 创建 ActionExecutor
 const executor = new ActionExecutor(bot, logger, config);
@@ -89,14 +91,14 @@ console.log(status.isRunning);
 
 ```typescript
 interface AgentState {
-  goal: string;                          // 当前总目标
-  isRunning: boolean;                    // 运行状态
-  context: RuntimeContext;               // 运行时上下文
-  modeManager: ModeManager;              // 模式管理器
-  planningManager: GoalPlanningManager;  // 规划管理器
-  memory: MemoryManager;                 // 记忆管理器
-  interrupt: InterruptController;        // 中断控制器
-  config: Config;                        // 配置对象
+  goal: string; // 当前总目标
+  isRunning: boolean; // 运行状态
+  context: RuntimeContext; // 运行时上下文
+  modeManager: ModeManager; // 模式管理器
+  planningManager: GoalPlanningManager; // 规划管理器
+  memory: MemoryManager; // 记忆管理器
+  interrupt: InterruptController; // 中断控制器
+  config: Config; // 配置对象
 }
 ```
 
@@ -110,16 +112,16 @@ class MainDecisionLoop {
     while (this.state.isRunning) {
       // 1. 生成 prompt
       const prompt = await this.generatePrompt();
-      
+
       // 2. 调用 LLM
       const response = await this.llmManager.chat(prompt);
-      
+
       // 3. 解析和执行动作
       await this.executeAction(response);
-      
+
       // 4. 更新状态和记忆
       await this.updateState();
-      
+
       // 5. 等待下一次循环
       await this.sleep();
     }
@@ -135,14 +137,16 @@ class MainDecisionLoop {
 class ChatLoop {
   async handleMessage(username: string, message: string): Promise<void> {
     // 1. 记录对话
-    await this.state.memory.conversation.record({ /* ... */ });
-    
+    await this.state.memory.conversation.record({
+      /* ... */
+    });
+
     // 2. 生成回复
     const response = await this.llmManager.chat(/* ... */);
-    
+
     // 3. 发送回复
     await this.state.context.executor.execute(ActionIds.CHAT, {
-      message: response.content
+      message: response.content,
     });
   }
 }
@@ -152,14 +156,14 @@ class ChatLoop {
 
 ## 🔄 与 Maicraft Python 的对比
 
-| 方面 | Maicraft Python | Maicraft-Next |
-|------|-----------------|---------------|
-| **主类** | MaiAgent | Agent |
-| **架构** | 扁平，所有逻辑在一个类 | 模块化，清晰的子系统 |
-| **决策循环** | think_loop 方法 | MainDecisionLoop 类 |
-| **聊天处理** | chat_loop 方法 | ChatLoop 类 |
-| **状态管理** | 全局变量 | AgentState 共享对象 |
-| **模式系统** | mode_manager | ModeManager |
+| 方面         | Maicraft Python        | Maicraft-Next        |
+| ------------ | ---------------------- | -------------------- |
+| **主类**     | MaiAgent               | Agent                |
+| **架构**     | 扁平，所有逻辑在一个类 | 模块化，清晰的子系统 |
+| **决策循环** | think_loop 方法        | MainDecisionLoop 类  |
+| **聊天处理** | chat_loop 方法         | ChatLoop 类          |
+| **状态管理** | 全局变量               | AgentState 共享对象  |
+| **模式系统** | mode_manager           | ModeManager          |
 
 ---
 
@@ -174,4 +178,3 @@ class ChatLoop {
 ---
 
 _最后更新: 2025-11-01_
-

@@ -26,7 +26,9 @@ export class KillMobAction extends BaseAction<KillMobParams> {
         return this.failure(`附近未发现 ${params.entity}，请先探索或靠近目标`);
       }
 
-      context.logger.info(`发现目标生物 ${params.entity}，位置: (${targetEntity.position.x.toFixed(1)}, ${targetEntity.position.y.toFixed(1)}, ${targetEntity.position.z.toFixed(1)})`);
+      context.logger.info(
+        `发现目标生物 ${params.entity}，位置: (${targetEntity.position.x.toFixed(1)}, ${targetEntity.position.y.toFixed(1)}, ${targetEntity.position.z.toFixed(1)})`,
+      );
 
       // 装备护甲
       if ((context.bot as any).armorManager) {
@@ -83,18 +85,9 @@ export class KillMobAction extends BaseAction<KillMobParams> {
   private async equipBestWeapon(context: RuntimeContext): Promise<void> {
     try {
       const mcData = context.bot.registry;
-      
+
       // 武器优先级列表
-      const weaponPriority = [
-        'diamond_sword',
-        'iron_sword',
-        'stone_sword',
-        'wooden_sword',
-        'diamond_axe',
-        'iron_axe',
-        'stone_axe',
-        'wooden_axe',
-      ];
+      const weaponPriority = ['diamond_sword', 'iron_sword', 'stone_sword', 'wooden_sword', 'diamond_axe', 'iron_axe', 'stone_axe', 'wooden_axe'];
 
       // 查找最佳武器
       for (const weaponName of weaponPriority) {
@@ -148,4 +141,3 @@ export class KillMobAction extends BaseAction<KillMobParams> {
     };
   }
 }
-

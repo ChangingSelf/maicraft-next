@@ -36,7 +36,7 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
         y: Math.floor(y),
         z: Math.floor(z),
         block,
-        useRelativeCoords: false
+        useRelativeCoords: false,
       });
 
       if (result.success) {
@@ -45,7 +45,7 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
           blockType: result.block,
           position: result.position,
           referenceBlock: result.referenceBlock,
-          face: result.face
+          face: result.face,
         });
       } else {
         context.logger.warn(result.message);

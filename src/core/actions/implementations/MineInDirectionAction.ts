@@ -134,4 +134,3 @@ export class MineInDirectionAction extends BaseAction<MineInDirectionParams> {
     };
   }
 }
-

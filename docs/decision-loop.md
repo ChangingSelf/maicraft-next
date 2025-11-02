@@ -11,6 +11,7 @@
 负责 Agent 的主要自主决策和行动。
 
 **工作流程**：
+
 1. 收集当前状态和上下文
 2. 生成决策 Prompt
 3. 调用 LLM 获取决策
@@ -23,6 +24,7 @@
 处理与玩家的聊天互动。
 
 **触发方式**：
+
 - 玩家发送聊天消息
 - 消息包含特定前缀（如 `@bot`）
 
@@ -53,7 +55,7 @@ export class MainDecisionLoop {
       // 5. 记录思维
       await this.state.memory.thought.record({
         category: 'decision',
-        content: response.thinking
+        content: response.thinking,
       });
 
       // 6. 执行动作
@@ -64,7 +66,7 @@ export class MainDecisionLoop {
         action: response.action,
         params: response.params,
         result,
-        reasoning: response.thinking
+        reasoning: response.thinking,
       });
 
       // 8. 等待
@@ -82,14 +84,14 @@ export class ChatLoop {
     // 1. 记录对话
     await this.state.memory.conversation.record({
       speaker: username,
-      message
+      message,
     });
 
     // 2. 生成回复 Prompt
     const prompt = this.promptManager.generateChatResponse(this.state.context, {
       username,
       message,
-      conversationHistory: await this.state.memory.conversation.query({ limit: 10 })
+      conversationHistory: await this.state.memory.conversation.query({ limit: 10 }),
     });
 
     // 3. 调用 LLM
@@ -97,14 +99,14 @@ export class ChatLoop {
 
     // 4. 发送回复
     await this.state.context.executor.execute(ActionIds.CHAT, {
-      message: response.content
+      message: response.content,
     });
 
     // 5. 记录回复
     await this.state.memory.conversation.record({
       speaker: this.state.context.bot.username,
       message: response.content,
-      response_to: username
+      response_to: username,
     });
   }
 }
@@ -131,4 +133,3 @@ chat_enabled = true       # 是否启用聊天循环
 ---
 
 _最后更新: 2025-11-01_
-

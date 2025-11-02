@@ -18,6 +18,7 @@ thinking_log.append({
 ```
 
 **问题**：
+
 - 只有一种记忆类型
 - 无法区分不同类型的信息
 - 查询不方便
@@ -27,10 +28,18 @@ thinking_log.append({
 
 ```typescript
 // ✅ 四种专门记忆类型
-await memory.thought.record({ /* 思维 */ });
-await memory.conversation.record({ /* 对话 */ });
-await memory.decision.record({ /* 决策 */ });
-await memory.experience.record({ /* 经验 */ });
+await memory.thought.record({
+  /* 思维 */
+});
+await memory.conversation.record({
+  /* 对话 */
+});
+await memory.decision.record({
+  /* 决策 */
+});
+await memory.experience.record({
+  /* 经验 */
+});
 
 // ✅ 支持查询
 const recentThoughts = await memory.thought.query({ limit: 10 });
@@ -52,11 +61,12 @@ await memory.thought.record({
   category: 'planning',
   content: '我需要先收集 10 个木头，然后制作工作台',
   context: { goal: 'build_house' },
-  importance: 'high'
+  importance: 'high',
 });
 ```
 
 **适用场景**：
+
 - 规划和推理过程
 - 问题分析
 - 策略思考
@@ -70,11 +80,12 @@ await memory.conversation.record({
   speaker: 'Player123',
   message: '帮我建造一个房子',
   response: '好的，我会开始收集材料',
-  context: { location: homePosition }
+  context: { location: homePosition },
 });
 ```
 
 **适用场景**：
+
 - 玩家指令
 - 聊天对话
 - 社交互动
@@ -89,11 +100,12 @@ await memory.decision.record({
   params: { name: 'iron_ore', count: 10 },
   result: { success: true, message: '成功挖掘 10 个铁矿' },
   reasoning: '需要铁矿来制作工具',
-  context: { goal: 'craft_iron_pickaxe' }
+  context: { goal: 'craft_iron_pickaxe' },
 });
 ```
 
 **适用场景**：
+
 - 动作执行记录
 - 决策依据
 - 结果评估
@@ -107,11 +119,12 @@ await memory.experience.record({
   category: 'mining',
   lesson: '在夜晚挖矿很危险，容易遭遇怪物攻击',
   context: { event: 'death', cause: 'zombie' },
-  importance: 'high'
+  importance: 'high',
 });
 ```
 
 **适用场景**：
+
 - 成功经验
 - 失败教训
 - 技巧总结
@@ -138,14 +151,14 @@ await memory.loadAll();
 await memory.thought.record({
   category: 'planning',
   content: '我需要找到铁矿',
-  context: { currentTask: 'gather_materials' }
+  context: { currentTask: 'gather_materials' },
 });
 
 // 记录对话
 await memory.conversation.record({
   speaker: 'Player1',
   message: '你好',
-  response: '你好！有什么我可以帮忙的吗？'
+  response: '你好！有什么我可以帮忙的吗？',
 });
 
 // 记录决策
@@ -153,14 +166,14 @@ await memory.decision.record({
   action: 'move',
   params: { x: 100, y: 64, z: 200 },
   result: { success: true },
-  reasoning: '移动到矿洞入口'
+  reasoning: '移动到矿洞入口',
 });
 
 // 记录经验
 await memory.experience.record({
   category: 'combat',
   lesson: '对付僵尸时保持距离很重要',
-  importance: 'high'
+  importance: 'high',
 });
 ```
 
@@ -170,24 +183,24 @@ await memory.experience.record({
 // 查询最近的思维
 const recentThoughts = await memory.thought.query({
   limit: 10,
-  filters: { category: 'planning' }
+  filters: { category: 'planning' },
 });
 
 // 查询对话历史
 const conversations = await memory.conversation.query({
   limit: 20,
-  filters: { speaker: 'Player1' }
+  filters: { speaker: 'Player1' },
 });
 
 // 查询决策记录
 const decisions = await memory.decision.query({
   limit: 15,
-  filters: { action: 'mine_block' }
+  filters: { action: 'mine_block' },
 });
 
 // 查询经验教训
 const experiences = await memory.experience.query({
-  filters: { category: 'mining', importance: 'high' }
+  filters: { category: 'mining', importance: 'high' },
 });
 ```
 
@@ -219,13 +232,13 @@ await memory.clearAll();
 
 ## 🔄 与 Maicraft Python 的对比
 
-| 方面 | Maicraft Python | Maicraft-Next |
-|------|-----------------|---------------|
+| 方面         | Maicraft Python     | Maicraft-Next    |
+| ------------ | ------------------- | ---------------- |
 | **记忆类型** | 单一的 thinking_log | 4 种专门记忆类型 |
-| **结构化** | 简单的列表 | 类型化的记录结构 |
-| **查询** | 遍历列表 | 支持过滤和限制 |
-| **持久化** | 需手动实现 | 自动持久化机制 |
-| **容量管理** | 无 | 自动清理机制 |
+| **结构化**   | 简单的列表          | 类型化的记录结构 |
+| **查询**     | 遍历列表            | 支持过滤和限制   |
+| **持久化**   | 需手动实现          | 自动持久化机制   |
+| **容量管理** | 无                  | 自动清理机制     |
 
 ---
 
@@ -239,23 +252,23 @@ async think(): Promise<void> {
   // 1. 获取相关记忆
   const recentThoughts = await this.state.memory.thought.query({ limit: 5 });
   const recentDecisions = await this.state.memory.decision.query({ limit: 10 });
-  
+
   // 2. 包含在 Prompt 中
   const prompt = this.generatePrompt({
     thoughts: recentThoughts,
     decisions: recentDecisions
   });
-  
+
   // 3. 调用 LLM
   const response = await this.llmManager.chat(prompt);
-  
+
   // 4. 记录新的思维
   await this.state.memory.thought.record({
     category: 'decision',
     content: response.thinking,
     context: { mode: this.state.modeManager.getCurrentMode() }
   });
-  
+
   // 5. 记录决策
   await this.state.memory.decision.record({
     action: response.action,
@@ -273,12 +286,12 @@ bot.on('death', () => {
   memory.experience.record({
     category: 'survival',
     lesson: '需要更加小心，避免死亡',
-    context: { 
+    context: {
       location: gameState.position,
       health: gameState.health,
-      cause: 'unknown'
+      cause: 'unknown',
     },
-    importance: 'high'
+    importance: 'high',
   });
 });
 ```
@@ -292,12 +305,12 @@ bot.on('death', () => {
 ```typescript
 // ✅ 正确：思维记忆用于内部推理
 await memory.thought.record({
-  content: '我需要先做一个工作台'
+  content: '我需要先做一个工作台',
 });
 
 // ❌ 错误：不要在思维记忆中记录对话
 await memory.thought.record({
-  content: '玩家说：你好'  // 应该用 conversation
+  content: '玩家说：你好', // 应该用 conversation
 });
 ```
 
@@ -307,13 +320,13 @@ await memory.thought.record({
 // ✅ 重要经验标记为 high
 await memory.experience.record({
   lesson: '钻石在 Y=12 层最多',
-  importance: 'high'
+  importance: 'high',
 });
 
 // ✅ 日常决策标记为 normal
 await memory.decision.record({
   action: 'move',
-  importance: 'normal'
+  importance: 'normal',
 });
 ```
 
@@ -321,9 +334,12 @@ await memory.decision.record({
 
 ```typescript
 // 在 Agent 中设置定期保存
-setInterval(async () => {
-  await memory.saveAll();
-}, 5 * 60 * 1000); // 每 5 分钟保存一次
+setInterval(
+  async () => {
+    await memory.saveAll();
+  },
+  5 * 60 * 1000,
+); // 每 5 分钟保存一次
 ```
 
 ### 4. 提供足够的上下文
@@ -338,8 +354,8 @@ await memory.decision.record({
   context: {
     goal: 'upgrade_tools',
     currentPlan: 'gather_materials',
-    location: gameState.position
-  }
+    location: gameState.position,
+  },
 });
 ```
 
@@ -353,4 +369,3 @@ await memory.decision.record({
 ---
 
 _最后更新: 2025-11-01_
-

@@ -30,7 +30,7 @@ const promptManager = new PromptManager();
 const prompt = promptManager.generateMainThinking(context, {
   goal: '建造房子',
   recentMemories: memories,
-  currentTasks: tasks
+  currentTasks: tasks,
 });
 ```
 
@@ -65,14 +65,14 @@ const thinkingPrompt = promptManager.generateMainThinking(context, {
   currentMode: state.modeManager.getCurrentMode().name,
   recentThoughts: await state.memory.thought.query({ limit: 5 }),
   recentDecisions: await state.memory.decision.query({ limit: 10 }),
-  currentTasks: state.planningManager.getCurrentTasks()
+  currentTasks: state.planningManager.getCurrentTasks(),
 });
 
 // 生成聊天回复 Prompt
 const chatPrompt = promptManager.generateChatResponse(context, {
   username: 'Player1',
   message: '你好',
-  conversationHistory: await state.memory.conversation.query({ limit: 10 })
+  conversationHistory: await state.memory.conversation.query({ limit: 10 }),
 });
 ```
 
@@ -98,7 +98,7 @@ ${options.specialInstructions}
 
 // 使用
 const prompt = myCustomTemplate(context, {
-  specialInstructions: '优先收集钻石'
+  specialInstructions: '优先收集钻石',
 });
 ```
 
@@ -135,4 +135,3 @@ const recentMemories = await memory.thought.query({ limit: 5 });
 ---
 
 _最后更新: 2025-11-01_
-

@@ -1,6 +1,6 @@
 /**
  * 主动聊天模板
- * 
+ *
  * 对应 maicraft 的主动聊天模板
  */
 
@@ -38,4 +38,3 @@ export function initChatInitiateTemplate(): void {
     ),
   );
 }
-

@@ -10,7 +10,7 @@ export { initTaskEvaluationTemplate } from './task_evaluation';
 
 /**
  * 初始化所有核心模板
- * 
+ *
  * 对应 maicraft 的 template.py 中的 init_templates()
  */
 import { initBasicInfoTemplate } from './basic_info';

@@ -1,6 +1,6 @@
 /**
  * Prompt Manager 模块导出
- * 
+ *
  * 对应 maicraft 的 prompt_manager/__init__.py
  */
 
@@ -15,7 +15,7 @@ import { initAllCoreTemplates } from './templates';
 
 /**
  * 初始化所有提示词模板
- * 
+ *
  * 对应 maicraft 的 init_templates()
  */
 export function initAllTemplates(): void {

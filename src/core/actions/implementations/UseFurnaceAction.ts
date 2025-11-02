@@ -190,7 +190,10 @@ export class UseFurnaceAction extends BaseAction<any> {
   /**
    * 根据物品类型和用户指定的位置确定最终位置
    */
-  private determineItemPosition(itemName: string | undefined, specifiedPosition: 'input' | 'fuel' | 'output' | undefined): 'input' | 'fuel' | 'output' {
+  private determineItemPosition(
+    itemName: string | undefined,
+    specifiedPosition: 'input' | 'fuel' | 'output' | undefined,
+  ): 'input' | 'fuel' | 'output' {
     // 如果用户明确指定了位置，直接使用
     if (specifiedPosition) {
       return specifiedPosition;
@@ -366,15 +369,9 @@ export class UseFurnaceAction extends BaseAction<any> {
    */
   private getFurnaceContents(furnace: any): any {
     return {
-      input: furnace.inputItem()
-        ? { name: furnace.inputItem().name, count: furnace.inputItem().count }
-        : null,
-      fuel: furnace.fuelItem()
-        ? { name: furnace.fuelItem().name, count: furnace.fuelItem().count }
-        : null,
-      output: furnace.outputItem()
-        ? { name: furnace.outputItem().name, count: furnace.outputItem().count }
-        : null,
+      input: furnace.inputItem() ? { name: furnace.inputItem().name, count: furnace.inputItem().count } : null,
+      fuel: furnace.fuelItem() ? { name: furnace.fuelItem().name, count: furnace.fuelItem().count } : null,
+      output: furnace.outputItem() ? { name: furnace.outputItem().name, count: furnace.outputItem().count } : null,
     };
   }
 
@@ -433,4 +430,3 @@ export class UseFurnaceAction extends BaseAction<any> {
     };
   }
 }
-

@@ -53,10 +53,7 @@ export class PlaceBlockUtils {
   /**
    * 在指定位置放置方块
    */
-  static async placeBlock(
-    bot: Bot,
-    params: PlaceBlockParams
-  ): Promise<PlaceBlockResult> {
+  static async placeBlock(bot: Bot, params: PlaceBlockParams): Promise<PlaceBlockResult> {
     try {
       // 检查 mcData
       const mcData = bot.registry;
@@ -86,11 +83,7 @@ export class PlaceBlockUtils {
       if (params.useRelativeCoords) {
         // 相对坐标（相对于bot当前位置）
         const botPos = bot.entity.position;
-        position = new Vec3(
-          Math.floor(botPos.x) + params.x,
-          Math.floor(botPos.y) + params.y,
-          Math.floor(botPos.z) + params.z
-        );
+        position = new Vec3(Math.floor(botPos.x) + params.x, Math.floor(botPos.y) + params.y, Math.floor(botPos.z) + params.z);
       } else {
         // 绝对坐标
         position = new Vec3(params.x, params.y, params.z);
@@ -134,12 +127,12 @@ export class PlaceBlockUtils {
 
       // 查找参照方块和放置方向
       const faceVectors = [
-        new Vec3(0, 1, 0),   // +y
-        new Vec3(0, -1, 0),  // -y
-        new Vec3(1, 0, 0),   // +x
-        new Vec3(-1, 0, 0),  // -x
-        new Vec3(0, 0, 1),   // +z
-        new Vec3(0, 0, -1),  // -z
+        new Vec3(0, 1, 0), // +y
+        new Vec3(0, -1, 0), // -y
+        new Vec3(1, 0, 0), // +x
+        new Vec3(-1, 0, 0), // -x
+        new Vec3(0, 0, 1), // +z
+        new Vec3(0, 0, -1), // -z
       ];
 
       let referenceBlock: any = null;
@@ -180,7 +173,10 @@ export class PlaceBlockUtils {
       }
 
       if (!referenceBlock || !faceVector) {
-        return this.createErrorResult(`无法找到有效的参照方块来放置 ${params.block}。无法放置悬浮方块，请移动到可以放置 ${params.block} 的位置`, 'NO_REFERENCE_BLOCK');
+        return this.createErrorResult(
+          `无法找到有效的参照方块来放置 ${params.block}。无法放置悬浮方块，请移动到可以放置 ${params.block} 的位置`,
+          'NO_REFERENCE_BLOCK',
+        );
       }
 
       // 尝试放置方块
@@ -189,41 +185,38 @@ export class PlaceBlockUtils {
         const getFacingFromFaceVector = (faceVec: Vec3): 'north' | 'east' | 'south' | 'west' | 'up' | 'down' => {
           // faceVector表示从目标位置到参照方块的方向
           // 我们需要确定机器人应该朝哪个方向看才能看到参照方块
-          if (faceVec.x === 1) return 'west';   // 参照方块在东边，朝西看
-          if (faceVec.x === -1) return 'east';  // 参照方块在西边，朝东看
-          if (faceVec.z === 1) return 'north';  // 参照方块在南边，朝北看
+          if (faceVec.x === 1) return 'west'; // 参照方块在东边，朝西看
+          if (faceVec.x === -1) return 'east'; // 参照方块在西边，朝东看
+          if (faceVec.z === 1) return 'north'; // 参照方块在南边，朝北看
           if (faceVec.z === -1) return 'south'; // 参照方块在北边，朝南看
-          if (faceVec.y === 1) return 'down';   // 参照方块在上方，朝下看
-          if (faceVec.y === -1) return 'up';    // 参照方块在下方，朝上看
+          if (faceVec.y === 1) return 'down'; // 参照方块在上方，朝下看
+          if (faceVec.y === -1) return 'up'; // 参照方块在下方，朝上看
           return 'up'; // 默认值
         };
 
         const facing = getFacingFromFaceVector(faceVector);
 
         // 使用统一的移动工具类移动到目标位置，使用 GoalPlaceBlock 目标类型
-        const moveResult = await MovementUtils.moveTo(
-          bot,
-          {
-            type: 'coordinate',
-            x: position.x,
-            y: position.y,
-            z: position.z,
-            distance: 4, // 到达距离
-            maxDistance: 100, // 最大移动距离
-            useRelativeCoords: false, // 不使用相对坐标
-            goalType: GoalType.GoalPlaceBlock,
-            placeBlockOptions: {
-              referencePosition: referenceBlock.position,
-              faceVector: faceVector,
-              options: {
-                range: 4.5,
-                LOS: true,
-                faces: [faceVector], // 只使用找到的放置面向
-                facing: facing
-              }
-            }
-          }
-        );
+        const moveResult = await MovementUtils.moveTo(bot, {
+          type: 'coordinate',
+          x: position.x,
+          y: position.y,
+          z: position.z,
+          distance: 4, // 到达距离
+          maxDistance: 100, // 最大移动距离
+          useRelativeCoords: false, // 不使用相对坐标
+          goalType: GoalType.GoalPlaceBlock,
+          placeBlockOptions: {
+            referencePosition: referenceBlock.position,
+            faceVector: faceVector,
+            options: {
+              range: 4.5,
+              LOS: true,
+              faces: [faceVector], // 只使用找到的放置面向
+              facing: facing,
+            },
+          },
+        });
 
         if (!moveResult.success) {
           logger.warn(`移动到目标位置失败: ${moveResult.error}，尝试直接放置`);
@@ -241,13 +234,11 @@ export class PlaceBlockUtils {
           position: { x: position.x, y: position.y, z: position.z },
           referenceBlock: referenceBlock.name,
           face: params.face || 'auto',
-          useRelativeCoords: params.useRelativeCoords || false
+          useRelativeCoords: params.useRelativeCoords || false,
         });
-
       } catch (error) {
         return this.createExceptionResult(error, `放置 ${params.block} 失败`, 'PLACE_FAILED');
       }
-
     } catch (error) {
       return this.createExceptionResult(error, '放置方块失败', 'PLACE_FAILED');
     }
@@ -266,7 +257,7 @@ export class PlaceBlockUtils {
       useRelativeCoords: false,
       error: errorCode,
       message,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   }
 
@@ -284,25 +275,28 @@ export class PlaceBlockUtils {
       useRelativeCoords: false,
       error: errorCode,
       message: `${message}: ${errorMessage}`,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   }
 
   /**
    * 创建成功结果
    */
-  private static createSuccessResult(message: string, data: {
-    block: string;
-    position: { x: number; y: number; z: number };
-    referenceBlock: string;
-    face: string;
-    useRelativeCoords: boolean;
-  }): PlaceBlockResult {
+  private static createSuccessResult(
+    message: string,
+    data: {
+      block: string;
+      position: { x: number; y: number; z: number };
+      referenceBlock: string;
+      face: string;
+      useRelativeCoords: boolean;
+    },
+  ): PlaceBlockResult {
     return {
       success: true,
       ...data,
       message,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   }
 
@@ -312,13 +306,13 @@ export class PlaceBlockUtils {
   private static async tryRelocateBot(bot: Bot, targetPosition: Vec3): Promise<{ success: boolean; error?: string }> {
     // 定义周围的位置偏移（前后左右各1格）
     const offsets = [
-      new Vec3(1, 0, 0),   // 东
-      new Vec3(-1, 0, 0),  // 西
-      new Vec3(0, 0, 1),   // 南
-      new Vec3(0, 0, -1),  // 北
-      new Vec3(1, 0, 1),   // 东南
-      new Vec3(1, 0, -1),  // 东北
-      new Vec3(-1, 0, 1),  // 西南
+      new Vec3(1, 0, 0), // 东
+      new Vec3(-1, 0, 0), // 西
+      new Vec3(0, 0, 1), // 南
+      new Vec3(0, 0, -1), // 北
+      new Vec3(1, 0, 1), // 东南
+      new Vec3(1, 0, -1), // 东北
+      new Vec3(-1, 0, 1), // 西南
       new Vec3(-1, 0, -1), // 西北
     ];
 
@@ -332,10 +326,7 @@ export class PlaceBlockUtils {
         const headPosBlock = bot.blockAt(newPosition.offset(0, 1, 0));
 
         // 确保地面有支撑且新位置和头部位置都是空气
-        if (groundBlock && groundBlock.name !== 'air' &&
-            newPosBlock && newPosBlock.name === 'air' &&
-            headPosBlock && headPosBlock.name === 'air') {
-
+        if (groundBlock && groundBlock.name !== 'air' && newPosBlock && newPosBlock.name === 'air' && headPosBlock && headPosBlock.name === 'air') {
           logger.info(`尝试移动到位置: (${newPosition.x}, ${newPosition.y}, ${newPosition.z})`);
 
           // 使用MovementUtils移动到新位置
@@ -346,7 +337,7 @@ export class PlaceBlockUtils {
             z: newPosition.z,
             distance: 0.1, // 非常接近目标位置
             maxDistance: 10, // 限制移动距离
-            goalType: GoalType.GoalNearXZ
+            goalType: GoalType.GoalNearXZ,
           });
 
           if (moveResult.success) {
@@ -364,4 +355,3 @@ export class PlaceBlockUtils {
     return { success: false, error: '所有周围位置都无法移动到' };
   }
 }
-

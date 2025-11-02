@@ -20,24 +20,28 @@ Maicraft-Next 从根本上重构了架构，解决了原有项目的性能瓶颈
 ### 1. 从双进程架构到单体架构
 
 #### ❌ Maicraft (Python) + Maicraft-MCP-Server
+
 ```
 Python Agent → MCP Client → (IPC/stdio) → MCP Server → Mineflayer Bot
 └──────────────────── 跨进程通信开销 ────────────────────┘
 ```
 
 **问题：**
+
 - 每次工具调用都需要序列化/反序列化
 - IPC 开销导致响应延迟 50-200ms
 - 进程间调试困难
 - 部署复杂度高
 
 #### ✅ Maicraft-Next (纯 TypeScript)
+
 ```
 TypeScript Agent → ActionExecutor → Mineflayer Bot
 └────────── 内存直调，零开销 ──────────┘
 ```
 
 **优势：**
+
 - 内存直接调用，无序列化开销
 - 响应时间从 50-200ms 降至 < 5ms
 - 统一调试环境
@@ -51,15 +55,16 @@ TypeScript Agent → ActionExecutor → Mineflayer Bot
 
 ```typescript
 // 需要 7 个独立的查询动作
-const health = await callTool("query_player_status", {});
-const inventory = await callTool("query_inventory", {});
-const entities = await callTool("query_nearby_entities", {});
-const blocks = await callTool("query_nearby_blocks", {});
-const state = await callTool("query_game_state", {});
-const events = await callTool("query_events", {});
+const health = await callTool('query_player_status', {});
+const inventory = await callTool('query_inventory', {});
+const entities = await callTool('query_nearby_entities', {});
+const blocks = await callTool('query_nearby_blocks', {});
+const state = await callTool('query_game_state', {});
+const events = await callTool('query_events', {});
 ```
 
 **问题：**
+
 - 占用 LLM 工具调用额度（每个查询消耗一次工具调用）
 - LLM 上下文空间被查询动作占据
 - 状态不一致风险（查询之间状态可能变化）
@@ -76,6 +81,7 @@ const position = context.gameState.position;
 ```
 
 **优势：**
+
 - 零查询开销，状态实时同步
 - LLM 上下文空间释放给实际决策
 - 状态一致性保证
@@ -100,6 +106,7 @@ todo_list = [
 ```
 
 **问题：**
+
 - 无任务依赖关系管理
 - 无进度追踪机制
 - 难以处理复杂任务
@@ -111,7 +118,7 @@ todo_list = [
 // 三层结构：目标 → 计划 → 任务
 const goal = await planning.createGoal({
   name: '建造房子',
-  description: '建造一个木质房子'
+  description: '建造一个木质房子',
 });
 
 const plan = await planning.createPlan(goal.id, {
@@ -119,13 +126,13 @@ const plan = await planning.createPlan(goal.id, {
   tasks: [
     {
       name: '收集64个橡木',
-      tracker: { type: 'inventory', item: 'oak_log', count: 64 }
+      tracker: { type: 'inventory', item: 'oak_log', count: 64 },
     },
     {
       name: '制作256个木板',
-      tracker: { type: 'inventory', item: 'oak_planks', count: 256 }
-    }
-  ]
+      tracker: { type: 'inventory', item: 'oak_planks', count: 256 },
+    },
+  ],
 });
 
 // 自动进度追踪
@@ -133,6 +140,7 @@ console.log(`进度: ${plan.progress}%`);
 ```
 
 **优势：**
+
 - 清晰的任务层次结构
 - 自动进度计算和追踪
 - 支持任务依赖和条件
@@ -155,6 +163,7 @@ class ThinkingLog:
 ```
 
 **问题：**
+
 - 仅字符串存储，无结构化数据
 - 查询功能有限
 - 无记忆类型区分
@@ -168,14 +177,14 @@ await memory.thought.record({
   category: 'planning',
   content: '我需要先收集 10 个木头',
   context: { goal: 'build_house' },
-  importance: 'high'
+  importance: 'high',
 });
 
 // 对话记忆 - 与玩家交互
 await memory.conversation.record({
   speaker: 'Player123',
   message: '帮我建造房子',
-  response: '好的，我开始收集材料'
+  response: '好的，我开始收集材料',
 });
 
 // 决策记忆 - 行动决策记录
@@ -183,24 +192,25 @@ await memory.decision.record({
   action: 'mine_block',
   params: { name: 'iron_ore', count: 10 },
   result: { success: true },
-  reasoning: '需要铁矿制作工具'
+  reasoning: '需要铁矿制作工具',
 });
 
 // 经验记忆 - 学习教训
 await memory.experience.record({
   category: 'mining',
   lesson: '夜晚挖矿危险，容易遇怪',
-  importance: 'high'
+  importance: 'high',
 });
 
 // 智能查询
 const recentThoughts = await memory.thought.query({
   limit: 5,
-  filters: { category: 'planning' }
+  filters: { category: 'planning' },
 });
 ```
 
 **优势：**
+
 - 结构化数据存储
 - 四种专门记忆类型
 - 智能查询和过滤
@@ -224,6 +234,7 @@ def execute_action(action_name: str, params: dict):
 ```
 
 **问题：**
+
 - 运行时类型错误
 - IDE 无智能提示
 - 重构困难
@@ -236,7 +247,7 @@ def execute_action(action_name: str, params: dict):
 export const ActionIds = {
   MOVE: 'move',
   MINE_BLOCK: 'mine_block',
-  CRAFT: 'craft'
+  CRAFT: 'craft',
 } as const;
 
 // 类型映射 - 编译时检查
@@ -246,7 +257,7 @@ export interface ActionParamsMap {
 }
 
 export interface MoveParams {
-  x: number;  // 必须是 number
+  x: number; // 必须是 number
   y: number;
   z: number;
   timeout?: number;
@@ -254,20 +265,21 @@ export interface MoveParams {
 
 // 类型安全的执行
 await executor.execute(ActionIds.MOVE, {
-  x: 100,      // ✅ 正确类型
+  x: 100, // ✅ 正确类型
   y: 64,
-  z: 200
+  z: 200,
 });
 
 // 编译错误
 await executor.execute(ActionIds.MOVE, {
-  x: "100",    // ❌ 类型错误：期望 number，得到 string
+  x: '100', // ❌ 类型错误：期望 number，得到 string
   y: 64,
-  z: 200
+  z: 200,
 });
 ```
 
 **优势：**
+
 - 编译时错误检查
 - IDE 智能提示和补全
 - 重构安全
@@ -296,6 +308,7 @@ class MaiAgent:
 ```
 
 **问题：**
+
 - 全局状态难以管理
 - 测试困难
 - 模块间耦合严重
@@ -330,18 +343,14 @@ interface AgentState {
 
 // 构造函数注入
 class Agent {
-  constructor(
-    bot: Bot,
-    executor: ActionExecutor,
-    llmManager: LLMManager,
-    config: Config
-  ) {
+  constructor(bot: Bot, executor: ActionExecutor, llmManager: LLMManager, config: Config) {
     this.state = this.initializeState(bot, executor, config);
   }
 }
 ```
 
 **优势：**
+
 - 清晰的依赖关系
 - 易于测试（可注入 mock）
 - 模块解耦
@@ -368,6 +377,7 @@ class SomeModule:
 ```
 
 **问题：**
+
 - 事件处理分散
 - 命名不统一
 - 调试困难
@@ -377,15 +387,15 @@ class SomeModule:
 
 ```typescript
 // 保持 mineflayer 原始事件名
-events.on('health', (data) => {
+events.on('health', data => {
   console.log(`生命值: ${data.health}`);
 });
 
-events.on('entityHurt', (data) => {
+events.on('entityHurt', data => {
   console.log(`${data.entity.name} 受到伤害`);
 });
 
-events.on('chat', (data) => {
+events.on('chat', data => {
   console.log(`${data.username}: ${data.message}`);
 });
 
@@ -393,11 +403,12 @@ events.on('chat', (data) => {
 events.emit('actionComplete', {
   actionId: 'move',
   result: { success: true },
-  duration: 1500
+  duration: 1500,
 });
 ```
 
 **优势：**
+
 - 与 mineflayer 事件名一致
 - 统一的事件管理
 - 类型安全的事件处理
@@ -419,6 +430,7 @@ class LLMClient:
 ```
 
 **问题：**
+
 - 无错误重试机制
 - 无用量统计
 - 无多提供商支持
@@ -434,9 +446,15 @@ const llmManager = new LLMManager(config.llm, logger);
 const config = {
   default_provider: 'openai',
   fallback_providers: ['azure', 'anthropic'],
-  openai: { /* 配置 */ },
-  azure: { /* 配置 */ },
-  anthropic: { /* 配置 */ }
+  openai: {
+    /* 配置 */
+  },
+  azure: {
+    /* 配置 */
+  },
+  anthropic: {
+    /* 配置 */
+  },
 };
 
 // 自动重试和故障转移
@@ -452,6 +470,7 @@ await llmManager.saveUsageStats();
 ```
 
 **优势：**
+
 - 多提供商自动故障转移
 - 完整的用量统计和费用追踪
 - 智能重试机制
@@ -463,12 +482,12 @@ await llmManager.saveUsageStats();
 
 ### 响应时间对比
 
-| 操作 | Maicraft | Maicraft-Next | 提升倍数 |
-|------|----------|---------------|----------|
-| 简单动作执行 | ~100ms | ~5ms | **20x** |
-| 状态查询 | ~50ms × 7 | <1ms | **>50x** |
-| LLM 上下文准备 | ~200ms | ~20ms | **10x** |
-| 决策循环 | ~500ms | ~50ms | **10x** |
+| 操作           | Maicraft  | Maicraft-Next | 提升倍数 |
+| -------------- | --------- | ------------- | -------- |
+| 简单动作执行   | ~100ms    | ~5ms          | **20x**  |
+| 状态查询       | ~50ms × 7 | <1ms          | **>50x** |
+| LLM 上下文准备 | ~200ms    | ~20ms         | **10x**  |
+| 决策循环       | ~500ms    | ~50ms         | **10x**  |
 
 ### 内存使用优化
 
@@ -489,6 +508,7 @@ await llmManager.saveUsageStats();
 ### 1. 调试友好
 
 **Maicraft：**
+
 ```bash
 # 需要调试两个进程
 # Python Agent + Node.js MCP Server
@@ -496,6 +516,7 @@ await llmManager.saveUsageStats();
 ```
 
 **Maicraft-Next：**
+
 ```bash
 # 统一调试环境
 # 单进程，日志集中
@@ -505,10 +526,12 @@ await llmManager.saveUsageStats();
 ### 2. 测试覆盖
 
 **Maicraft：**
+
 - 集成测试困难
 - 全局状态干扰测试
 
 **Maicraft-Next：**
+
 ```typescript
 // 单元测试示例
 describe('ActionExecutor', () => {
@@ -517,7 +540,9 @@ describe('ActionExecutor', () => {
     const executor = new ActionExecutor(mockBot, mockLogger);
 
     const result = await executor.execute(ActionIds.MOVE, {
-      x: 100, y: 64, z: 200
+      x: 100,
+      y: 64,
+      z: 200,
     });
 
     expect(result.success).toBe(true);
@@ -528,6 +553,7 @@ describe('ActionExecutor', () => {
 ### 3. 重构安全
 
 **Maicraft：**
+
 ```python
 # 重命名函数可能导致运行时错误
 def move_to_position(x, y, z):
@@ -538,15 +564,18 @@ agent.move_to_position(1, 2, 3)  # 字符串调用，无检查
 ```
 
 **Maicraft-Next：**
+
 ```typescript
 // ActionIds 常量保证重构安全
 export const ActionIds = {
-  MOVE: 'move',  // 重命名时会更新所有引用
+  MOVE: 'move', // 重命名时会更新所有引用
 } as const;
 
 // 类型检查确保参数正确
 await executor.execute(ActionIds.MOVE, {
-  x: 100, y: 64, z: 200  // 类型错误会在编译时发现
+  x: 100,
+  y: 64,
+  z: 200, // 类型错误会在编译时发现
 });
 ```
 
@@ -594,4 +623,3 @@ Maicraft-Next (纯 TypeScript + 单体架构)
 ---
 
 _最后更新: 2025-11-01_
-

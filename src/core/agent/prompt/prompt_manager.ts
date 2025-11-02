@@ -1,6 +1,6 @@
 /**
  * Prompt Manager - 智能提示词模板管理器
- * 
+ *
  * 完全照搬原版 maicraft 的实现，提供模板注册、参数格式化和提示词生成功能
  */
 
@@ -8,7 +8,7 @@ import { getLogger, type Logger } from '@/utils/Logger';
 
 /**
  * 提示词模板类
- * 
+ *
  * 对应 maicraft 的 PromptTemplate
  */
 export class PromptTemplate {
@@ -17,12 +17,7 @@ export class PromptTemplate {
   description: string;
   parameters: string[];
 
-  constructor(
-    name: string,
-    template: string,
-    description: string = '',
-    parameters: string[] = []
-  ) {
+  constructor(name: string, template: string, description: string = '', parameters: string[] = []) {
     this.name = name;
     this.template = template;
     this.description = description;
@@ -31,7 +26,7 @@ export class PromptTemplate {
 
   /**
    * 从模板中提取参数名
-   * 
+   *
    * 对应 Python 的 _extract_parameters()
    */
   private extractParameters(): string[] {
@@ -49,7 +44,7 @@ export class PromptTemplate {
 
   /**
    * 验证提供的参数是否完整
-   * 
+   *
    * 对应 Python 的 validate_parameters()
    */
   validateParameters(params: Record<string, any>): string[] {
@@ -66,7 +61,7 @@ export class PromptTemplate {
 
   /**
    * 格式化模板
-   * 
+   *
    * 对应 Python 的 format(**kwargs)
    */
   format(params: Record<string, any>): string {
@@ -88,7 +83,7 @@ export class PromptTemplate {
 
 /**
  * 提示词管理器
- * 
+ *
  * 对应 maicraft 的 PromptManager
  */
 export class PromptManager {
@@ -101,7 +96,7 @@ export class PromptManager {
 
   /**
    * 注册新模板
-   * 
+   *
    * 对应 Python 的 register_template()
    */
   registerTemplate(template: PromptTemplate): boolean {
@@ -121,14 +116,10 @@ export class PromptManager {
 
   /**
    * 从字符串注册模板
-   * 
+   *
    * 对应 Python 的 register_template_from_string()
    */
-  registerTemplateFromString(
-    name: string,
-    templateStr: string,
-    description: string = ''
-  ): boolean {
+  registerTemplateFromString(name: string, templateStr: string, description: string = ''): boolean {
     try {
       const template = new PromptTemplate(name, templateStr, description);
       return this.registerTemplate(template);
@@ -140,7 +131,7 @@ export class PromptManager {
 
   /**
    * 获取指定名称的模板
-   * 
+   *
    * 对应 Python 的 get_template()
    */
   getTemplate(name: string): PromptTemplate | undefined {
@@ -149,7 +140,7 @@ export class PromptManager {
 
   /**
    * 根据模板名称和参数生成提示词
-   * 
+   *
    * 对应 Python 的 generate_prompt(template_name, **kwargs)
    * 这是核心方法！
    */
@@ -210,4 +201,3 @@ export function quickGenerate(templateStr: string, params: Record<string, any>):
   const template = new PromptTemplate('quick', templateStr);
   return template.format(params);
 }
-

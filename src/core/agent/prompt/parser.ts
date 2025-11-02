@@ -1,6 +1,6 @@
 /**
  * 提示词解析工具
- * 
+ *
  * 完全照搬 maicraft 的 utils.py 中的解析函数
  * 从 LLM 响应中提取 JSON 动作
  */
@@ -11,7 +11,7 @@ const logger = getLogger('PromptParser');
 
 /**
  * 解析 JSON
- * 
+ *
  * 对应 maicraft 的 parse_json
  */
 export function parseJson(text: string): any | null {
@@ -26,7 +26,7 @@ export function parseJson(text: string): any | null {
 
 /**
  * 查找第一个 JSON 对象
- * 
+ *
  * 对应 maicraft 的 find_first_json
  */
 function findFirstJson(text: string): {
@@ -63,7 +63,7 @@ function findFirstJson(text: string): {
 
 /**
  * 查找所有 JSON 对象
- * 
+ *
  * 对应 maicraft 的 find_all_jsons
  */
 function findAllJsons(text: string): Array<{
@@ -104,9 +104,9 @@ function findAllJsons(text: string): Array<{
 
 /**
  * 解析思考结果（单个动作）
- * 
+ *
  * 对应 maicraft 的 parse_thinking
- * 
+ *
  * @returns [success, thinking, jsonObj, jsonBefore]
  */
 export function parseThinking(thinking: string): {
@@ -167,9 +167,9 @@ export function parseThinking(thinking: string): {
 
 /**
  * 解析思考结果（多个动作）
- * 
+ *
  * 对应 maicraft 的 parse_thinking_multiple
- * 
+ *
  * @returns [success, thinking, jsonObjList, jsonBefore]
  */
 export function parseThinkingMultiple(thinking: string): {
@@ -231,4 +231,3 @@ export function parseThinkingMultiple(thinking: string): {
 
   return { success, thinking, jsonObjList, jsonBefore };
 }
-

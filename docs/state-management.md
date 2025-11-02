@@ -21,6 +21,7 @@ entities = await mcp_client.call_tool("query_nearby_entities", {})
 ```
 
 **问题**：
+
 - 每次获取状态都需要跨进程调用
 - 占用 LLM 的工具调用额度
 - 增加延迟和复杂度
@@ -36,6 +37,7 @@ const entities = context.gameState.nearbyEntities;
 ```
 
 **优势**：
+
 - 状态通过 mineflayer 事件自动同步
 - 任何地方都可以直接访问
 - 零轮询开销
@@ -51,32 +53,32 @@ const entities = context.gameState.nearbyEntities;
 
 #### 状态分类
 
-| 类别 | 属性 | 说明 |
-|------|------|------|
-| **玩家信息** | `playerName` | 玩家名称 |
-| | `gamemode` | 游戏模式 (survival/creative/adventure) |
-| **位置** | `position` | 精确坐标 (Vec3) |
-| | `blockPosition` | 方块坐标 (Vec3) |
-| | `yaw`, `pitch` | 视角方向 |
-| | `onGround` | 是否在地面 |
-| **生命值** | `health` | 当前生命值 |
-| | `healthMax` | 最大生命值 |
-| | `armor` | 护甲值 |
-| **饥饿度** | `food` | 当前饥饿度 |
-| | `foodMax` | 最大饥饿度 (20) |
-| | `foodSaturation` | 饱和度 |
-| **经验** | `level` | 等级 |
-| | `experience` | 当前经验值 |
-| **氧气** | `oxygen` | 氧气值 (最大 300) |
-| **物品栏** | `inventory` | 物品列表 |
-| | `equipment` | 装备 (头盔/胸甲/护腿/鞋子/手持) |
-| | `heldItem` | 当前手持物品 |
-| **环境** | `weather` | 天气 (clear/rain/thunder) |
-| | `timeOfDay` | 游戏时间 (0-24000) |
-| | `dimension` | 维度 (overworld/nether/end) |
-| | `biome` | 生物群系 |
-| **周围实体** | `nearbyEntities` | 附近的玩家和生物 |
-| **状态** | `isSleeping` | 是否在睡觉 |
+| 类别         | 属性             | 说明                                   |
+| ------------ | ---------------- | -------------------------------------- |
+| **玩家信息** | `playerName`     | 玩家名称                               |
+|              | `gamemode`       | 游戏模式 (survival/creative/adventure) |
+| **位置**     | `position`       | 精确坐标 (Vec3)                        |
+|              | `blockPosition`  | 方块坐标 (Vec3)                        |
+|              | `yaw`, `pitch`   | 视角方向                               |
+|              | `onGround`       | 是否在地面                             |
+| **生命值**   | `health`         | 当前生命值                             |
+|              | `healthMax`      | 最大生命值                             |
+|              | `armor`          | 护甲值                                 |
+| **饥饿度**   | `food`           | 当前饥饿度                             |
+|              | `foodMax`        | 最大饥饿度 (20)                        |
+|              | `foodSaturation` | 饱和度                                 |
+| **经验**     | `level`          | 等级                                   |
+|              | `experience`     | 当前经验值                             |
+| **氧气**     | `oxygen`         | 氧气值 (最大 300)                      |
+| **物品栏**   | `inventory`      | 物品列表                               |
+|              | `equipment`      | 装备 (头盔/胸甲/护腿/鞋子/手持)        |
+|              | `heldItem`       | 当前手持物品                           |
+| **环境**     | `weather`        | 天气 (clear/rain/thunder)              |
+|              | `timeOfDay`      | 游戏时间 (0-24000)                     |
+|              | `dimension`      | 维度 (overworld/nether/end)            |
+|              | `biome`          | 生物群系                               |
+| **周围实体** | `nearbyEntities` | 附近的玩家和生物                       |
+| **状态**     | `isSleeping`     | 是否在睡觉                             |
 
 #### 基本使用
 
@@ -255,18 +257,19 @@ await locationManager.load();
 
 ### 状态访问方式
 
-| 方面 | Maicraft Python | Maicraft-Next |
-|------|-----------------|---------------|
-| **玩家状态** | `query_player_status` 工具 | `gameState.health` 等属性 |
-| **物品栏** | `query_inventory` 工具 | `gameState.inventory` |
+| 方面         | Maicraft Python              | Maicraft-Next              |
+| ------------ | ---------------------------- | -------------------------- |
+| **玩家状态** | `query_player_status` 工具   | `gameState.health` 等属性  |
+| **物品栏**   | `query_inventory` 工具       | `gameState.inventory`      |
 | **周围实体** | `query_nearby_entities` 工具 | `gameState.nearbyEntities` |
-| **环境信息** | `query_game_state` 工具 | `gameState.weather` 等属性 |
-| **同步方式** | 需要主动查询 | 事件驱动自动同步 |
-| **性能开销** | 跨进程调用 | 零开销内存访问 |
+| **环境信息** | `query_game_state` 工具      | `gameState.weather` 等属性 |
+| **同步方式** | 需要主动查询                 | 事件驱动自动同步           |
+| **性能开销** | 跨进程调用                   | 零开销内存访问             |
 
 ### 架构对比
 
 **Maicraft Python**:
+
 ```
 Python Agent
     ↓ (调用 query_player_status)
@@ -280,6 +283,7 @@ Mineflayer Bot
 ```
 
 **Maicraft-Next**:
+
 ```
 Mineflayer Bot
     ↓ (事件触发)
@@ -301,27 +305,25 @@ export class MyAction extends BaseAction {
     if (context.gameState.health < 10) {
       return this.failure('生命值过低，拒绝执行');
     }
-    
+
     // 2. 检查物品栏
-    const hasPickaxe = context.gameState.inventory.some(
-      item => item.name.includes('pickaxe')
-    );
+    const hasPickaxe = context.gameState.inventory.some(item => item.name.includes('pickaxe'));
     if (!hasPickaxe) {
       return this.failure('没有镐子');
     }
-    
+
     // 3. 检查位置
     const pos = context.gameState.position;
     context.logger.info(`当前位置: ${pos.x}, ${pos.y}, ${pos.z}`);
-    
+
     // 4. 检查环境
     if (context.gameState.weather === 'thunder') {
       context.logger.warn('当前正在打雷，注意安全');
     }
-    
+
     // 5. 执行动作逻辑
     // ...
-    
+
     return this.success('执行成功');
   }
 }
@@ -425,4 +427,3 @@ context.locationManager.setLocation('home', position, '我的家');
 ---
 
 _最后更新: 2025-11-01_
-
