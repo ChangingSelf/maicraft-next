@@ -10,18 +10,23 @@ import type { LLMResponse } from '@/llm/types';
 import { BaseLoop } from './BaseLoop';
 import { promptManager, initAllTemplates, parseThinkingMultiple } from '../prompt';
 import { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
+import { PromptDataCollector } from './PromptDataCollector';
 
 export class MainDecisionLoop extends BaseLoop<AgentState> {
   private llmManager: any; // LLMManager type
   private evaluationCounter: number = 0;
   private promptsInitialized: boolean = false;
   private actionPromptGenerator: ActionPromptGenerator;
+  private dataCollector: PromptDataCollector;
 
   constructor(state: AgentState, llmManager?: any) {
     super(state, 'MainDecisionLoop');
 
     // 创建动作提示词生成器
     this.actionPromptGenerator = new ActionPromptGenerator(state.context.executor);
+
+    // 创建数据收集器
+    this.dataCollector = new PromptDataCollector(state, this.actionPromptGenerator);
 
     // 使用传入的 llmManager 或创建新实例
     this.llmManager = llmManager || new LLMManager(state.config.llm, this.logger);
@@ -70,15 +75,21 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
    * 执行一次决策周期
    */
   private async executeDecisionCycle(): Promise<void> {
-    // 1. 收集所有数据（类似 maicraft 的 get_all_data）
-    const inputData = this.getAllData();
+    // 1. 收集基础信息数据
+    const basicInfoData = this.dataCollector.collectBasicInfo();
 
-    // 2. 使用 promptManager.generatePrompt 生成提示词
-    // 完全对应 maicraft 的: prompt_manager.generate_prompt("main_thinking", **input_data)
+    // 2. 生成 basic_info 提示词
+    const basicInfo = promptManager.generatePrompt('basic_info', basicInfoData);
+
+    // 3. 收集所有数据
+    const inputData = this.dataCollector.collectAllData();
+    inputData.basic_info = basicInfo; // 设置生成的 basic_info
+
+    // 4. 使用 promptManager.generatePrompt 生成 main_thinking 提示词
     const prompt = promptManager.generatePrompt('main_thinking', inputData);
     this.logger.info('💭 生成提示词完成');
 
-    // 3. 调用 LLM
+    // 5. 调用 LLM
     const messages = [
       {
         role: 'user' as const,
@@ -89,7 +100,7 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
     const response = await this.llmManager.chat(messages);
     this.logger.info('🤖 LLM 响应完成');
 
-    // 5. 解析响应
+    // 6. 解析响应
     const { thinking, actions } = this.parseResponse(response);
 
     if (!actions || actions.length === 0) {
@@ -97,147 +108,16 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       return;
     }
 
-    // 6. 记录思考
+    // 7. 记录思考
     if (thinking) {
       this.state.memory.recordThought(thinking);
     }
 
-    // 7. 执行动作
+    // 8. 执行动作
     const result = await this.executeActions(actions, thinking || '未知意图');
 
-    // 8. 记录决策
+    // 9. 记录决策
     this.state.memory.recordDecision(thinking || '未知意图', actions, result.success ? 'success' : 'failed', result.feedback);
-  }
-
-  /**
-   * 收集所有数据
-   *
-   * 对应 maicraft 的 EnvironmentInfo.get_all_data()
-   */
-  private getAllData(): Record<string, any> {
-    const { gameState } = this.state.context;
-    const { memory, planningManager } = this.state;
-
-    // 构建 basic_info 需要的数据
-    const basicInfoData = {
-      bot_name: 'AI Bot',
-      player_name: gameState.playerName || 'Bot',
-      self_info: `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}`,
-      goal: this.state.goal,
-      to_do_list: planningManager?.generateStatusSummary() || '暂无任务',
-      self_status_info: `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}, 等级: ${gameState.level}`,
-      inventory_info: gameState.getInventoryDescription?.() || '空',
-      position: `位置: (${gameState.blockPosition.x}, ${gameState.blockPosition.y}, ${gameState.blockPosition.z})`,
-      nearby_block_info: this.getNearbyBlocksInfo(),
-      container_cache_info: this.getContainerCacheInfo(),
-      nearby_entities_info: gameState.getNearbyEntitiesDescription?.() || '无',
-      chat_str: this.getChatHistory(),
-      mode: this.state.modeManager.getCurrentMode(),
-      task: planningManager?.getCurrentTask()?.title || '暂无',
-    };
-
-    // 生成 basic_info
-    const basicInfo = promptManager.generatePrompt('basic_info', basicInfoData);
-
-    // 动态生成 eat_action
-    const needEat = gameState.food / gameState.foodMax < 0.8;
-    const eatAction = needEat
-      ? `**eat**
-食用某样物品回复饱食度
-如果背包中没有食物，可以尝试找寻苹果，或寻找附近的动物以获得食物
-\`\`\`json
-{
-    "action_type":"eat",
-    "item":"食物名称"
-}
-\`\`\``
-      : '';
-
-    // 动态生成 kill_mob_action
-    const hostileMobs = ['zombie', 'skeleton', 'spider', 'creeper', 'enderman', 'witch'];
-    const hasHostileMobs = gameState.nearbyEntities.some(e => hostileMobs.includes(e.name.toLowerCase()));
-    const killMobAction = hasHostileMobs
-      ? `**kill_mob**
-杀死某个实体
-\`\`\`json
-{
-    "action_type":"kill_mob",
-    "entity":"需要杀死的实体名称",
-    "timeout":"杀死实体的超时时间，单位：秒"
-}
-\`\`\``
-      : '';
-
-    // 获取失败提示
-    const recentDecisions = memory.decision.getRecent(5);
-    const failedDecisions = recentDecisions.filter(d => d.result === 'failed');
-    const failedHint =
-      failedDecisions.length > 0
-        ? failedDecisions.map(d => `之前尝试"${d.intention}"失败了: ${d.feedback || '原因未知'}，请尝试别的方案。`).join('\n')
-        : '';
-
-    // 获取思考记录
-    const thinkingList = memory.buildContextSummary({
-      includeThoughts: 3,
-      includeDecisions: 8,
-    });
-
-    // 获取动态生成的动作提示词
-    const availableActions = this.actionPromptGenerator.generatePrompt();
-
-    // 返回 main_thinking 模板需要的所有参数
-    return {
-      basic_info: basicInfo,
-      available_actions: availableActions, // 动态生成的动作列表
-      eat_action: eatAction,
-      kill_mob_action: killMobAction,
-      failed_hint: failedHint,
-      thinking_list: thinkingList,
-      nearby_block_info: basicInfoData.nearby_block_info,
-      position: basicInfoData.position,
-      chat_str: basicInfoData.chat_str,
-      judge_guidance: this.getJudgeGuidance(),
-    };
-  }
-
-  /**
-   * 获取附近方块信息
-   */
-  private getNearbyBlocksInfo(): string {
-    // TODO: 需要实现附近方块扫描功能
-    // 可以通过 bot.findBlocks 或其他方法获取
-    return '附近方块信息需要扫描';
-  }
-
-  /**
-   * 获取容器缓存信息
-   */
-  private getContainerCacheInfo(): string {
-    // TODO: 如果有容器缓存系统，从这里获取
-    // 暂时返回空信息
-    return '暂无容器缓存信息';
-  }
-
-  /**
-   * 获取聊天历史
-   */
-  private getChatHistory(): string {
-    const recentConversations = this.state.memory.conversation.getRecent(5);
-
-    if (recentConversations.length === 0) {
-      return '暂无聊天记录';
-    }
-
-    return recentConversations.map(c => `[${c.speaker}]: ${c.message}`).join('\n');
-  }
-
-  /**
-   * 获取评估指导
-   */
-  private getJudgeGuidance(): string {
-    // 从 memory 中获取最近的评估指导
-    // 暂时返回空，后续可以实现评估指导存储
-    return '';
   }
 
   /**
