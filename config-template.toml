@@ -153,6 +153,28 @@ auto_attack = false
 auto_switch = true
 prefer_efficiency = true
 
+[api]
+# API 服务配置
+enabled = true
+
+[api.websocket]
+# WebSocket 服务配置
+enabled = true
+host = "0.0.0.0"
+port = 25114               # WebSocket 服务器端口
+path = "/ws"               # WebSocket 路径
+max_connections = 10       # 最大连接数
+heartbeat_interval = 30000 # 心跳间隔（毫秒）
+connection_timeout = 60000 # 连接超时（毫秒）
+
+# CORS 配置
+[api.cors]
+enabled = true
+allow_origins = ["*"]
+allow_credentials = false
+allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+allow_headers = ["*"]
+
 [advanced]
 # 高级配置
 hot_reload = true

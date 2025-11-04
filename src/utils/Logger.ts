@@ -2,6 +2,20 @@ import { existsSync, mkdirSync, appendFileSync, readdirSync, statSync, unlinkSyn
 import { join } from 'path';
 import { z } from 'zod';
 
+// 延迟导入WebSocket管理器，避免循环依赖
+let websocketManager: any = null;
+const getWebSocketManager = () => {
+  if (!websocketManager) {
+    try {
+      websocketManager = require('../api/WebSocketManager').websocketManager;
+    } catch {
+      // 如果无法导入，说明WebSocket模块不可用
+      websocketManager = null;
+    }
+  }
+  return websocketManager;
+};
+
 /**
  * 日志级别枚举
  */
@@ -173,6 +187,34 @@ export class Logger {
     // 输出到文件
     if (this.config.file) {
       this.writeToFile(entry);
+    }
+
+    // 广播到WebSocket客户端
+    this.broadcastToWebSocket(entry);
+  }
+
+  /**
+   * 广播日志到WebSocket客户端
+   */
+  private broadcastToWebSocket(entry: LogEntry): void {
+    try {
+      const wsManager = getWebSocketManager();
+      if (!wsManager || !wsManager.isAvailable()) {
+        return; // WebSocket不可用，跳过广播
+      }
+
+      // 转换为WebSocket消息格式
+      const logData = {
+        timestamp: new Date(entry.timestamp).getTime(), // 转换为时间戳
+        level: LOG_LEVEL_NAMES[entry.level], // 使用字符串级别
+        message: entry.message,
+        module: entry.context?.module as string | undefined,
+      };
+
+      wsManager.broadcastLog(logData);
+    } catch (error) {
+      // WebSocket广播失败不应该影响正常的日志记录
+      // 这里不记录错误，避免递归调用
     }
   }
 

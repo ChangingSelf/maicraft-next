@@ -49,6 +49,10 @@ import { LLMManager, LLMManagerFactory } from '@/llm/LLMManager';
 import { initializeConfig, getSection, getConfig, type AppConfig } from '@/utils/Config';
 import { getLogger, createLogger, LogLevel, type Logger } from '@/utils/Logger';
 
+// API服务
+import { WebSocketServer } from '@/api/WebSocketServer';
+import { WebSocketManager } from '@/api/WebSocketManager';
+
 /**
  * 基础错误日志记录器（在配置加载前使用）
  */
@@ -69,6 +73,7 @@ class MaicraftNext {
   private executor?: ActionExecutor;
   private agent?: Agent;
   private llmManager?: LLMManager;
+  private websocketServer?: WebSocketServer;
 
   private isShuttingDown = false;
   private reconnectTimer?: NodeJS.Timeout;
@@ -100,12 +105,41 @@ class MaicraftNext {
       // 启动AI代理
       await this.startAgent();
 
+      // 启动WebSocket服务器
+      await this.startWebSocketServer();
+
       this.logger.info('✅ Maicraft-Next 启动完成');
       this.logger.info('AI代理现在正在运行...');
     } catch (error) {
       this.logger.error('初始化失败', undefined, error as Error);
       throw error;
     }
+  }
+
+  /**
+   * 启动WebSocket服务器
+   */
+  private async startWebSocketServer(): Promise<void> {
+    try {
+      this.websocketServer = new WebSocketServer();
+      await this.websocketServer.start();
+
+      // 设置到全局WebSocket管理器
+      WebSocketManager.getInstance().setWebSocketServer(this.websocketServer);
+
+      this.logger.info('✅ WebSocket服务器启动完成');
+    } catch (error) {
+      this.logger.error('启动WebSocket服务器失败', undefined, error as Error);
+      // WebSocket服务器启动失败不应该阻止主程序运行
+      // 可以继续运行，但API功能不可用
+    }
+  }
+
+  /**
+   * 获取WebSocket服务器实例
+   */
+  getWebSocketServer(): WebSocketServer | undefined {
+    return this.websocketServer;
   }
 
   /**
@@ -547,7 +581,17 @@ class MaicraftNext {
       }
     }
 
-    // 4. 断开Bot连接
+    // 4. 停止WebSocket服务器
+    if (this.websocketServer) {
+      try {
+        await this.websocketServer.stop();
+        this.logger?.info('✅ WebSocket服务器已停止');
+      } catch (error) {
+        this.logger?.error('停止WebSocket服务器时出错', undefined, error as Error);
+      }
+    }
+
+    // 5. 断开Bot连接
     if (this.bot) {
       try {
         this.bot.quit('Shutting down');
