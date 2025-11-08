@@ -78,11 +78,12 @@ export abstract class BaseAction<P extends BaseActionParams = BaseActionParams> 
   /**
    * 创建失败结果
    */
-  protected failure(message: string, error?: Error): ActionResult {
+  protected failure(message: string, error?: Error, data?: any): ActionResult {
     return {
       success: false,
       message,
       error,
+      data,
     };
   }
 }

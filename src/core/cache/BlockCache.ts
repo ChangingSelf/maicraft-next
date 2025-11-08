@@ -166,9 +166,18 @@ export class BlockCache {
 
     if (blocks.length < 100) {
       // 只有在结果很少时才记录，避免日志过多
-      this.logger.debug(
-        `getBlocksInRadius: 中心(${centerX},${centerY},${centerZ}) 半径:${radius} 找到:${blocks.length} 过期:${expired} 超出范围:${outOfRange} 总缓存:${this.cache.size}`,
+      this.logger.warn(
+        `⚠️ getBlocksInRadius结果少: 中心(${centerX},${centerY},${centerZ}) 半径:${radius} 找到:${blocks.length} 过期:${expired} 超出范围:${outOfRange} 总缓存:${this.cache.size}`,
       );
+
+      // 采样显示缓存中的方块位置
+      if (this.cache.size > 0) {
+        const samples = Array.from(this.cache.values())
+          .slice(0, 3)
+          .map(b => `(${b.position.x},${b.position.y},${b.position.z}):${b.name}`)
+          .join(', ');
+        this.logger.warn(`缓存示例: ${samples}`);
+      }
     }
 
     return blocks;

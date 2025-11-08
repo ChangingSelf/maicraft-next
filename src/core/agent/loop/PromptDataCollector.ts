@@ -248,7 +248,7 @@ export class PromptDataCollector {
             y: blockPosition.y,
             z: blockPosition.z,
           },
-          16, // 搜索距离16格
+          32, // 搜索距离32格（与扫描半径50格匹配，留一些余量）
         );
 
         this.logger.debug(`🔍 获取周围方块信息完成`);

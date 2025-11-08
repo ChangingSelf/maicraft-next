@@ -63,8 +63,21 @@ export class MineInDirectionAction extends BaseAction<MineInDirectionParams> {
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
           const err = error as Error;
+          const errorMessage = err.message.toLowerCase();
+
+          // 检查是否是工具相关的问题
+          if (errorMessage.includes('harvestable tool') || errorMessage.includes('tool') || errorMessage.includes('cannot harvest')) {
+            context.logger.warn(`挖掘失败: 缺少合适的挖掘工具 - ${err.message}`);
+            // 对于工具问题，直接失败并返回具体的错误信息
+            return this.failure(`缺少合适的挖掘工具，无法挖掘 ${targetBlock.name} 方块。请先获取合适的工具（如木镐、石镐等）`, undefined, {
+              errorType: 'missing_tool',
+              blockType: targetBlock.name,
+              requiredTool: this.getRequiredTool(targetBlock.name),
+            });
+          }
+
           context.logger.warn(`挖掘失败: ${err.message}`);
-          // 继续尝试下一个方块
+          // 对于其他类型的错误，继续尝试下一个方块
           await new Promise(resolve => setTimeout(resolve, 500));
           continue;
         }
@@ -116,6 +129,64 @@ export class MineInDirectionAction extends BaseAction<MineInDirectionParams> {
     }
 
     return pos.floor();
+  }
+
+  /**
+   * 获取方块所需的工具
+   */
+  private getRequiredTool(blockName: string): string {
+    // Minecraft 方块挖掘工具要求
+    const toolRequirements: { [key: string]: string } = {
+      // 需要镐子的方块
+      stone: '镐子',
+      cobblestone: '镐子',
+      coal_ore: '镐子',
+      iron_ore: '镐子',
+      gold_ore: '铁镐',
+      diamond_ore: '铁镐',
+      redstone_ore: '铁镐',
+      lapis_ore: '镐子',
+      emerald_ore: '铁镐',
+      netherrack: '镐子',
+      nether_bricks: '镐子',
+      quartz_ore: '镐子',
+
+      // 需要斧头的方块
+      oak_log: '斧头',
+      spruce_log: '斧头',
+      birch_log: '斧头',
+      jungle_log: '斧头',
+      acacia_log: '斧头',
+      dark_oak_log: '斧头',
+      crimson_stem: '斧头',
+      warped_stem: '斧头',
+      wood: '斧头',
+      planks: '斧头',
+
+      // 需要锹的方块
+      dirt: '锹',
+      grass_block: '锹',
+      sand: '锹',
+      gravel: '锹',
+      clay: '锹',
+      soul_sand: '锹',
+      snow: '锹',
+    };
+
+    // 检查精确匹配
+    if (toolRequirements[blockName]) {
+      return toolRequirements[blockName];
+    }
+
+    // 检查包含匹配（例如各种石头类型）
+    for (const [pattern, tool] of Object.entries(toolRequirements)) {
+      if (blockName.includes(pattern.replace('_', ''))) {
+        return tool;
+      }
+    }
+
+    // 默认返回镐子
+    return '镐子';
   }
 
   /**

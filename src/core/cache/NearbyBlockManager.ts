@@ -8,6 +8,7 @@ import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
 import type { BlockCache } from './BlockCache';
 import type { BlockInfo } from './types';
+import type { Bot } from 'mineflayer';
 
 /**
  * 方块位置
@@ -19,15 +20,34 @@ export interface BlockPosition {
 }
 
 /**
+ * 地形分析结果
+ */
+interface TerrainAnalysis {
+  obstacles: string[]; // 障碍物描述
+  structures: string[]; // 结构描述
+  resources: string[]; // 资源描述
+  environment: string[]; // 环境描述
+}
+
+/**
  * 附近方块管理器
  */
 export class NearbyBlockManager {
   private logger: Logger;
   private blockCache: BlockCache;
+  private bot: Bot | null = null;
 
-  constructor(blockCache: BlockCache) {
+  constructor(blockCache: BlockCache, bot?: Bot) {
     this.logger = getLogger('NearbyBlockManager');
     this.blockCache = blockCache;
+    this.bot = bot || null;
+  }
+
+  /**
+   * 设置bot实例（用于获取视角等信息）
+   */
+  setBot(bot: Bot): void {
+    this.bot = bot;
   }
 
   /**
@@ -38,14 +58,11 @@ export class NearbyBlockManager {
    */
   getVisibleBlocksInfo(position: BlockPosition, distance: number = 16): string {
     try {
-      // 检查缓存状态
-      const cacheSize = this.blockCache.size();
-      this.logger.debug(`🔍 缓存状态: 共有 ${cacheSize} 个方块缓存`);
-
       // 获取距离范围内的所有方块
       const blocks = this.blockCache.getBlocksInRadius(position.x, position.y, position.z, distance);
 
-      // 统计方块类型
+      // 详细统计
+      const cacheSize = this.blockCache.size();
       const blockTypes = new Map<string, number>();
       for (const b of blocks) {
         const count = blockTypes.get(b.name) || 0;
@@ -53,59 +70,61 @@ export class NearbyBlockManager {
       }
       const topTypes = Array.from(blockTypes.entries())
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
+        .slice(0, 5)
         .map(([name, count]) => `${name}:${count}`)
         .join(', ');
 
-      this.logger.warn(`🔍 [查询缓存] 位置:(${position.x},${position.y},${position.z}) 半径:${distance} 找到:${blocks.length}个 类型:[${topTypes}]`);
+      if (blocks.length < 100) {
+        this.logger.warn(
+          `⚠️ 查询结果少: 位置(${position.x},${position.y},${position.z}) 半径${distance} 找到${blocks.length}个 缓存总数${cacheSize} 类型[${topTypes}]`,
+        );
+      } else {
+        this.logger.debug(`查询缓存: 位置(${position.x},${position.y},${position.z}) 半径${distance} 找到${blocks.length}个`);
+      }
 
       if (blocks.length === 0) {
-        // 尝试扩大搜索范围
-        const blocksExtended = this.blockCache.getBlocksInRadius(position.x, position.y, position.z, 100);
-        this.logger.error(`🔍 扩大搜索范围到100格: 找到 ${blocksExtended.length} 个方块`);
-
-        // 获取缓存中任意一个方块的位置来诊断问题
-        const allBlocks = Array.from(this.blockCache['cache'].values()).slice(0, 5);
-        const samplePositions = allBlocks.map(b => `(${b.position.x},${b.position.y},${b.position.z})`).join(', ');
-        this.logger.error(`🔍 缓存示例位置: ${samplePositions}`);
-
-        return `玩家位置: x=${position.x}, y=${position.y}, z=${position.z}\n⚠️ 在半径${distance}格内未找到方块 (缓存总大小: ${cacheSize})\n⚠️ 扩大到100格: 找到 ${blocksExtended.length} 个方块\n\n❌ 问题：扫描位置和当前位置相差太远！\n📍 缓存示例位置: ${samplePositions}\n💡 解决：实时扫描模式(0.5秒/次)应该很快更新，请查看日志中的扫描位置是否正确。`;
+        return `在半径${distance}格内未找到方块信息，缓存总数${cacheSize}，等待扫描更新...`;
       }
 
       // 按方块类型分组
       const groupedBlocks = this.groupBlocksByType(blocks, position);
 
+      // 执行地形分析
+      const terrain = this.analyzeTerrain(position, groupedBlocks, blocks);
+
       // 格式化输出
       const lines: string[] = [];
 
-      // 环境信息（特别重要）
-      const environmentInfo = this.getEnvironmentInfo(position, groupedBlocks);
-      if (environmentInfo) {
+      // 地形分析结果
+      if (terrain.environment.length > 0) {
         lines.push('【环境状况】');
-        lines.push(environmentInfo);
+        terrain.environment.forEach(line => lines.push(line));
         lines.push('');
       }
 
-      // 方块列表
-      lines.push('【周围方块分布】');
+      // 障碍物和结构信息
+      if (terrain.obstacles.length > 0 || terrain.structures.length > 0) {
+        lines.push('【地形分析】');
+        terrain.obstacles.forEach(line => lines.push(line));
+        terrain.structures.forEach(line => lines.push(line));
+        lines.push('');
+      }
+
+      // 资源信息
+      if (terrain.resources.length > 0) {
+        lines.push('【资源分布】');
+        terrain.resources.forEach(line => lines.push(line));
+        lines.push('');
+      }
+
+      // 方块分布（精简版本）
+      lines.push('【方块分布】');
       const blockLines = this.formatGroupedBlocks(groupedBlocks);
       if (blockLines.length > 0) {
         lines.push(...blockLines);
       } else {
-        lines.push('  周围都是空气方块');
+        lines.push('  周围都是空气');
       }
-
-      // 位置信息
-      lines.push('');
-      lines.push('【当前位置】');
-      lines.push(`玩家位置: (${position.x}, ${position.y}, ${position.z})`);
-      lines.push(`头部位置: (${position.x}, ${position.y + 1}, ${position.z})`);
-
-      // 统计信息
-      const totalBlocks = blocks.length;
-      const uniqueTypes = Object.keys(groupedBlocks).length;
-      lines.push('');
-      lines.push(`📊 统计: 共检测到 ${totalBlocks} 个方块，包含 ${uniqueTypes} 种不同类型`);
 
       return lines.join('\n');
     } catch (error) {
@@ -115,56 +134,252 @@ export class NearbyBlockManager {
   }
 
   /**
-   * 获取环境信息（水、岩浆等）
+   * 地形分析 - 智能分析周围环境
    */
-  private getEnvironmentInfo(position: BlockPosition, groupedBlocks: Record<string, BlockInfo[]>): string {
-    const lines: string[] = [];
+  private analyzeTerrain(position: BlockPosition, groupedBlocks: Record<string, BlockInfo[]>, allBlocks: BlockInfo[]): TerrainAnalysis {
+    const obstacles: string[] = [];
+    const structures: string[] = [];
+    const resources: string[] = [];
+    const environment: string[] = [];
 
-    // 检查脚下方块
+    // 1. 分析当前位置状态
     const blockAtFeet = this.blockCache.getBlock(position.x, position.y, position.z);
-    if (blockAtFeet && blockAtFeet.name !== 'air' && blockAtFeet.name !== 'cave_air') {
-      if (blockAtFeet.name === 'water') {
-        lines.push(`⚠️ 警告：你正在水中！(x=${position.x}, y=${position.y}, z=${position.z})`);
-        lines.push(`  - 在水中移动速度会变慢`);
-        lines.push(`  - 需要注意氧气值，避免溺水`);
-      } else if (blockAtFeet.name === 'lava') {
-        lines.push(`🔥 危险：你正在岩浆中！立即离开！(x=${position.x}, y=${position.y}, z=${position.z})`);
-      } else {
-        lines.push(`你正站在方块内部：${blockAtFeet.name} (x=${position.x}, y=${position.y}, z=${position.z})`);
-      }
-    }
-
-    // 检查脚下支撑方块
     const blockBelow = this.blockCache.getBlock(position.x, position.y - 1, position.z);
-    if (blockBelow) {
-      if (blockBelow.name === 'water') {
-        lines.push(`脚下是水方块，你可能正在水面上或游泳`);
-      } else if (blockBelow.name === 'lava') {
-        lines.push(`⚠️ 脚下是岩浆，非常危险！`);
-      } else if (blockBelow.name !== 'air' && blockBelow.name !== 'cave_air') {
-        lines.push(`脚下方块：${blockBelow.name} (x=${blockBelow.position.x}, y=${blockBelow.position.y}, z=${blockBelow.position.z})`);
-      } else {
-        lines.push(`⚠️ 脚下没有固体方块，你可能在空中或正在下坠`);
+    const blockAbove = this.blockCache.getBlock(position.x, position.y + 1, position.z);
+
+    // 检查是否在水中/岩浆中
+    if (blockAtFeet?.name === 'water') {
+      environment.push('警告：正在水中！移动速度降低，注意氧气值');
+    } else if (blockAtFeet?.name === 'lava') {
+      environment.push('危险：正在岩浆中！立即离开！');
+    }
+
+    // 检查脚下支撑（检查下方1-3格，避免跳跃时误判）
+    let hasSupport = false;
+    let supportInfo = '';
+
+    for (let dy = 1; dy <= 3; dy++) {
+      const blockCheck = this.blockCache.getBlock(position.x, position.y - dy, position.z);
+      if (blockCheck && blockCheck.name !== 'air' && blockCheck.name !== 'cave_air') {
+        hasSupport = true;
+        if (dy === 1) {
+          if (blockCheck.name === 'water') {
+            supportInfo = '脚下是水，正在游泳或水面上';
+          } else {
+            supportInfo = `脚下: ${blockCheck.name}`;
+          }
+        } else {
+          supportInfo = `下方${dy}格有支撑: ${blockCheck.name}`;
+        }
+        break;
       }
-    } else {
-      lines.push(`⚠️ 脚下没有方块信息，可能在悬空`);
     }
 
-    // 检查周围是否有大量水
+    if (!hasSupport) {
+      // 只有下方3格都没有固体方块才报告悬空
+      environment.push('警告：下方3格无支撑，正在高空坠落');
+    } else if (supportInfo) {
+      environment.push(supportInfo);
+    }
+
+    // 2. 分析周围水体/岩浆
     const waterBlocks = groupedBlocks['water'] || [];
-    if (waterBlocks.length > 10) {
-      lines.push(`周围有大量水方块(${waterBlocks.length}个)，你可能在海洋、河流或湖泊中`);
-    } else if (waterBlocks.length > 0) {
-      lines.push(`附近有${waterBlocks.length}个水方块`);
-    }
-
-    // 检查周围岩浆
     const lavaBlocks = groupedBlocks['lava'] || [];
+    if (waterBlocks.length > 100) {
+      environment.push(`周围大量水体(${waterBlocks.length}个)，位于海洋/湖泊/河流中`);
+    } else if (waterBlocks.length > 10) {
+      environment.push(`附近有水体(${waterBlocks.length}个)`);
+    }
     if (lavaBlocks.length > 0) {
-      lines.push(`⚠️ 附近有${lavaBlocks.length}个岩浆方块，注意安全！`);
+      environment.push(`警告：附近有岩浆(${lavaBlocks.length}个)，小心！`);
     }
 
-    return lines.join('\n');
+    // 3. 分析视线方向的障碍物
+    if (this.bot) {
+      const viewAnalysis = this.analyzeViewDirection(position, allBlocks);
+      if (viewAnalysis) {
+        obstacles.push(viewAnalysis);
+      }
+    }
+
+    // 4. 分析高度变化（地形起伏）
+    const heightAnalysis = this.analyzeHeightVariation(position, allBlocks);
+    if (heightAnalysis) {
+      structures.push(heightAnalysis);
+    }
+
+    // 5. 分析障碍物簇（使用连通性分析）
+    const obstacleAnalysis = this.analyzeObstacleClusters(position, groupedBlocks);
+    obstacles.push(...obstacleAnalysis);
+
+    // 6. 分析资源分布
+    const resourceTypes = ['coal_ore', 'iron_ore', 'copper_ore', 'gold_ore', 'diamond_ore', 'emerald_ore', 'lapis_ore', 'redstone_ore'];
+    const oreInfo: string[] = [];
+    for (const ore of resourceTypes) {
+      const oreBlocks = groupedBlocks[ore] || [];
+      if (oreBlocks.length > 0) {
+        const nearest = oreBlocks.reduce(
+          (closest, block) => {
+            const dist = Math.sqrt(
+              Math.pow(block.position.x - position.x, 2) + Math.pow(block.position.y - position.y, 2) + Math.pow(block.position.z - position.z, 2),
+            );
+            return dist < closest.dist ? { dist, block } : closest;
+          },
+          { dist: Infinity, block: oreBlocks[0] },
+        );
+
+        oreInfo.push(`${ore.replace('_ore', '')}矿(${oreBlocks.length}个, 最近: ${Math.floor(nearest.dist)}格)`);
+      }
+    }
+    if (oreInfo.length > 0) {
+      resources.push(`矿物: ${oreInfo.join(', ')}`);
+    }
+
+    // 树木资源
+    const logTypes = Object.keys(groupedBlocks).filter(k => k.endsWith('_log'));
+    if (logTypes.length > 0) {
+      const totalLogs = logTypes.reduce((sum, type) => sum + groupedBlocks[type].length, 0);
+      resources.push(`树木: ${totalLogs}个原木 (${logTypes.map(t => t.replace('_log', '')).join(', ')})`);
+    }
+
+    return { obstacles, structures, resources, environment };
+  }
+
+  /**
+   * 分析视线方向的障碍物
+   */
+  private analyzeViewDirection(position: BlockPosition, blocks: BlockInfo[]): string | null {
+    if (!this.bot) return null;
+
+    const yaw = this.bot.entity.yaw || 0;
+    const pitch = this.bot.entity.pitch || 0;
+
+    // 计算视线方向
+    const dirX = -Math.sin(yaw) * Math.cos(pitch);
+    const dirY = -Math.sin(pitch);
+    const dirZ = Math.cos(yaw) * Math.cos(pitch);
+
+    // 在视线方向上检查障碍物（5格内）
+    const solidBlocks = blocks.filter(b => !this.isNonSolid(b.name));
+    const blocksInView = solidBlocks.filter(b => {
+      const dx = b.position.x - position.x;
+      const dy = b.position.y - position.y;
+      const dz = b.position.z - position.z;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist > 5) return false;
+
+      // 计算方块是否在视线锥内（夹角<45度）
+      const dot = (dx * dirX + dy * dirY + dz * dz) / dist;
+      return dot > 0.7; // cos(45°) ≈ 0.707
+    });
+
+    if (blocksInView.length > 0) {
+      const nearest = blocksInView.reduce(
+        (closest, b) => {
+          const dist = Math.sqrt(
+            Math.pow(b.position.x - position.x, 2) + Math.pow(b.position.y - position.y, 2) + Math.pow(b.position.z - position.z, 2),
+          );
+          return dist < closest.dist ? { dist, block: b } : closest;
+        },
+        { dist: Infinity, block: blocksInView[0] },
+      );
+
+      const pitchDeg = Math.round((pitch * 180) / Math.PI);
+      const direction = pitchDeg < -30 ? '上方' : pitchDeg > 30 ? '下方' : '前方';
+      return `视线${direction}有障碍: ${nearest.block.name}, 距离${Math.floor(nearest.dist)}格`;
+    }
+
+    return null;
+  }
+
+  /**
+   * 分析高度变化
+   */
+  private analyzeHeightVariation(position: BlockPosition, blocks: BlockInfo[]): string | null {
+    // 统计不同高度的固体方块数量
+    const heightMap = new Map<number, number>();
+    blocks.forEach(b => {
+      if (!this.isNonSolid(b.name)) {
+        const count = heightMap.get(b.position.y) || 0;
+        heightMap.set(b.position.y, count + 1);
+      }
+    });
+
+    const heights = Array.from(heightMap.keys()).sort((a, b) => a - b);
+    if (heights.length < 3) return null;
+
+    const minY = heights[0];
+    const maxY = heights[heights.length - 1];
+    const rangeY = maxY - minY;
+
+    if (rangeY > 20) {
+      return `地形起伏大: 高度跨度${rangeY}格 (${minY}~${maxY})`;
+    } else if (rangeY > 10) {
+      return `地形起伏中等: 高度跨度${rangeY}格`;
+    }
+
+    return null;
+  }
+
+  /**
+   * 分析障碍物簇（使用连通性）
+   */
+  private analyzeObstacleClusters(position: BlockPosition, groupedBlocks: Record<string, BlockInfo[]>): string[] {
+    const result: string[] = [];
+
+    // 检查是否被包围
+    const solidBlocks = Object.entries(groupedBlocks)
+      .filter(([name]) => !this.isNonSolid(name))
+      .flatMap(([_, blocks]) => blocks);
+
+    // 检查8个水平方向
+    const directions = [
+      { dx: 1, dz: 0, name: '东' },
+      { dx: -1, dz: 0, name: '西' },
+      { dx: 0, dz: 1, name: '南' },
+      { dx: 0, dz: -1, name: '北' },
+      { dx: 1, dz: 1, name: '东南' },
+      { dx: -1, dz: 1, name: '西南' },
+      { dx: 1, dz: -1, name: '东北' },
+      { dx: -1, dz: -1, name: '西北' },
+    ];
+
+    const blockedDirs: string[] = [];
+    for (const dir of directions) {
+      // 检查该方向2格内是否有固体方块
+      const blocked = solidBlocks.some(b => {
+        const dx = b.position.x - position.x;
+        const dz = b.position.z - position.z;
+        const dy = Math.abs(b.position.y - position.y);
+        // 同一高度或上下1格内
+        if (dy > 1) return false;
+        // 方向匹配且距离<3
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist > 3) return false;
+        const dot = (dx * dir.dx + dz * dir.dz) / dist;
+        return dot > 0.7;
+      });
+      if (blocked) {
+        blockedDirs.push(dir.name);
+      }
+    }
+
+    if (blockedDirs.length >= 6) {
+      result.push(`周围较为封闭，受阻方向: ${blockedDirs.join('、')}`);
+    } else if (blockedDirs.length >= 3) {
+      result.push(`部分方向受阻: ${blockedDirs.join('、')}`);
+    }
+
+    return result;
+  }
+
+  /**
+   * 判断是否为非固体方块
+   */
+  private isNonSolid(blockName: string): boolean {
+    return ['air', 'cave_air', 'water', 'lava', 'grass', 'tall_grass', 'short_grass', 'seagrass', 'kelp', 'kelp_plant', 'torch', 'flower'].some(
+      name => blockName.includes(name),
+    );
   }
 
   /**
@@ -195,7 +410,7 @@ export class NearbyBlockManager {
   }
 
   /**
-   * 格式化分组后的方块信息
+   * 格式化分组后的方块信息（精简版本，去除emoji）
    */
   private formatGroupedBlocks(groupedBlocks: Record<string, BlockInfo[]>): string[] {
     const lines: string[] = [];
@@ -207,32 +422,17 @@ export class NearbyBlockManager {
       'chest',
       'furnace',
       'crafting_table',
-      'bed',
       'diamond_ore',
       'emerald_ore',
       'gold_ore',
       'iron_ore',
       'coal_ore',
       'redstone_ore',
+      'lapis_ore',
+      'copper_ore',
       'oak_log',
       'birch_log',
       'spruce_log',
-      'jungle_log',
-      'acacia_log',
-      'dark_oak_log',
-      'oak_leaves',
-      'oak_sapling',
-      'door',
-      'torch',
-      'stone',
-      'cobblestone',
-      'dirt',
-      'grass_block',
-      'sand',
-      'gravel',
-      'clay',
-      'kelp',
-      'seagrass',
     ];
 
     // 先显示优先级方块
@@ -241,66 +441,76 @@ export class NearbyBlockManager {
       if (groupedBlocks[blockType]) {
         const blocks = groupedBlocks[blockType];
         const coordStr = this.formatCoordinates(blocks);
-        const emoji = this.getBlockEmoji(blockType);
-        lines.push(`  ${emoji} ${blockType} (${blocks.length}个): ${coordStr}`);
+        lines.push(`  ${blockType}(${blocks.length}): ${coordStr}`);
         displayedTypes.add(blockType);
       }
     }
 
-    // 按数量排序显示其他方块
-    const otherBlocks = Object.entries(groupedBlocks)
-      .filter(([type]) => !displayedTypes.has(type))
+    // 按数量排序显示其他常见方块
+    const commonBlocks = ['stone', 'cobblestone', 'dirt', 'grass_block', 'andesite', 'granite', 'diorite', 'gravel', 'sand'];
+    const otherCommon = Object.entries(groupedBlocks)
+      .filter(([type]) => !displayedTypes.has(type) && commonBlocks.includes(type))
       .sort((a, b) => b[1].length - a[1].length);
 
-    // 限制显示数量，避免信息过载
-    const maxOtherTypes = 30; // 增加到30种
-    const displayOtherBlocks = otherBlocks.slice(0, maxOtherTypes);
-
-    for (const [blockType, blocks] of displayOtherBlocks) {
+    for (const [blockType, blocks] of otherCommon) {
       const coordStr = this.formatCoordinates(blocks);
-      const emoji = this.getBlockEmoji(blockType);
-      lines.push(`  ${emoji} ${blockType} (${blocks.length}个): ${coordStr}`);
+      lines.push(`  ${blockType}(${blocks.length}): ${coordStr}`);
+      displayedTypes.add(blockType);
     }
 
-    if (otherBlocks.length > maxOtherTypes) {
-      lines.push(`  ... 还有 ${otherBlocks.length - maxOtherTypes} 种方块未显示`);
+    // 显示其他方块（限制数量）
+    const otherBlocks = Object.entries(groupedBlocks)
+      .filter(([type]) => !displayedTypes.has(type))
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 10);
+
+    if (otherBlocks.length > 0) {
+      const otherSummary = otherBlocks.map(([type, blocks]) => `${type}(${blocks.length})`).join(', ');
+      lines.push(`  其他: ${otherSummary}`);
     }
 
     return lines;
   }
 
   /**
-   * 格式化坐标列表（智能压缩）
+   * 格式化坐标列表（智能压缩，节省token）
    */
   private formatCoordinates(blocks: BlockInfo[]): string {
     if (blocks.length === 0) return '无';
 
-    // 如果方块很少，直接列出坐标
-    if (blocks.length <= 3) {
-      return blocks.map(b => `(${b.position.x},${b.position.y},${b.position.z})`).join(', ');
-    }
-
-    // 如果方块较多，显示范围
     const sortedBlocks = blocks.sort((a, b) => (a as any).distance - (b as any).distance);
 
-    // 显示最近的3个
-    const nearestBlocks = sortedBlocks.slice(0, 3);
-    const nearestStr = nearestBlocks.map(b => `(${b.position.x},${b.position.y},${b.position.z})`).join(', ');
+    // 如果方块很少，直接列出最近的坐标
+    if (blocks.length <= 2) {
+      return sortedBlocks.map(b => `(${b.position.x},${b.position.y},${b.position.z})`).join(',');
+    }
 
-    // 计算范围
+    // 显示最近的1个 + 范围
+    const nearest = sortedBlocks[0];
+    const nearestStr = `最近(${nearest.position.x},${nearest.position.y},${nearest.position.z})`;
+
+    // 计算范围（只显示有变化的维度）
     const xValues = blocks.map(b => b.position.x);
     const yValues = blocks.map(b => b.position.y);
     const zValues = blocks.map(b => b.position.z);
 
-    const xRange = `x=${Math.min(...xValues)}~${Math.max(...xValues)}`;
-    const yRange = `y=${Math.min(...yValues)}~${Math.max(...yValues)}`;
-    const zRange = `z=${Math.min(...zValues)}~${Math.max(...zValues)}`;
+    const xMin = Math.min(...xValues);
+    const xMax = Math.max(...xValues);
+    const yMin = Math.min(...yValues);
+    const yMax = Math.max(...yValues);
+    const zMin = Math.min(...zValues);
+    const zMax = Math.max(...zValues);
 
-    if (blocks.length <= 6) {
+    const ranges: string[] = [];
+    if (xMax - xMin > 2) ranges.push(`x${xMin}~${xMax}`);
+    if (yMax - yMin > 2) ranges.push(`y${yMin}~${yMax}`);
+    if (zMax - zMin > 2) ranges.push(`z${zMin}~${zMax}`);
+
+    if (ranges.length === 0) {
       return nearestStr;
     }
 
-    return `最近${nearestStr}, 范围[${xRange}, ${yRange}, ${zRange}]`;
+    return `${nearestStr}, ${ranges.join(',')}`;
   }
 
   /**
@@ -403,37 +613,5 @@ export class NearbyBlockManager {
     const shown = positions.slice(0, 5);
     const shownStr = shown.map(p => `(${p.x},${p.y},${p.z})`).join(', ');
     return `${shownStr} 等${positions.length}个位置`;
-  }
-
-  /**
-   * 获取方块的表情符号（增加可读性）
-   */
-  private getBlockEmoji(blockType: string): string {
-    const emojiMap: Record<string, string> = {
-      water: '💧',
-      lava: '🔥',
-      chest: '📦',
-      furnace: '⚙️',
-      crafting_table: '🔨',
-      bed: '🛏️',
-      diamond_ore: '💎',
-      emerald_ore: '💚',
-      gold_ore: '🟡',
-      iron_ore: '⚪',
-      coal_ore: '⚫',
-      stone: '🪨',
-      dirt: '🟤',
-      grass_block: '🌱',
-      sand: '🟨',
-      gravel: '⚪',
-      oak_log: '🪵',
-      oak_leaves: '🍃',
-      torch: '🔦',
-      door: '🚪',
-      kelp: '🌿',
-      seagrass: '🌿',
-    };
-
-    return emojiMap[blockType] || '▪️';
   }
 }

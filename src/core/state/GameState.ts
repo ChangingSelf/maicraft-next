@@ -193,7 +193,7 @@ export class GameState {
 
       this.blockCache = new BlockCache(cacheConfig);
       this.containerCache = new ContainerCache(cacheConfig);
-      this.nearbyBlockManager = new NearbyBlockManager(this.blockCache);
+      this.nearbyBlockManager = new NearbyBlockManager(this.blockCache, bot);
 
       this.logger.info('缓存实例创建完成', {
         blockCachePath: 'data/block_cache.json',

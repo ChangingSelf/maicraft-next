@@ -182,9 +182,9 @@ export class CacheManager {
     this.lastScanPosition = currentPosition.clone();
 
     const currentPosInt = currentPosition.floored();
-    this.logger.info(
-      `🔍 [实时扫描开始] 位置:(${currentPosInt.x},${currentPosInt.y},${currentPosInt.z}) 半径:${this.config.blockScanRadius} Y范围:[${Math.max(0, currentPosInt.y - this.config.blockScanRadius)}~${Math.min(255, currentPosInt.y + this.config.blockScanRadius)}]`,
-    );
+    // this.logger.debug(
+    //   // `🔍 [实时扫描开始] 位置:(${currentPosInt.x},${currentPosInt.y},${currentPosInt.z}) 半径:${this.config.blockScanRadius} Y范围:[${Math.max(0, currentPosInt.y - this.config.blockScanRadius)}~${Math.min(255, currentPosInt.y + this.config.blockScanRadius)}]`,
+    // );
 
     try {
       const blocks: Array<{ x: number; y: number; z: number; block: any }> = [];
@@ -210,13 +210,11 @@ export class CacheManager {
           for (let y = scanStartY; y <= scanEndY; y++) {
             // 性能控制：检查扫描时间
             if (Date.now() - scanStartTime > maxScanTime) {
-              this.logger.warn(`⏱️ 扫描超时(${maxScanTime}ms)，已检查:${totalBlocks} 已缓存:${blocks.length} 空气:${airCount}`);
               break scanLoop;
             }
 
             // 性能控制：限制方块数量
             if (blocks.length >= maxBlocks) {
-              this.logger.warn(`📦 达到方块限制(${maxBlocks})，已检查:${totalBlocks} 已缓存:${blocks.length} 空气:${airCount}`);
               break scanLoop;
             }
 
@@ -285,9 +283,9 @@ export class CacheManager {
         // 清除超出范围的旧缓存（保留当前位置周围150格的数据，因为扫描半径是50格）
         const removedCount = this.blockCache.clearOutOfRange(centerPos.x, centerPos.y, centerPos.z, 150);
 
-        this.logger.info(
-          `✅ [扫描完成] 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 检查:${totalBlocks} 已缓存:${blocks.length} 清理:${removedCount} 总数:${this.blockCache.size()} 方块类型:[${topTypes}]`,
-        );
+        // this.logger.info(
+        //   `✅ [扫描完成] 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 检查:${totalBlocks} 已缓存:${blocks.length} 清理:${removedCount} 总数:${this.blockCache.size()} 方块类型:[${topTypes}]`,
+        // );
       } else {
         this.logger.error(
           `⚠️ 扫描完成但未缓存任何方块! 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 总检查:${totalBlocks} 重要方块:${importantBlocks}`,
