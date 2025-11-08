@@ -6,6 +6,7 @@
 import { getLogger } from '@/utils/Logger';
 import { WebSocketConnection } from './WebSocketServer';
 import { SubscriptionManager } from './SubscriptionManager';
+import { MemoryDataProvider } from './MemoryDataProvider';
 
 export interface WSMessage {
   type: string;
@@ -21,10 +22,19 @@ export class MessageHandler {
   private logger = getLogger('MessageHandler');
   private subscriptionManager: SubscriptionManager;
   private server: any; // 避免循环依赖
+  private memoryDataProvider: MemoryDataProvider;
 
   constructor(subscriptionManager: SubscriptionManager, server?: any) {
     this.subscriptionManager = subscriptionManager;
     this.server = server;
+    this.memoryDataProvider = new MemoryDataProvider(server);
+  }
+
+  /**
+   * 设置记忆管理器
+   */
+  setMemoryManager(memoryManager: any): void {
+    this.memoryDataProvider.initialize(memoryManager);
   }
 
   /**
@@ -45,6 +55,22 @@ export class MessageHandler {
 
         case 'ping':
           await this.handlePing(connection, message);
+          break;
+
+        case 'memory_query':
+          await this.memoryDataProvider.handleMemoryQuery(connection.id, message.data);
+          break;
+
+        case 'memory_add':
+          await this.memoryDataProvider.handleMemoryAdd(connection.id, message.data);
+          break;
+
+        case 'memory_update':
+          await this.memoryDataProvider.handleMemoryUpdate(connection.id, message.data);
+          break;
+
+        case 'memory_delete':
+          await this.memoryDataProvider.handleMemoryDelete(connection.id, message.data);
           break;
 
         default:

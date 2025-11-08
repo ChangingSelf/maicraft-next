@@ -93,6 +93,14 @@ export class Agent {
   }
 
   /**
+   * 设置WebSocket服务器（用于记忆推送）
+   */
+  setWebSocketServer(webSocketServer: any): void {
+    this.state.memory.setWebSocketServer(webSocketServer);
+    this.logger.info('📡 Agent 已连接到WebSocket服务器');
+  }
+
+  /**
    * 初始化 Agent（加载资源、设置状态等，但不启动决策循环）
    */
   async initialize(): Promise<void> {

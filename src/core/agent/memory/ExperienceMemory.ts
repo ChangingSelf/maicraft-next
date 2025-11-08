@@ -91,6 +91,28 @@ export class ExperienceMemory implements MemoryStore<ExperienceEntry> {
     return intersection.size / union.size;
   }
 
+  update(id: string, updates: Partial<ExperienceEntry>): boolean {
+    const index = this.entries.findIndex(e => e.id === id);
+    if (index === -1) return false;
+
+    this.entries[index] = { ...this.entries[index], ...updates };
+    this.logger.debug(`更新经验记忆: ${id}`);
+    return true;
+  }
+
+  delete(id: string): boolean {
+    const index = this.entries.findIndex(e => e.id === id);
+    if (index === -1) return false;
+
+    this.entries.splice(index, 1);
+    this.logger.debug(`删除经验记忆: ${id}`);
+    return true;
+  }
+
+  findById(id: string): ExperienceEntry | undefined {
+    return this.entries.find(e => e.id === id);
+  }
+
   cleanup(strategy: CleanupStrategy): void {
     // 按最大条目数清理
     if (strategy.maxEntries && this.entries.length > strategy.maxEntries) {

@@ -529,6 +529,11 @@ class MaicraftNext {
 
     this.logger.info('启动AI代理...');
 
+    // 连接记忆系统到WebSocket服务器（用于推送记忆更新）
+    if (this.websocketServer) {
+      this.agent.setWebSocketServer(this.websocketServer);
+    }
+
     await this.agent.start();
 
     this.logger.info('✅ AI代理已启动');

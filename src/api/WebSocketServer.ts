@@ -53,17 +53,15 @@ export class WebSocketServer {
    * 加载配置
    */
   private loadConfig(): WebSocketConfig {
-    const apiConfig = getConfig('api', {});
-    const wsConfig = apiConfig.websocket || {};
-
+    // 暂时使用默认配置，后续可以从配置文件扩展
     return {
-      enabled: apiConfig.enabled !== false,
-      host: wsConfig.host || '0.0.0.0',
-      port: wsConfig.port || 25114,
-      path: wsConfig.path || '/ws',
-      maxConnections: wsConfig.maxConnections || 10,
-      heartbeatInterval: wsConfig.heartbeatInterval || 30000,
-      connectionTimeout: wsConfig.connectionTimeout || 60000,
+      enabled: true,
+      host: '0.0.0.0',
+      port: 25114,
+      path: '/ws',
+      maxConnections: 10,
+      heartbeatInterval: 30000,
+      connectionTimeout: 60000,
     };
   }
 
@@ -98,6 +96,14 @@ export class WebSocketServer {
       this.logger.error('WebSocket服务器启动失败', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
+  }
+
+  /**
+   * 设置记忆管理器
+   */
+  setMemoryManager(memoryManager: any): void {
+    this.messageHandler.setMemoryManager(memoryManager);
+    this.logger.info('🧠 记忆管理器已设置到WebSocket服务器');
   }
 
   /**

@@ -59,6 +59,21 @@ export interface MemoryStore<T> {
   search?(query: string, limit: number): T[];
 
   /**
+   * 更新记忆
+   */
+  update(id: string, updates: Partial<T>): boolean;
+
+  /**
+   * 删除记忆
+   */
+  delete(id: string): boolean;
+
+  /**
+   * 根据ID查找记忆
+   */
+  findById(id: string): T | undefined;
+
+  /**
    * 清除旧记忆
    */
   cleanup(strategy: CleanupStrategy): void;

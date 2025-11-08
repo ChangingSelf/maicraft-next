@@ -20,6 +20,7 @@ export class MemoryManager {
   private customMemories: Map<string, MemoryStore<any>> = new Map();
 
   private logger: Logger;
+  private webSocketServer?: any; // WebSocket服务器引用
 
   constructor() {
     this.logger = getLogger('MemoryManager');
@@ -41,6 +42,14 @@ export class MemoryManager {
   }
 
   /**
+   * 设置WebSocket服务器引用，用于推送记忆更新
+   */
+  setWebSocketServer(server: any): void {
+    this.webSocketServer = server;
+    this.logger.info('📡 WebSocket服务器已连接到记忆管理器');
+  }
+
+  /**
    * 注册自定义记忆类型
    */
   registerMemoryStore<T>(name: string, store: MemoryStore<T>): void {
@@ -59,48 +68,66 @@ export class MemoryManager {
    * 记录思考
    */
   recordThought(content: string, context?: Record<string, any>): void {
-    this.thoughts.add({
+    const entry = {
       id: this.generateId(),
       content,
       context,
       timestamp: Date.now(),
-    });
+    };
+    this.thoughts.add(entry);
+
+    // 推送记忆更新
+    if (this.webSocketServer) {
+      this.webSocketServer.memoryDataProvider?.pushMemory('thought', entry);
+    }
   }
 
   /**
    * 记录对话
    */
   recordConversation(speaker: 'ai' | 'player', message: string, context?: Record<string, any>): void {
-    this.conversations.add({
+    const entry = {
       id: this.generateId(),
       speaker,
       message,
       context,
       timestamp: Date.now(),
-    });
+    };
+    this.conversations.add(entry);
     this.logger.debug(`💬 记录对话: ${speaker} - ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`);
+
+    // 推送记忆更新
+    if (this.webSocketServer) {
+      this.webSocketServer.memoryDataProvider?.pushMemory('conversation', entry);
+    }
   }
 
   /**
    * 记录决策
    */
   recordDecision(intention: string, actions: any[], result: 'success' | 'failed' | 'interrupted', feedback?: string): void {
-    this.decisions.add({
+    const entry = {
       id: this.generateId(),
       intention,
       actions,
       result,
       feedback,
       timestamp: Date.now(),
-    });
+    };
+    this.decisions.add(entry);
     this.logger.debug(`🎯 记录决策: ${result} - ${intention}`);
+
+    // 推送记忆更新
+    if (this.webSocketServer) {
+      this.webSocketServer.memoryDataProvider?.pushMemory('decision', entry);
+    }
   }
 
   /**
    * 记录经验
    */
   recordExperience(lesson: string, context: string, confidence: number = 0.5): void {
-    this.experiences.add({
+    const entry = {
       id: this.generateId(),
       lesson,
       context,
@@ -108,8 +135,14 @@ export class MemoryManager {
       occurrences: 1,
       timestamp: Date.now(),
       lastOccurrence: Date.now(),
-    });
+    };
+    this.experiences.add(entry);
     this.logger.debug(`📚 记录经验: ${lesson.substring(0, 50)}${lesson.length > 50 ? '...' : ''} (置信度: ${(confidence * 100).toFixed(0)}%)`);
+
+    // 推送记忆更新
+    if (this.webSocketServer) {
+      this.webSocketServer.memoryDataProvider?.pushMemory('experience', entry);
+    }
   }
 
   /**
@@ -236,6 +269,63 @@ export class MemoryManager {
   }
   get experience(): ExperienceMemory {
     return this.experiences;
+  }
+
+  /**
+   * 更新记忆
+   */
+  updateMemory(memoryType: 'thought' | 'conversation' | 'decision' | 'experience', id: string, updates: any): boolean {
+    switch (memoryType) {
+      case 'thought':
+        return this.thoughts.update(id, updates);
+      case 'conversation':
+        return this.conversations.update(id, updates);
+      case 'decision':
+        return this.decisions.update(id, updates);
+      case 'experience':
+        return this.experiences.update(id, updates);
+      default:
+        this.logger.warn(`未知的记忆类型: ${memoryType}`);
+        return false;
+    }
+  }
+
+  /**
+   * 删除记忆
+   */
+  deleteMemory(memoryType: 'thought' | 'conversation' | 'decision' | 'experience', id: string): boolean {
+    switch (memoryType) {
+      case 'thought':
+        return this.thoughts.delete(id);
+      case 'conversation':
+        return this.conversations.delete(id);
+      case 'decision':
+        return this.decisions.delete(id);
+      case 'experience':
+        return this.experiences.delete(id);
+      default:
+        this.logger.warn(`未知的记忆类型: ${memoryType}`);
+        return false;
+    }
+  }
+
+  /**
+   * 根据ID查找记忆
+   */
+  findMemory(memoryType: 'thought' | 'conversation' | 'decision' | 'experience', id: string): any {
+    switch (memoryType) {
+      case 'thought':
+        return this.thoughts.findById(id);
+      case 'conversation':
+        return this.conversations.findById(id);
+      case 'decision':
+        return this.decisions.findById(id);
+      case 'experience':
+        return this.experiences.findById(id);
+      default:
+        this.logger.warn(`未知的记忆类型: ${memoryType}`);
+        return undefined;
+    }
   }
 
   // 格式化方法

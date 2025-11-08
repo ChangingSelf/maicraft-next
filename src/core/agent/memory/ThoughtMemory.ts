@@ -48,6 +48,28 @@ export class ThoughtMemory implements MemoryStore<ThoughtEntry> {
     return this.entries.slice(-count);
   }
 
+  update(id: string, updates: Partial<ThoughtEntry>): boolean {
+    const index = this.entries.findIndex(e => e.id === id);
+    if (index === -1) return false;
+
+    this.entries[index] = { ...this.entries[index], ...updates };
+    this.logger.debug(`更新思考记忆: ${id}`);
+    return true;
+  }
+
+  delete(id: string): boolean {
+    const index = this.entries.findIndex(e => e.id === id);
+    if (index === -1) return false;
+
+    this.entries.splice(index, 1);
+    this.logger.debug(`删除思考记忆: ${id}`);
+    return true;
+  }
+
+  findById(id: string): ThoughtEntry | undefined {
+    return this.entries.find(e => e.id === id);
+  }
+
   cleanup(strategy: CleanupStrategy): void {
     // 按最大条目数清理
     if (strategy.maxEntries && this.entries.length > strategy.maxEntries) {
