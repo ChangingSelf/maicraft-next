@@ -101,6 +101,13 @@ export class Agent {
   }
 
   /**
+   * 获取记忆管理器
+   */
+  getMemoryManager(): any {
+    return this.state.memory;
+  }
+
+  /**
    * 初始化 Agent（加载资源、设置状态等，但不启动决策循环）
    */
   async initialize(): Promise<void> {

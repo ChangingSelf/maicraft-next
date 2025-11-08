@@ -46,7 +46,11 @@ export class MemoryManager {
    */
   setWebSocketServer(server: any): void {
     this.webSocketServer = server;
-    this.logger.info('📡 WebSocket服务器已连接到记忆管理器');
+    const hasMemoryDataProvider = !!server?.memoryDataProvider;
+    this.logger.info('📡 WebSocket服务器已连接到记忆管理器', {
+      serverExists: !!server,
+      hasMemoryDataProvider,
+    });
   }
 
   /**
@@ -78,7 +82,13 @@ export class MemoryManager {
 
     // 推送记忆更新
     if (this.webSocketServer) {
-      this.webSocketServer.memoryDataProvider?.pushMemory('thought', entry);
+      if (this.webSocketServer.memoryDataProvider) {
+        this.webSocketServer.memoryDataProvider.pushMemory('thought', entry);
+      } else {
+        this.logger.warn('❌ memoryDataProvider 未初始化，无法推送思考记忆');
+      }
+    } else {
+      this.logger.warn('❌ WebSocket服务器未设置，无法推送思考记忆');
     }
   }
 
@@ -97,8 +107,8 @@ export class MemoryManager {
     this.logger.debug(`💬 记录对话: ${speaker} - ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`);
 
     // 推送记忆更新
-    if (this.webSocketServer) {
-      this.webSocketServer.memoryDataProvider?.pushMemory('conversation', entry);
+    if (this.webSocketServer?.memoryDataProvider) {
+      this.webSocketServer.memoryDataProvider.pushMemory('conversation', entry);
     }
   }
 
@@ -118,8 +128,8 @@ export class MemoryManager {
     this.logger.debug(`🎯 记录决策: ${result} - ${intention}`);
 
     // 推送记忆更新
-    if (this.webSocketServer) {
-      this.webSocketServer.memoryDataProvider?.pushMemory('decision', entry);
+    if (this.webSocketServer?.memoryDataProvider) {
+      this.webSocketServer.memoryDataProvider.pushMemory('decision', entry);
     }
   }
 
@@ -140,8 +150,8 @@ export class MemoryManager {
     this.logger.debug(`📚 记录经验: ${lesson.substring(0, 50)}${lesson.length > 50 ? '...' : ''} (置信度: ${(confidence * 100).toFixed(0)}%)`);
 
     // 推送记忆更新
-    if (this.webSocketServer) {
-      this.webSocketServer.memoryDataProvider?.pushMemory('experience', entry);
+    if (this.webSocketServer?.memoryDataProvider) {
+      this.webSocketServer.memoryDataProvider.pushMemory('experience', entry);
     }
   }
 

@@ -41,12 +41,15 @@ export class WebSocketServer {
   private subscriptionManager: SubscriptionManager;
   private messageHandler: MessageHandler;
   private logDataProvider: LogDataProvider;
+  public memoryDataProvider?: any; // 暴露给MemoryManager使用
 
   constructor() {
     this.config = this.loadConfig();
     this.subscriptionManager = new SubscriptionManager(this);
     this.messageHandler = new MessageHandler(this.subscriptionManager, this);
     this.logDataProvider = new LogDataProvider(this);
+    // 暴露 memoryDataProvider，以便 MemoryManager 可以访问
+    this.memoryDataProvider = this.messageHandler.getMemoryDataProvider();
   }
 
   /**
@@ -103,6 +106,8 @@ export class WebSocketServer {
    */
   setMemoryManager(memoryManager: any): void {
     this.messageHandler.setMemoryManager(memoryManager);
+    // 确保 memoryDataProvider 引用是最新的
+    this.memoryDataProvider = this.messageHandler.getMemoryDataProvider();
     this.logger.info('🧠 记忆管理器已设置到WebSocket服务器');
   }
 

@@ -99,14 +99,14 @@ class MaicraftNext {
       // 初始化核心系统
       await this.initializeCore();
 
+      // 启动WebSocket服务器（必须在Agent启动之前，以便Agent能获取WebSocket引用）
+      await this.startWebSocketServer();
+
       // 初始化AI代理
       await this.initializeAgent();
 
       // 启动AI代理
       await this.startAgent();
-
-      // 启动WebSocket服务器
-      await this.startWebSocketServer();
 
       this.logger.info('✅ Maicraft-Next 启动完成');
       this.logger.info('AI代理现在正在运行...');
@@ -535,6 +535,11 @@ class MaicraftNext {
     }
 
     await this.agent.start();
+
+    // Agent启动完成后设置记忆管理器到WebSocket服务器，用于处理记忆操作请求
+    if (this.websocketServer) {
+      this.websocketServer.setMemoryManager(this.agent.getMemoryManager());
+    }
 
     this.logger.info('✅ AI代理已启动');
   }

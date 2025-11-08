@@ -38,8 +38,8 @@ export class MemoryDataProvider {
       },
     };
 
+    this.logger.info(`📤 推送记忆: ${memoryType} - ${entry.id}`);
     this.server.broadcastToSubscribed('memory', message);
-    this.logger.debug(`📤 推送记忆: ${memoryType} - ${entry.id}`);
   }
 
   /**
@@ -49,7 +49,7 @@ export class MemoryDataProvider {
     try {
       const { memoryTypes, timeRange, limit, sortBy, filters } = data;
 
-      this.logger.debug('处理记忆查询请求', { clientId, memoryTypes, limit });
+      this.logger.info('🧠 处理记忆查询请求', { clientId, memoryTypes, limit, memoryManagerExists: !!this.memoryManager });
 
       const results: Record<string, any[]> = {};
       let totalEntries = 0;
@@ -58,7 +58,9 @@ export class MemoryDataProvider {
       const typesToQuery = memoryTypes || ['thought', 'conversation', 'decision', 'experience'];
 
       for (const memoryType of typesToQuery) {
+        this.logger.debug(`查询记忆类型: ${memoryType}`);
         const entries = await this.queryMemoryType(memoryType, { timeRange, limit, sortBy, filters });
+        this.logger.debug(`记忆类型 ${memoryType} 返回 ${entries.length} 条记录`);
         results[memoryType] = entries;
         totalEntries += entries.length;
       }

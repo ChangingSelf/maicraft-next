@@ -38,6 +38,13 @@ export class MessageHandler {
   }
 
   /**
+   * 获取记忆数据提供器
+   */
+  getMemoryDataProvider(): MemoryDataProvider {
+    return this.memoryDataProvider;
+  }
+
+  /**
    * 处理客户端消息
    */
   async handleMessage(connection: WebSocketConnection, message: WSMessage): Promise<void> {
