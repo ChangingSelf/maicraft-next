@@ -5,9 +5,13 @@
  * - 记录地标位置
  * - 提供地标搜索
  * - 生成地标描述
+ * - 支持持久化存储
  */
 
 import { Vec3 } from 'vec3';
+import { promises as fs } from 'fs';
+import { getLogger } from '@/utils/Logger';
+import type { Logger } from '@/utils/Logger';
 
 /**
  * 地标信息
@@ -26,6 +30,16 @@ export interface Location {
  */
 export class LocationManager {
   private locations: Map<string, Location> = new Map();
+  private logger: Logger;
+  private persistPath: string;
+  private saveTimer?: NodeJS.Timeout;
+  private readonly SAVE_INTERVAL = 30000; // 30秒保存一次
+
+  constructor(persistPath?: string) {
+    this.logger = getLogger('LocationManager');
+    this.persistPath = persistPath || 'data/locations.json';
+    this.load();
+  }
 
   /**
    * 设置地标
@@ -44,6 +58,8 @@ export class LocationManager {
     };
 
     this.locations.set(name, location);
+    this.scheduleSave();
+    this.logger.debug(`设置地标: ${name} (${position.x}, ${position.y}, ${position.z})`);
     return location;
   }
 
@@ -58,7 +74,12 @@ export class LocationManager {
    * 删除地标
    */
   deleteLocation(name: string): boolean {
-    return this.locations.delete(name);
+    const deleted = this.locations.delete(name);
+    if (deleted) {
+      this.scheduleSave();
+      this.logger.debug(`删除地标: ${name}`);
+    }
+    return deleted;
   }
 
   /**
@@ -72,6 +93,8 @@ export class LocationManager {
 
     location.info = info;
     location.updatedAt = Date.now();
+    this.scheduleSave();
+    this.logger.debug(`更新地标: ${name}`);
     return true;
   }
 
@@ -219,5 +242,72 @@ export class LocationManager {
       };
       this.locations.set(item.name, location);
     }
+  }
+
+  /**
+   * 保存地标数据（公开方法）
+   */
+  async save(): Promise<void> {
+    await this.forceSave();
+  }
+
+  /**
+   * 安排自动保存（防抖）
+   */
+  private scheduleSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+    }
+    this.saveTimer = setTimeout(() => {
+      this.save();
+    }, this.SAVE_INTERVAL);
+  }
+
+  /**
+   * 保存地标数据到文件
+   */
+  private async save(): Promise<void> {
+    try {
+      // 确保目录存在
+      const dir = this.persistPath.substring(0, this.persistPath.lastIndexOf('/'));
+      if (dir) {
+        await fs.mkdir(dir, { recursive: true });
+      }
+
+      const data = this.export();
+      await fs.writeFile(this.persistPath, JSON.stringify(data, null, 2), 'utf-8');
+      this.logger.info(`LocationManager 保存完成，已保存 ${data.length} 个地标`);
+    } catch (error) {
+      this.logger.error('保存 LocationManager 失败', undefined, error as Error);
+    }
+  }
+
+  /**
+   * 从文件加载地标数据
+   */
+  private async load(): Promise<void> {
+    try {
+      const content = await fs.readFile(this.persistPath, 'utf-8');
+      const data: any[] = JSON.parse(content);
+      this.import(data);
+      this.logger.info(`LocationManager 加载完成，已加载 ${data.length} 个地标`);
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        this.logger.info('LocationManager 文件不存在，跳过加载');
+      } else {
+        this.logger.error('加载 LocationManager 失败', undefined, error as Error);
+      }
+    }
+  }
+
+  /**
+   * 强制保存（用于程序退出时）
+   */
+  async forceSave(): Promise<void> {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = undefined;
+    }
+    await this.save();
   }
 }

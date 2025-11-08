@@ -13,7 +13,7 @@ import { RuntimeContext, Logger, Config, createPrefixedLogger } from './RuntimeC
 import type { ActionExecutor } from '../actions/ActionExecutor';
 import { BlockCache } from '../cache/BlockCache';
 import { ContainerCache } from '../cache/ContainerCache';
-import { LocationManager } from '../location/LocationManager';
+import { LocationManager } from '../cache/LocationManager';
 import { InterruptSignal } from '../interrupt/InterruptSignal';
 import { EventManager } from '../events/EventManager';
 import { GameState } from '../state/GameState';

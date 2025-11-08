@@ -9,10 +9,12 @@
  */
 
 import { Bot } from 'mineflayer';
+import { Vec3 } from 'vec3';
 import { GameState } from '../state/GameState';
 import { EventManager } from '../events/EventManager';
 import { InterruptSignal } from '../interrupt/InterruptSignal';
 import type { ActionExecutor } from '../actions/ActionExecutor';
+import type { Location } from '../cache/LocationManager';
 
 /**
  * Logger 接口
@@ -46,10 +48,88 @@ export interface ContainerCache {
 }
 
 /**
- * 地标管理器接口（待实现）
+ * 地标管理器接口
  */
 export interface LocationManager {
-  // 后续实现
+  /**
+   * 设置地标
+   */
+  setLocation(name: string, position: Vec3, info: string, metadata?: any): Location;
+
+  /**
+   * 获取地标
+   */
+  getLocation(name: string): Location | undefined;
+
+  /**
+   * 删除地标
+   */
+  deleteLocation(name: string): boolean;
+
+  /**
+   * 更新地标信息
+   */
+  updateLocation(name: string, info: string): boolean;
+
+  /**
+   * 获取所有地标
+   */
+  getAllLocations(): Location[];
+
+  /**
+   * 查找附近的地标
+   */
+  findNearby(center: Vec3, radius?: number): Location[];
+
+  /**
+   * 搜索地标（按名称或信息）
+   */
+  search(query: string): Location[];
+
+  /**
+   * 获取最近的地标
+   */
+  getNearest(center: Vec3): Location | undefined;
+
+  /**
+   * 获取所有地标的字符串描述
+   */
+  getAllLocationsString(): string;
+
+  /**
+   * 获取附近地标的字符串描述
+   */
+  getNearbyLocationsString(center: Vec3, radius?: number): string;
+
+  /**
+   * 检查地标是否存在
+   */
+  hasLocation(name: string): boolean;
+
+  /**
+   * 清空所有地标
+   */
+  clear(): void;
+
+  /**
+   * 获取地标数量
+   */
+  size(): number;
+
+  /**
+   * 导出地标数据
+   */
+  export(): any[];
+
+  /**
+   * 导入地标数据
+   */
+  import(data: any[]): void;
+
+  /**
+   * 保存地标数据
+   */
+  save(): Promise<void>;
 }
 
 /**
