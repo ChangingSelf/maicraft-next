@@ -270,7 +270,7 @@ export class Agent {
 
       this.logger.info('✅ Agent 状态保存完成');
     } catch (error) {
-      this.logger.error('❌ 保存 Agent 状态失败:', error);
+      this.logger.error('❌ 保存 Agent 状态失败:', {}, error as Error);
     }
   }
 

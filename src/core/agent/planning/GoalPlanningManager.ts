@@ -225,7 +225,7 @@ export class GoalPlanningManager {
   private startAutoCheckLoop(): void {
     this.autoCheckInterval = setInterval(() => {
       this.autoCheckCompletion().catch(error => {
-        this.logger.error('自动检查任务完成失败:', error);
+        this.logger.error('自动检查任务完成失败:', {}, error as Error);
       });
     }, 1000); // 每秒检查一次
   }
@@ -274,7 +274,7 @@ export class GoalPlanningManager {
 
       await fs.writeFile(this.dataFile, JSON.stringify(data, null, 2));
     } catch (error) {
-      this.logger.error('保存 Goal-Planning 数据失败:', error);
+      this.logger.error('保存 Goal-Planning 数据失败:', {}, error as Error);
     }
   }
 

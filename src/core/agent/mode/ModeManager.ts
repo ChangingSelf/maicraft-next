@@ -121,11 +121,9 @@ export class ModeManager {
     }
 
     // 检查优先级（参考原maicraft：被动响应模式可以中断任何模式）
-    if (targetMode.requiresLLMDecision) {
-      if (this.currentMode && this.currentMode.priority > targetMode.priority) {
-        this.logger.warn(`⚠️ 无法切换到低优先级模式: ${targetMode.name} (当前: ${this.currentMode.name})`);
-        return false;
-      }
+    if (targetMode.requiresLLMDecision && this.currentMode && this.currentMode.priority > targetMode.priority) {
+      this.logger.warn(`⚠️ 无法切换到低优先级模式: ${targetMode.name} (当前: ${this.currentMode.name})`);
+      return false;
     }
 
     // 执行切换
@@ -198,7 +196,7 @@ export class ModeManager {
         }
       }
     } catch (error) {
-      this.logger.error(`❌ 检查自动转换失败: ${this.currentMode.name}`, error);
+      this.logger.error(`❌ 检查自动转换失败: ${this.currentMode.name}`, {}, error as Error);
     }
 
     return false;
@@ -215,7 +213,7 @@ export class ModeManager {
         try {
           await listener.onGameStateUpdated(gameState, this.previousGameState);
         } catch (error) {
-          this.logger.error(`❌ 游戏状态监听器异常: ${listener.listenerName}`, error);
+          this.logger.error(`❌ 游戏状态监听器异常: ${listener.listenerName}`, {}, error as Error);
         }
       }
     }
@@ -252,7 +250,7 @@ export class ModeManager {
         try {
           await listener.onEntitiesUpdated(entities);
         } catch (error) {
-          this.logger.error(`❌ 实体监听器异常: ${listener.listenerName}`, error);
+          this.logger.error(`❌ 实体监听器异常: ${listener.listenerName}`, {}, error as Error);
         }
       }
     }
@@ -267,7 +265,7 @@ export class ModeManager {
         try {
           await listener.onInventoryUpdated(inventory);
         } catch (error) {
-          this.logger.error(`❌ 库存监听器异常: ${listener.listenerName}`, error);
+          this.logger.error(`❌ 库存监听器异常: ${listener.listenerName}`, {}, error as Error);
         }
       }
     }
@@ -282,7 +280,7 @@ export class ModeManager {
         try {
           await listener.onHealthUpdated(health);
         } catch (error) {
-          this.logger.error(`❌ 健康监听器异常: ${listener.listenerName}`, error);
+          this.logger.error(`❌ 健康监听器异常: ${listener.listenerName}`, {}, error as Error);
         }
       }
     }
@@ -322,7 +320,7 @@ export class ModeManager {
     try {
       await this.currentMode.execute();
     } catch (error) {
-      this.logger.error(`❌ 模式执行失败: ${this.currentMode.name}`, error);
+      this.logger.error(`❌ 模式执行失败: ${this.currentMode.name}`, undefined, error as Error);
     }
   }
 
@@ -350,7 +348,7 @@ export class ModeManager {
       this.logger.info(`✅ 已强制恢复到主模式: ${reason}`);
       return true;
     } catch (error) {
-      this.logger.error(`❌ 强制恢复失败: ${reason}`, error);
+      this.logger.error(`❌ 强制恢复失败: ${reason}`, undefined, error as Error);
       return false;
     }
   }

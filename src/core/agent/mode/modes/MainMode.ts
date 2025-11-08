@@ -184,6 +184,8 @@ export class MainMode extends BaseMode {
     // 这里需要实现动作解析逻辑
     // 由于原项目可能有专门的解析器，这里提供基础实现
 
+    // 解析并执行动作
+
     try {
       // 简单的JSON解析示例
       const actionMatches = llmResponse.match(/\{[^}]*\}/g) || [];
@@ -194,9 +196,6 @@ export class MainMode extends BaseMode {
       }
 
       this.logger.info(`📋 准备执行 ${actionMatches.length} 个动作`);
-
-      // 记录决策开始
-      const decisionIntention = `执行 ${actionMatches.length} 个动作`;
       const allActions: any[] = [];
 
       // 执行每个动作
@@ -209,16 +208,20 @@ export class MainMode extends BaseMode {
           // 尝试多种可能的动作字段名
           const actionName = actionJson.action_type || actionJson.action || actionJson.type || actionJson.name || actionJson.command;
 
+          // 提取意图
+          const actionIntention = actionJson.intention || `执行${actionName}操作`;
+
           if (!actionName) {
             this.logger.warn(`⚠️ 动作 ${i + 1}/${actionMatches.length}: 缺少动作字段 - ${JSON.stringify(actionJson)}`);
             continue;
           }
 
-          this.logger.info(`🎬 执行动作 ${i + 1}/${actionMatches.length}: ${actionName}`);
+          this.logger.info(`🎬 执行动作 ${i + 1}/${actionMatches.length}: ${actionName} - 意图: ${actionIntention}`);
 
           // 记录动作信息
           allActions.push({
             action: actionName,
+            intention: actionIntention,
             params: actionJson.params || actionJson,
             index: i + 1,
           });
@@ -229,27 +232,13 @@ export class MainMode extends BaseMode {
             if (modeSwitchResult) {
               this.logger.info(`✅ 动作 ${i + 1}/${actionMatches.length}: 切换到${modeSwitchResult}模式`);
               // 记录成功的决策
-              this.state!.memory.recordDecision(decisionIntention, allActions, 'success', `切换到${modeSwitchResult}模式`);
+              this.state!.memory.recordDecision(actionIntention, allActions, 'success', `切换到${modeSwitchResult}模式`);
               // GUI模式切换后，停止后续动作执行
               break;
             }
           } else {
             // 执行普通动作
             const result = await this.state!.context.executor.execute(actionName, actionJson.params || actionJson);
-
-            // 记录决策结果
-            const decisionResult = result.success ? 'success' : 'failed';
-            this.state!.memory.recordDecision(
-              `${actionName} 动作执行`,
-              [
-                {
-                  actionType: actionName,
-                  params: actionJson.params || actionJson,
-                },
-              ],
-              decisionResult,
-              `位置: (${this.state!.context.gameState.blockPosition.x}, ${this.state!.context.gameState.blockPosition.y}, ${this.state!.context.gameState.blockPosition.z}) - ${result.message}`,
-            );
 
             if (result.success) {
               this.logger.info(`✅ 动作 ${i + 1}/${actionMatches.length}: 成功`);
@@ -262,19 +251,22 @@ export class MainMode extends BaseMode {
         } catch (parseError) {
           this.logger.error(`❌ 动作 ${i + 1}/${actionMatches.length} 解析失败:`, undefined, parseError as Error);
           // 记录异常的决策
-          this.state!.memory.recordDecision(decisionIntention, allActions, 'failed', `解析失败: ${(parseError as Error).message}`);
+          this.state!.memory.recordDecision('动作解析失败', allActions, 'failed', `解析失败: ${(parseError as Error).message}`);
           break;
         }
       }
 
       // 如果所有动作都成功执行，记录成功的决策
       if (allActions.length > 0 && !allActions.some(a => a.failed)) {
-        this.state!.memory.recordDecision(decisionIntention, allActions, 'success');
+        // 从第一个动作推断整体意图
+        const firstActionIntention = allActions[0]?.intention || '执行动作序列';
+        this.state!.memory.recordDecision(`${firstActionIntention}等操作`, allActions, 'success');
+        this.logger.debug(`✅ 动作序列执行成功: ${allActions.length} 个动作`);
       }
     } catch (error) {
       this.logger.error('❌ 动作解析执行异常:', undefined, error as Error);
       // 记录异常的决策
-      this.state!.memory.recordDecision('执行动作序列', [], 'failed', (error as Error).message);
+      this.state!.memory.recordDecision('执行动作序列 (异常)', [], 'failed', (error as Error).message);
     }
   }
 

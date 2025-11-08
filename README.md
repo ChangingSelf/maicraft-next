@@ -191,6 +191,52 @@ graph TD
     class E,F,G,H,I coreClass
 ```
 
+## 🔄 系统工作时序图
+
+```mermaid
+sequenceDiagram
+    participant M as Mineflayer Bot
+    participant GS as GameState
+    participant A as Agent
+    participant MM as ModeManager
+    participant DL as DecisionLoop
+    participant LLM as LLM Service
+    participant AE as ActionExecutor
+
+    Note over M,AE: 系统启动流程
+    M->>GS: 连接Minecraft服务器
+    M->>GS: 初始化游戏状态监听
+
+    Note over M,AE: 游戏运行时序
+    loop 实时状态更新 (每200ms)
+        M->>GS: 触发状态事件<br/>(位置/生命值/物品等)
+        GS->>A: 通知状态变更
+    end
+
+    Note over A,AE: 决策执行流程
+    A->>MM: 检查当前模式
+    alt 主模式 (MainMode)
+        MM->>DL: 调用主决策循环
+    else 战斗模式 (CombatMode)
+        MM->>DL: 调用战斗决策循环
+    else 聊天模式
+        MM->>DL: 调用聊天循环
+    end
+
+    DL->>LLM: 请求决策<br/>(包含当前状态和记忆)
+    LLM-->>DL: 返回动作指令
+
+    DL->>AE: 执行动作
+    AE->>M: 调用Mineflayer API
+    M->>GS: 更新游戏状态
+    AE-->>DL: 返回执行结果
+
+    Note over DL,A: 记忆和规划更新
+    DL->>A: 记录决策记忆
+    DL->>A: 更新任务进度
+    A->>A: 持久化记忆数据
+```
+
 ## 🔄 从 Maicraft 到 Maicraft-Next
 
 ### 架构对比

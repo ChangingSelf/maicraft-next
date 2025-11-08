@@ -123,7 +123,7 @@ class MaicraftTestBot {
    */
   private setupBotEvents() {
     this.bot.on('error', err => {
-      logger.error('Bot 错误:', err);
+      logger.error('Bot 错误:', {}, err);
     });
 
     this.bot.on('end', reason => {
@@ -253,7 +253,7 @@ class MaicraftTestBot {
       try {
         await this.handleCommand(command, args.slice(1), username);
       } catch (error) {
-        logger.error('命令执行失败:', error);
+        logger.error('命令执行失败:', {}, error as Error);
         this.bot.chat(`命令执行失败: ${(error as Error).message}`);
       }
     });
@@ -368,14 +368,14 @@ async function main() {
   try {
     await testBot.initialize();
   } catch (error) {
-    logger.error('初始化失败:', error);
+    logger.error('初始化失败:', {}, error as Error);
     process.exit(1);
   }
 }
 
 // 启动
 main().catch(error => {
-  logger.error('程序异常:', error);
+  logger.error('程序异常:', {}, error as Error);
   process.exit(1);
 });
 
