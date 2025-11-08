@@ -50,6 +50,111 @@ console.log(plan.progress); // 45%
 
 ---
 
+## 🔄 工作流程
+
+### Mermaid 时序图
+
+```mermaid
+sequenceDiagram
+    participant A as Agent
+    participant G as GoalPlanningManager
+    participant L as MainDecisionLoop
+    participant M as MainMode
+    participant LLM as LLM服务
+
+    Note over A: 初始化阶段
+    A->>G: new GoalPlanningManager()
+    A->>G: initialize()
+    G->>G: startAutoCheckLoop() 每秒检查
+
+    Note over A: 运行阶段
+    loop 每5次循环评估任务
+        L->>L: evaluateTask()
+        L->>G: getCurrentTask()
+        L->>M: 收集决策数据
+        M->>G: generateStatusSummary()
+        M->>LLM: 包含规划状态的决策提示词
+        LLM-->>M: 决策结果
+        M->>A: 执行动作
+        G->>G: 自动检测任务完成
+        alt 任务完成
+            G->>G: checkGoalCompletion()
+            Note over G: 更新进度并保存
+        end
+    end
+```
+
+### 关键代码流程
+
+#### 1. Agent 初始化规划系统
+
+```typescript
+// Agent.ts - 初始化
+const planningManager = new GoalPlanningManager(gameContext);
+await this.state.planningManager.initialize();
+```
+
+#### 2. 自动检查循环
+
+```typescript
+// GoalPlanningManager.ts - 自动检查
+private startAutoCheckLoop(): void {
+  this.autoCheckInterval = setInterval(() => {
+    this.autoCheckCompletion().catch(error => {
+      this.logger.error('自动检查任务完成失败:', {}, error as Error);
+    });
+  }, 1000); // 每秒检查一次
+}
+```
+
+#### 3. 决策循环中使用规划状态
+
+```typescript
+// MainDecisionLoop.ts - 任务评估
+private async evaluateTask(): Promise<void> {
+  const { planningManager } = this.state;
+  const currentTask = planningManager?.getCurrentTask()?.title || '暂无任务';
+
+  // 构建包含规划状态的评估数据
+  const evaluationData = {
+    goal: this.state.goal,
+    current_task: currentTask,
+    // ... 其他数据
+  };
+}
+```
+
+#### 4. 在决策提示词中包含规划信息
+
+```typescript
+// PromptDataCollector.ts - 收集规划状态
+const planningStatus = planningManager?.generateStatusSummary() || '暂无任务';
+
+// 生成的提示词包含：
+// 🎯 当前目标: 建造房子
+// 📋 收集材料 (75%)
+//   ✅ 收集64个橡木 (100%)
+//   🔄 制作256个木板 (50%)
+// 🔄 当前任务: 制作256个木板
+//    进度: 128/256 橡木板
+//    完成条件: 背包中至少有 256 个 oak_planks
+```
+
+#### 5. 任务自动完成检测
+
+```typescript
+// Task.ts - 自动检测完成
+checkCompletion(context: GameContext): boolean {
+  const completed = this.tracker.checkCompletion(context);
+  if (completed && this.status !== 'completed') {
+    this.complete(); // 自动标记完成
+  }
+  return completed;
+}
+```
+
+---
+
 ## 📐 系统架构
 
 ```
@@ -239,35 +344,30 @@ await planning.cancelGoal(goal.id);
 ### 在决策循环中
 
 ```typescript
-// MainDecisionLoop.ts
+// MainDecisionLoop.ts - 实际项目中的使用
 async think(): Promise<void> {
-  // 1. 更新任务进度
-  await this.state.planningManager.updateProgress();
-
-  // 2. 获取当前目标和计划
-  const currentGoal = await this.state.planningManager.getCurrentGoal();
-  const currentPlan = currentGoal?.plans[0];
-
-  // 3. 包含在 Prompt 中
-  const prompt = `
-    当前目标: ${currentGoal?.name}
-    当前计划: ${currentPlan?.name}
-    进度: ${currentPlan?.progress}%
-
-    未完成的任务:
-    ${currentPlan?.tasks
-      .filter(t => t.status !== 'completed')
-      .map(t => `- ${t.name} (${t.progress}%)`)
-      .join('\n')}
-  `;
-
-  // 4. 调用 LLM 决策
-  const response = await this.llmManager.chat(prompt);
-
-  // 5. 根据任务完成情况更新
-  if (currentPlan?.progress === 100) {
-    await this.state.planningManager.completePlan(currentPlan.id);
+  // 1. 定期评估任务（每5次循环）
+  if (this.evaluationCounter % 5 === 0) {
+    await this.evaluateTask(); // 包含规划状态的评估
   }
+
+  // 2. 执行当前模式逻辑（MainMode）
+  await this.executeCurrentMode();
+}
+
+// MainMode.ts - 决策时包含规划信息
+private async makeDecision(): Promise<void> {
+  // 使用 PromptDataCollector 收集包含规划状态的数据
+  const promptData = await this.dataCollector!.collectPromptData();
+
+  // promptData.to_do_list 包含规划系统的状态摘要
+  const prompt = await this.actionPromptGenerator!.generateActionPrompt({
+    ...promptData,
+    // 规划状态已自动包含在 to_do_list 中
+  });
+
+  const response = await this.llmManager!.chatCompletion(prompt);
+  // 执行动作...
 }
 ```
 
@@ -333,10 +433,50 @@ await planning.createGoal({
 ### 4. 定期更新进度
 
 ```typescript
-// 在决策循环中定期更新
-setInterval(async () => {
-  await planning.updateProgress();
-}, 10000); // 每 10 秒更新一次
+// 实际项目中自动更新（GoalPlanningManager内部实现）
+private startAutoCheckLoop(): void {
+  this.autoCheckInterval = setInterval(() => {
+    this.autoCheckCompletion().catch(error => {
+      this.logger.error('自动检查任务完成失败:', {}, error as Error);
+    });
+  }, 1000); // 每秒自动检查，无需手动调用
+}
+```
+
+### 5. 创建规划的实际代码
+
+```typescript
+// Agent.ts - 设置目标时自动创建规划
+setGoal(description: string): void {
+  (this.state as any).goal = description;
+  this.state.planningManager.createGoal(description);
+  this.logger.info(`🎯 设置新目标: ${description}`);
+}
+
+// 在代码中创建具体任务（实际使用时通过LLM生成）
+async function createMiningPlan(planningManager: GoalPlanningManager) {
+  const goal = planningManager.createGoal('收集钻石');
+
+  const plan = planningManager.createPlan({
+    title: '钻石开采计划',
+    description: '开采钻石矿石',
+    goalId: goal.id,
+    tasks: [
+      new Task({
+        title: '找到钻石矿',
+        description: '探索Y=12以下的区域寻找钻石',
+        tracker: new LocationTracker(0, 5, 0, 50), // 到达Y=5附近
+      }),
+      new Task({
+        title: '收集钻石矿石',
+        description: '挖掘并收集钻石矿石',
+        tracker: new InventoryTracker('diamond_ore', 5),
+      }),
+    ],
+  });
+
+  planningManager.setCurrentPlan(plan.id);
+}
 ```
 
 ---
