@@ -60,6 +60,30 @@ export const chestOperationTemplate: PromptTemplate = {
 - 及时清理不需要的物品
 - 重要物品分开存放，避免混杂
 
+**输出格式要求**
+你必须以结构化JSON格式返回，包含：
+1. **thinking** (可选): 简短说明你的整理思路
+2. **actions** (必需): 操作列表
+
+**输出示例**
+\`\`\`json
+{{
+  "thinking": "将铁锭和煤炭取出用于冶炼",
+  "actions": [
+    {{
+      "action_type": "take_items",
+      "item": "iron_ingot",
+      "count": 16
+    }},
+    {{
+      "action_type": "take_items",
+      "item": "coal",
+      "count": 8
+    }}
+  ]
+}}
+\`\`\`
+
 请根据当前箱子内容和你的物品栏情况，输出合适的操作序列。`,
 
   requiredVariables: ['chest_gui', 'bot_name', 'player_name'],

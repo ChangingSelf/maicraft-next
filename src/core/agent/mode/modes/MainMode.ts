@@ -15,6 +15,8 @@ import { promptManager, initAllTemplates } from '../../prompt';
 import { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
 import { PromptDataCollector } from '../../loop/PromptDataCollector';
 import { getLogger } from '@/utils/Logger';
+import { StructuredOutputManager } from '../../structured/StructuredOutputManager';
+import type { StructuredAction } from '../../structured/ActionSchema';
 
 export class MainMode extends BaseMode {
   readonly type = ModeManager.MODE_TYPES.MAIN;
@@ -32,6 +34,7 @@ export class MainMode extends BaseMode {
   private actionPromptGenerator: ActionPromptGenerator | null = null;
   private dataCollector: PromptDataCollector | null = null;
   private promptsInitialized: boolean = false;
+  private structuredOutputManager: StructuredOutputManager | null = null;
 
   constructor(context: RuntimeContext) {
     super(context);
@@ -60,6 +63,11 @@ export class MainMode extends BaseMode {
       if (this.llmManager) {
         this.actionPromptGenerator = new ActionPromptGenerator(state.context.executor);
         this.dataCollector = new PromptDataCollector(state, this.actionPromptGenerator);
+        // 创建结构化输出管理器
+        // TODO: 临时禁用结构化输出，使用降级解析方案
+        this.structuredOutputManager = new StructuredOutputManager(this.llmManager, {
+          useStructuredOutput: false, // 暂时使用手动解析
+        });
       }
     }
   }
@@ -133,9 +141,14 @@ export class MainMode extends BaseMode {
 
   /**
    * 执行LLM决策
-   * 参考原maicraft的next_thinking逻辑
+   * 使用结构化输出，不再依赖不可靠的正则表达式解析
    */
   private async executeLLMDecision(): Promise<void> {
+    if (!this.structuredOutputManager) {
+      this.logger.error('❌ 结构化输出管理器未初始化');
+      return;
+    }
+
     // 收集决策数据
     const promptData = await this.dataCollector!.collectAllData();
 
@@ -150,123 +163,96 @@ export class MainMode extends BaseMode {
 
     this.logger.debug('💭 生成提示词完成');
 
-    // 调用LLM
-    const response = await this.llmManager!.chatCompletion(prompt, systemPrompt);
+    // 使用结构化输出管理器请求LLM
+    const structuredResponse = await this.structuredOutputManager.requestMainActions(prompt, systemPrompt);
 
-    if (!response.success) {
-      this.logger.warn(`⚠️ LLM调用失败`);
+    if (!structuredResponse) {
+      this.logger.warn('⚠️ LLM结构化输出获取失败');
       return;
     }
 
     this.logger.info('🤖 LLM 响应完成');
 
     // 记录LLM的思维过程
-    if (response.content) {
-      // 从LLM响应中提取思维过程
-      const thinkingMatch = response.content.match(/【思考】([\s\S]*?)【/);
-      if (thinkingMatch) {
-        this.state!.memory.recordThought(`🤔 LLM思维: ${thinkingMatch[1].trim()}`, {
-          context: 'main_decision',
-          prompt: prompt.substring(0, 200) + '...',
-          mode: 'main',
-        });
-      }
-
-      await this.parseAndExecuteActions(response.content);
+    if (structuredResponse.thinking) {
+      this.state!.memory.recordThought(`🤔 LLM思维: ${structuredResponse.thinking}`, {
+        context: 'main_decision',
+        prompt: prompt.substring(0, 200) + '...',
+        mode: 'main',
+      });
     }
+
+    // 执行结构化的动作列表
+    await this.executeStructuredActions(structuredResponse.actions);
   }
 
   /**
-   * 解析并执行动作
-   * 参考原maicraft的动作解析逻辑
+   * 执行结构化的动作列表
+   * 不再需要JSON解析，直接获得结构化的动作对象
    */
-  private async parseAndExecuteActions(llmResponse: string): Promise<void> {
-    // 这里需要实现动作解析逻辑
-    // 由于原项目可能有专门的解析器，这里提供基础实现
+  private async executeStructuredActions(actions: StructuredAction[]): Promise<void> {
+    if (!actions || actions.length === 0) {
+      this.logger.warn('⚠️ 动作列表为空');
+      return;
+    }
 
-    // 解析并执行动作
+    this.logger.info(`📋 准备执行 ${actions.length} 个动作`);
+    const allActions: any[] = [];
 
-    try {
-      // 简单的JSON解析示例
-      const actionMatches = llmResponse.match(/\{[^}]*\}/g) || [];
+    // 执行每个动作
+    for (let i = 0; i < actions.length; i++) {
+      const action = actions[i];
+      const actionName = action.action_type;
+      const actionIntention = action.intention || `执行${actionName}操作`;
 
-      if (actionMatches.length === 0) {
-        this.logger.warn('⚠️ 未检测到有效动作');
-        return;
-      }
+      this.logger.info(`🎬 执行动作 ${i + 1}/${actions.length}: ${actionName} - 意图: ${actionIntention}`);
+      this.logger.debug(`🔍 动作详情: ${JSON.stringify(action, null, 2)}`);
 
-      this.logger.info(`📋 准备执行 ${actionMatches.length} 个动作`);
-      const allActions: any[] = [];
+      // 记录动作信息
+      allActions.push({
+        action: actionName,
+        intention: actionIntention,
+        params: action,
+        index: i + 1,
+      });
 
-      // 执行每个动作
-      for (let i = 0; i < actionMatches.length; i++) {
+      // 检查是否是GUI操作，需要切换模式
+      if (this.isGUIAction(actionName)) {
+        const modeSwitchResult = await this.handleGUIAction(actionName, action);
+        if (modeSwitchResult) {
+          this.logger.info(`✅ 动作 ${i + 1}/${actions.length}: 切换到${modeSwitchResult}模式`);
+          // 记录成功的决策
+          this.state!.memory.recordDecision(actionIntention, allActions, 'success', `切换到${modeSwitchResult}模式`);
+          // GUI模式切换后，停止后续动作执行
+          break;
+        }
+      } else {
+        // 执行普通动作
         try {
-          const actionJson = JSON.parse(actionMatches[i]);
+          // 类型安全：将 actionName 断言为 ActionId（动作名称已经过验证）
+          const result = await this.state!.context.executor.execute(actionName as any, action);
 
-          this.logger.debug(`🔍 解析的动作JSON: ${JSON.stringify(actionJson, null, 2)}`);
-
-          // 尝试多种可能的动作字段名
-          const actionName = actionJson.action_type || actionJson.action || actionJson.type || actionJson.name || actionJson.command;
-
-          // 提取意图
-          const actionIntention = actionJson.intention || `执行${actionName}操作`;
-
-          if (!actionName) {
-            this.logger.warn(`⚠️ 动作 ${i + 1}/${actionMatches.length}: 缺少动作字段 - ${JSON.stringify(actionJson)}`);
-            continue;
-          }
-
-          this.logger.info(`🎬 执行动作 ${i + 1}/${actionMatches.length}: ${actionName} - 意图: ${actionIntention}`);
-
-          // 记录动作信息
-          allActions.push({
-            action: actionName,
-            intention: actionIntention,
-            params: actionJson.params || actionJson,
-            index: i + 1,
-          });
-
-          // 检查是否是GUI操作，需要切换模式
-          if (this.isGUIAction(actionName)) {
-            const modeSwitchResult = await this.handleGUIAction(actionName, actionJson);
-            if (modeSwitchResult) {
-              this.logger.info(`✅ 动作 ${i + 1}/${actionMatches.length}: 切换到${modeSwitchResult}模式`);
-              // 记录成功的决策
-              this.state!.memory.recordDecision(actionIntention, allActions, 'success', `切换到${modeSwitchResult}模式`);
-              // GUI模式切换后，停止后续动作执行
-              break;
-            }
+          if (result.success) {
+            this.logger.info(`✅ 动作 ${i + 1}/${actions.length}: 成功 - ${result.message}`);
           } else {
-            // 执行普通动作
-            const result = await this.state!.context.executor.execute(actionName, actionJson.params || actionJson);
-
-            if (result.success) {
-              this.logger.info(`✅ 动作 ${i + 1}/${actionMatches.length}: 成功`);
-            } else {
-              this.logger.warn(`⚠️ 动作 ${i + 1}/${actionMatches.length}: 失败 - ${result.message}`);
-              // 原maicraft设计：失败时停止后续动作
-              break;
-            }
+            this.logger.warn(`⚠️ 动作 ${i + 1}/${actions.length}: 失败 - ${result.message}`);
+            // 原maicraft设计：失败时停止后续动作
+            this.state!.memory.recordDecision(actionIntention, allActions, 'failed', result.message);
+            break;
           }
-        } catch (parseError) {
-          this.logger.error(`❌ 动作 ${i + 1}/${actionMatches.length} 解析失败:`, undefined, parseError as Error);
-          // 记录异常的决策
-          this.state!.memory.recordDecision('动作解析失败', allActions, 'failed', `解析失败: ${(parseError as Error).message}`);
+        } catch (executeError) {
+          this.logger.error(`❌ 动作 ${i + 1}/${actions.length} 执行异常:`, undefined, executeError as Error);
+          this.state!.memory.recordDecision(actionIntention, allActions, 'failed', `执行异常: ${(executeError as Error).message}`);
           break;
         }
       }
+    }
 
-      // 如果所有动作都成功执行，记录成功的决策
-      if (allActions.length > 0 && !allActions.some(a => a.failed)) {
-        // 从第一个动作推断整体意图
-        const firstActionIntention = allActions[0]?.intention || '执行动作序列';
-        this.state!.memory.recordDecision(`${firstActionIntention}等操作`, allActions, 'success');
-        this.logger.debug(`✅ 动作序列执行成功: ${allActions.length} 个动作`);
-      }
-    } catch (error) {
-      this.logger.error('❌ 动作解析执行异常:', undefined, error as Error);
-      // 记录异常的决策
-      this.state!.memory.recordDecision('执行动作序列 (异常)', [], 'failed', (error as Error).message);
+    // 如果所有动作都成功执行，记录成功的决策
+    if (allActions.length > 0 && allActions.length === actions.length) {
+      const firstActionIntention = allActions[0]?.intention || '执行动作序列';
+      this.state!.memory.recordDecision(`${firstActionIntention}等操作`, allActions, 'success');
+      this.logger.debug(`✅ 动作序列执行成功: ${allActions.length} 个动作`);
     }
   }
 

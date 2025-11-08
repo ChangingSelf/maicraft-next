@@ -90,6 +90,15 @@ export interface LLMRequestConfig {
   timeout?: number;
   tools?: any[]; // 工具列表
   tool_choice?: any; // 工具选择策略
+  response_format?: {
+    // JSON Schema structured output support
+    type: 'json_object' | 'json_schema' | 'text';
+    json_schema?: {
+      name?: string;
+      strict?: boolean;
+      schema?: any;
+    };
+  };
 }
 
 /**

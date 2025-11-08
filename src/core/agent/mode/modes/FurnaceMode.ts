@@ -14,6 +14,7 @@ import type { BlockPosition } from '@/core/state/types';
 import { ActionIds } from '@/core/actions/ActionIds';
 import { getLogger } from '@/utils/Logger';
 import { promptManager } from '../../prompt';
+import { StructuredOutputManager } from '../../structured/StructuredOutputManager';
 
 interface FurnaceSlot {
   [itemName: string]: number;
@@ -47,11 +48,25 @@ export class FurnaceMode extends BaseMode {
   private inputSlot: FurnaceSlot = {};
   private fuelSlot: FurnaceSlot = {};
   private outputSlot: FurnaceSlot = {};
+  private structuredOutputManager: StructuredOutputManager | null = null;
 
   constructor(context: RuntimeContext) {
     super(context);
     // 重新设置logger以使用正确的名称
     this.logger = getLogger(this.name);
+  }
+
+  /**
+   * 绑定Agent状态并初始化结构化输出管理器
+   */
+  bindState(state: AgentState): void {
+    super.bindState(state);
+    if (state?.llmManager) {
+      // TODO: 临时禁用结构化输出，使用降级解析方案
+      this.structuredOutputManager = new StructuredOutputManager(state.llmManager, {
+        useStructuredOutput: false, // 暂时使用手动解析
+      });
+    }
   }
 
   /**
@@ -185,10 +200,13 @@ export class FurnaceMode extends BaseMode {
   }
 
   /**
-   * 执行LLM决策
+   * 执行LLM决策（使用结构化输出）
    */
   private async executeLLMDecision(): Promise<void> {
-    if (!this.state) return;
+    if (!this.state || !this.structuredOutputManager) {
+      this.logger.error('❌ 状态或结构化输出管理器未初始化');
+      return;
+    }
 
     // 生成熔炉状态描述
     const furnaceDescription = this.generateFurnaceDescription();
@@ -208,20 +226,23 @@ export class FurnaceMode extends BaseMode {
 
     this.logger.debug('🔥 生成熔炉操作提示词完成');
 
-    // 调用LLM
-    const response = await this.state.llmManager.chatCompletion(prompt, systemPrompt);
+    // 使用结构化输出请求熔炉操作
+    const structuredResponse = await this.structuredOutputManager.requestFurnaceOperations(prompt, systemPrompt);
 
-    if (!response.success) {
-      this.logger.warn(`⚠️ 熔炉LLM调用失败`);
+    if (!structuredResponse) {
+      this.logger.warn('⚠️ 熔炉LLM结构化输出获取失败');
       return;
     }
 
     this.logger.info('🔥 熔炉LLM响应完成');
 
-    // 解析并执行动作
-    if (response.content) {
-      await this.parseAndExecuteFurnaceActions(response.content);
+    // 记录思考过程
+    if (structuredResponse.thinking && this.state.memory) {
+      this.state.memory.recordThought(`🔥 熔炉操作思考: ${structuredResponse.thinking}`);
     }
+
+    // 执行结构化的熔炉动作
+    await this.executeStructuredFurnaceActions(structuredResponse.actions);
   }
 
   /**
@@ -264,59 +285,54 @@ export class FurnaceMode extends BaseMode {
   }
 
   /**
-   * 解析并执行熔炉动作
+   * 执行结构化的熔炉动作列表
    */
-  private async parseAndExecuteFurnaceActions(llmResponse: string): Promise<void> {
-    try {
-      // 简单的JSON解析
-      const actionMatches = llmResponse.match(/\{[^}]*\}/g) || [];
+  private async executeStructuredFurnaceActions(actions: any[]): Promise<void> {
+    if (!actions || actions.length === 0) {
+      this.logger.warn('⚠️ 熔炉动作列表为空');
+      return;
+    }
 
-      if (actionMatches.length === 0) {
-        this.logger.warn('⚠️ 未检测到有效的熔炉动作');
-        return;
+    this.logger.info(`🔥 准备执行 ${actions.length} 个熔炉动作`);
+
+    // 执行每个动作
+    for (let i = 0; i < actions.length; i++) {
+      const action = actions[i];
+
+      this.logger.debug(`🔥 熔炉动作详情: ${JSON.stringify(action, null, 2)}`);
+
+      // 验证动作格式
+      if (!this.validateFurnaceAction(action)) {
+        this.logger.warn(`⚠️ 熔炉动作 ${i + 1}/${actions.length}: 格式无效`);
+        continue;
       }
 
-      this.logger.info(`🔥 准备执行 ${actionMatches.length} 个熔炉动作`);
+      this.logger.info(`🔥 执行熔炉动作 ${i + 1}/${actions.length}: ${action.action_type} ${action.item} x${action.count} @ ${action.slot}`);
 
-      // 执行每个动作
-      for (let i = 0; i < actionMatches.length; i++) {
-        try {
-          const actionJson = JSON.parse(actionMatches[i]);
+      // 执行动作
+      try {
+        const result = await this.executeFurnaceAction(action as FurnaceAction);
 
-          this.logger.debug(`🔍 解析的熔炉动作JSON: ${JSON.stringify(actionJson, null, 2)}`);
-
-          // 验证动作格式
-          if (!this.validateFurnaceAction(actionJson)) {
-            this.logger.warn(`⚠️ 熔炉动作 ${i + 1}/${actionMatches.length}: 格式无效`);
-            continue;
-          }
-
-          // 执行熔炉动作
-          const result = await this.executeFurnaceAction(actionJson as FurnaceAction);
-
-          if (result.success) {
-            this.logger.info(`✅ 熔炉动作 ${i + 1}/${actionMatches.length}: 成功`);
-          } else {
-            this.logger.warn(`⚠️ 熔炉动作 ${i + 1}/${actionMatches.length}: 失败 - ${result.message}`);
-            // 原maicraft设计：失败时停止后续动作
-            break;
-          }
-
-          // 动作间隔（除了最后一个动作）
-          if (i < actionMatches.length - 1) {
-            await this.sleep(300);
-          }
-        } catch (parseError) {
-          this.logger.error(`❌ 熔炉动作 ${i + 1}/${actionMatches.length} 解析失败:`, undefined, parseError as Error);
+        if (result.success) {
+          this.logger.info(`✅ 熔炉动作 ${i + 1}/${actions.length}: 成功 - ${result.message}`);
+        } else {
+          this.logger.warn(`⚠️ 熔炉动作 ${i + 1}/${actions.length}: 失败 - ${result.message}`);
+          // 失败时停止后续动作
           break;
         }
-      }
 
-      // 更新熔炉状态
-      await this.updateFurnaceState();
-    } catch (error) {
-      this.logger.error('❌ 熔炉动作解析执行异常:', undefined, error as Error);
+        // 动作间隔（除了最后一个动作）
+        if (i < actions.length - 1) {
+          await this.sleep(300);
+        }
+      } catch (executeError) {
+        this.logger.error(`❌ 熔炉动作 ${i + 1}/${actions.length} 执行异常:`, undefined, executeError as Error);
+        break;
+      }
     }
+
+    // 更新熔炉状态
+    await this.updateFurnaceState();
   }
 
   /**

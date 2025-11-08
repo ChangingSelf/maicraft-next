@@ -1,8 +1,15 @@
 /**
- * 提示词解析工具
+ * 提示词解析工具（降级方案）
  *
- * 完全照搬 maicraft 的 utils.py 中的解析函数
- * 从 LLM 响应中提取 JSON 动作
+ * ⚠️ 注意：这些解析函数现在主要用作降级方案
+ * 新代码应该使用 StructuredOutputManager 进行结构化输出
+ *
+ * 这些函数保留用于：
+ * 1. 当 LLM 不支持原生结构化输出时的降级解析
+ * 2. 兼容性支持
+ * 3. StructuredOutputManager 内部使用
+ *
+ * 参考原 maicraft 的 utils.py 中的解析函数
  */
 
 import { getLogger } from '@/utils/Logger';

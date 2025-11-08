@@ -48,6 +48,38 @@ export const furnaceOperationTemplate: PromptTemplate = {
 - 确保fuel槽有足够燃料
 - 可以一次输出多个操作，系统会依次执行
 
+**输出格式要求**
+你必须以结构化JSON格式返回，包含：
+1. **thinking** (可选): 简短说明你的操作思路
+2. **actions** (必需): 操作列表
+
+**输出示例**
+\`\`\`json
+{{
+  "thinking": "取出已熔炼的铁锭，补充煤炭和铁矿石继续冶炼",
+  "actions": [
+    {{
+      "action_type": "take_items",
+      "slot": "output",
+      "item": "iron_ingot",
+      "count": 16
+    }},
+    {{
+      "action_type": "put_items",
+      "slot": "fuel",
+      "item": "coal",
+      "count": 8
+    }},
+    {{
+      "action_type": "put_items",
+      "slot": "input",
+      "item": "iron_ore",
+      "count": 16
+    }}
+  ]
+}}
+\`\`\`
+
 请根据当前熔炉状态，输出合适的操作序列。`,
 
   requiredVariables: ['furnace_gui', 'bot_name', 'player_name'],
