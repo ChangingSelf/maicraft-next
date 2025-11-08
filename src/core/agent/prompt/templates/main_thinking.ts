@@ -13,47 +13,21 @@ export function initMainThinkingTemplate(): void {
   promptManager.registerTemplate(
     new PromptTemplate(
       'main_thinking',
-      `{basic_info}
+      `{role_description}
 
-{available_actions}
-
-{eat_action}
-
-{kill_mob_action}
-
-**进入task_edit模式**
-对任务列表进行修改，包括：
-1. 更新当前任务的进展
-2. 如果当前任务无法完成，需要前置任务，创建新任务
-3. 选择其他任务
-如果当前没有正在进行的任务，最好选择一个简单合适的任务
-\`\`\`json
-{{
-    "action_type":"edit_task_list",
-}}
-\`\`\`
-
-如果目标已经完成，目标条件已经达成，直接完成目标
-总目标：{goal}
-\`\`\`json
-{{
-    "action_type":"complete_goal",
-}}
-\`\`\`
-
-{failed_hint}
-
-你必须以下格式进行进一步思考
-**分析动作**
-1.分析上次执行的动作是否成功，是否达到了目的
-2.如果动作失败，分析失败原因，并尝试使用别的方案
-3.如果一个动作反复无法完成，可能是参数错误或缺少必要条件，请结合周围环境尝试别的方案，不要重复尝试同一个动作
+**关于规划系统**
+系统会自动管理目标和任务：
+- 你的目标会被自动分解为具体的执行计划和任务
+- 每个任务都有自动追踪器，当你完成相关动作后会自动标记为完成
+- 任务完成后系统会自动切换到下一个任务
+- **你只需要专注执行动作来完成当前任务，不需要手动管理任务状态**
 
 **行为准则**
-1.先总结之前的思考和执行的记录，对执行结果进行分析，上一次使用的动作是否达到了目的
-2.你不需要搭建方块来前往某个地方，直接使用move动作，会自动搭建并移动
-3.task_edit可以帮助你规划当前任务并保持专注。
-4.set_location可以帮助你记录重要位置的信息，用于后续的移动，采矿，探索等。如果不需要使用某个地标，必须删除地标
+1. 先总结之前的思考和执行的记录，对执行结果进行分析，上一次使用的动作是否达到了目的
+2. 你不需要搭建方块来前往某个地方，直接使用move动作，会自动搭建并移动
+3. 专注于当前任务，通过执行动作来完成任务目标。任务完成会被自动检测
+4. set_location可以帮助你记录重要位置的信息，用于后续的移动，采矿，探索等。如果不需要使用某个地标，必须删除地标
+5. 查看"当前目标和任务列表"来了解你需要做什么，当前任务的进度如何
 
 **游戏指南**
 1.当你收集或挖掘一种资源，搜索一下附近是否有遗漏的同类资源，尽可能采集
@@ -61,6 +35,23 @@ export function initMainThinkingTemplate(): void {
 3.根据你的**位置信息**和**周围方块信息**，评估现在所处的环境：建筑物/洞穴/矿道/地面/森林/冰原/沙漠/水体......
 4.不同的环境拥有不同的资源，你需要根据当前目的进行移动和搜集资源
 5.请思考你的移动方向，你可以在y轴上下移动来前往地面，地下和不同的高度。
+
+**分析动作**
+1.分析上次执行的动作是否成功，是否达到了目的
+2.如果动作失败，分析失败原因，并尝试使用别的方案
+3.如果一个动作反复无法完成，可能是参数错误或缺少必要条件，请结合周围环境尝试别的方案，不要重复尝试同一个动作
+
+{available_actions}
+
+{eat_action}
+
+{kill_mob_action}
+
+---
+
+{basic_info}
+
+{failed_hint}
 
 **上一阶段的反思**
 {judge_guidance}
@@ -109,15 +100,18 @@ export function initMainThinkingTemplate(): void {
 `,
       '任务-动作选择',
       [
+        'role_description',
+        'basic_info',
+        'available_actions',
+        'eat_action',
+        'kill_mob_action',
         'failed_hint',
         'thinking_list',
         'nearby_block_info',
         'position',
         'chat_str',
-        'basic_info',
-        'available_actions',
-        'eat_action',
-        'kill_mob_action',
+        'judge_guidance',
+        'goal',
       ],
     ),
   );

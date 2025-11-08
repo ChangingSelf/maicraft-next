@@ -76,6 +76,8 @@ export class Agent {
 
     const memory = new MemoryManager();
     const planningManager = new GoalPlanningManager(gameContext);
+    // 设置 LLM Manager 以便规划管理器可以生成计划
+    planningManager.setLLMManager(this.llmManager);
     const modeManager = new ModeManager(context);
     const interrupt = new InterruptController();
 
@@ -124,6 +126,12 @@ export class Agent {
 
       // 初始化规划系统
       await this.state.planningManager.initialize();
+
+      // 如果配置中有目标但规划系统中没有，创建初始目标
+      if (this.state.goal && !this.state.planningManager.getCurrentGoal()) {
+        this.logger.info(`🎯 从配置创建初始目标: ${this.state.goal}`);
+        this.state.planningManager.createGoal(this.state.goal);
+      }
 
       // 注册所有模式
       await this.state.modeManager.registerModes();

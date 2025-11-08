@@ -11,6 +11,7 @@ export { initSystemPromptTemplates } from './system_prompts';
 export { initFurnaceOperationTemplate } from './furnace_operation';
 export { initChestOperationTemplate } from './chest_operation';
 export { initExperienceSummaryTemplate } from './experience_summary';
+export { initPlanGenerationTemplate } from './plan_generation';
 
 /**
  * 初始化所有核心模板
@@ -26,6 +27,7 @@ import { initSystemPromptTemplates } from './system_prompts';
 import { initFurnaceOperationTemplate } from './furnace_operation';
 import { initChestOperationTemplate } from './chest_operation';
 import { initExperienceSummaryTemplate } from './experience_summary';
+import { initPlanGenerationTemplate } from './plan_generation';
 
 export function initAllCoreTemplates(): void {
   initBasicInfoTemplate();
@@ -37,4 +39,5 @@ export function initAllCoreTemplates(): void {
   initFurnaceOperationTemplate();
   initChestOperationTemplate();
   initExperienceSummaryTemplate();
+  initPlanGenerationTemplate();
 }

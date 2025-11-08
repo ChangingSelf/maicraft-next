@@ -60,7 +60,10 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
     // 2. 通知游戏状态更新
     await this.notifyGameStateUpdate();
 
-    // 3. 检查模式自动切换
+    // 3. 检查是否需要生成计划
+    await this.checkAndGeneratePlan();
+
+    // 4. 检查模式自动切换
     const modeSwitched = await this.state.modeManager.checkAutoTransitions();
     if (modeSwitched) {
       this.logger.debug('✨ 模式已自动切换');
@@ -69,10 +72,10 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       return;
     }
 
-    // 4. 执行当前模式逻辑
+    // 5. 执行当前模式逻辑
     await this.executeCurrentMode();
 
-    // 5. 定期评估任务
+    // 6. 定期评估任务
     this.evaluationCounter++;
     this.logger.debug(`🔄 循环计数: ${this.evaluationCounter}`);
 
@@ -81,13 +84,13 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       await this.evaluateTask();
     }
 
-    // 6. 定期总结经验（每10次循环）
+    // 7. 定期总结经验（每10次循环）
     if (this.evaluationCounter % 10 === 0) {
       this.logger.debug('📚 执行经验总结');
       await this.summarizeExperience();
     }
 
-    // 7. 根据当前模式调整等待时间
+    // 8. 根据当前模式调整等待时间
     await this.adjustSleepDelay();
   }
 
@@ -101,6 +104,56 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       await this.state.modeManager.notifyGameStateUpdate(gameState);
     } catch (error) {
       this.logger.error('❌ 游戏状态通知失败:', undefined, error as Error);
+    }
+  }
+
+  /**
+   * 检查并生成计划
+   * 如果有目标但没有计划，则自动生成计划
+   */
+  private async checkAndGeneratePlan(): Promise<void> {
+    try {
+      const { planningManager } = this.state;
+
+      // 检查是否有当前目标
+      const currentGoal = planningManager.getCurrentGoal();
+      if (!currentGoal) {
+        return; // 没有目标，不需要生成计划
+      }
+
+      // 检查是否已有当前计划
+      const currentPlan = planningManager.getCurrentPlan();
+      if (currentPlan) {
+        return; // 已有计划，不需要生成
+      }
+
+      // 检查目标是否有任何计划
+      if (currentGoal.planIds.length > 0) {
+        // 目标有计划，但当前计划未设置，尝试设置第一个计划
+        const firstPlanId = currentGoal.planIds[0];
+        planningManager.setCurrentPlan(firstPlanId);
+        this.logger.info(`📋 恢复计划: ${firstPlanId}`);
+        return;
+      }
+
+      // 没有计划，自动生成
+      this.logger.info(`🎯 检测到目标没有计划，开始自动生成...`);
+      this.state.memory.recordThought(`🎯 为目标 "${currentGoal.description}" 生成执行计划`, {});
+
+      const plan = await planningManager.generatePlanForCurrentGoal();
+
+      if (plan) {
+        this.logger.info(`✅ 成功生成计划: ${plan.title} (${plan.tasks.length} 个任务)`);
+        this.state.memory.recordThought(`📋 生成计划: ${plan.title}`, {
+          tasksCount: plan.tasks.length,
+          planId: plan.id,
+        });
+      } else {
+        this.logger.warn('⚠️ 计划生成失败');
+        this.state.memory.recordThought(`⚠️ 计划生成失败，将继续尝试执行目标`, {});
+      }
+    } catch (error) {
+      this.logger.error('❌ 检查并生成计划失败:', undefined, error as Error);
     }
   }
 

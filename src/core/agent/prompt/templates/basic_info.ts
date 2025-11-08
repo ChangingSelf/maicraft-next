@@ -7,18 +7,15 @@
 import { PromptTemplate, promptManager } from '../prompt_manager';
 
 /**
- * 注册 basic_info 模板
+ * 注册 basic_info 模板（动态部分）
  */
 export function initBasicInfoTemplate(): void {
   promptManager.registerTemplate(
     new PromptTemplate(
       'basic_info',
-      `你是{bot_name}，游戏名叫{player_name},你正在游玩1.18.5以上版本的Minecraft。
-{self_info}
-
-**当前目标和任务列表**：
+      `**当前目标和任务规划**
 目标：{goal}
-任务列表：
+
 {to_do_list}
 
 **当前状态**
@@ -42,23 +39,32 @@ export function initBasicInfoTemplate(): void {
 **玩家聊天记录**
 {chat_str}
 `,
-      '基础信息',
+      '基础信息（动态部分）',
       [
-        'nearby_entities_info',
-        'self_info',
-        'mode',
         'goal',
-        'task',
-        'nearby_block_info',
-        'position',
-        'chat_str',
         'to_do_list',
-        'container_cache_info',
-        'inventory_info',
         'self_status_info',
-        'player_name',
-        'bot_name',
+        'inventory_info',
+        'position',
+        'nearby_block_info',
+        'container_cache_info',
+        'nearby_entities_info',
+        'chat_str',
       ],
+    ),
+  );
+
+  // 注册角色描述模板（静态部分）
+  promptManager.registerTemplate(
+    new PromptTemplate(
+      'role_description',
+      `你是{bot_name}，游戏名叫{player_name},你正在游玩1.18.5以上版本的Minecraft。
+
+**任务系统说明**
+任务系统会自动追踪你的进度，完成后会自动切换到下一个任务。你只需要专注执行动作来完成当前任务的目标。
+`,
+      '角色描述和任务系统说明',
+      ['bot_name', 'player_name'],
     ),
   );
 }

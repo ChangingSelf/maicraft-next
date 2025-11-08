@@ -11,11 +11,11 @@ export class CompositeTracker implements TaskTracker {
 
   constructor(
     private trackers: TaskTracker[],
-    private logic: 'AND' | 'OR' = 'AND',
+    private logic: 'and' | 'or' = 'and',
   ) {}
 
   checkCompletion(context: GameContext): boolean {
-    if (this.logic === 'AND') {
+    if (this.logic === 'and') {
       return this.trackers.every(tracker => tracker.checkCompletion(context));
     } else {
       return this.trackers.some(tracker => tracker.checkCompletion(context));
@@ -35,7 +35,7 @@ export class CompositeTracker implements TaskTracker {
 
   getDescription(): string {
     const descriptions = this.trackers.map(t => t.getDescription());
-    const connector = this.logic === 'AND' ? ' 并且 ' : ' 或者 ';
+    const connector = this.logic === 'and' ? ' 并且 ' : ' 或者 ';
     return descriptions.join(connector);
   }
 

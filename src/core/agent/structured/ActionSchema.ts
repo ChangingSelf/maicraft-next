@@ -386,3 +386,123 @@ export const EXPERIENCE_SUMMARY_SCHEMA = {
   },
   required: ['lessons'],
 };
+
+/**
+ * 规划生成响应结构
+ */
+export interface PlanGenerationResponse {
+  title: string; // 计划标题
+  description: string; // 计划描述
+  tasks: PlanTaskDefinition[]; // 任务列表
+}
+
+/**
+ * 计划中的任务定义
+ */
+export interface PlanTaskDefinition {
+  title: string; // 任务标题
+  description: string; // 任务描述
+  tracker: any; // 追踪器配置（JSON格式）
+  dependencies: string[]; // 依赖任务的索引（字符串数组）
+}
+
+/**
+ * 规划生成的 JSON Schema
+ */
+export const PLAN_GENERATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: {
+      type: 'string',
+      description: '计划的标题，简洁明确地描述这个计划要做什么',
+    },
+    description: {
+      type: 'string',
+      description: '计划的详细描述，包含总体思路和预期结果',
+    },
+    tasks: {
+      type: 'array',
+      description: '计划包含的任务列表，按执行顺序排列',
+      items: {
+        type: 'object',
+        properties: {
+          title: {
+            type: 'string',
+            description: '任务标题，简短描述这个任务要做什么',
+          },
+          description: {
+            type: 'string',
+            description: '任务的详细描述，说明如何完成这个任务',
+          },
+          tracker: {
+            type: 'object',
+            description: '任务追踪器配置，用于自动检测任务完成状态',
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['inventory', 'craft', 'location', 'composite'],
+                description: '追踪器类型',
+              },
+            },
+            required: ['type'],
+            oneOf: [
+              {
+                properties: {
+                  type: { const: 'inventory' },
+                  itemName: { type: 'string', description: '物品名称（游戏内部名称）' },
+                  targetCount: { type: 'number', description: '目标数量', minimum: 1 },
+                  exact: { type: 'boolean', description: '是否需要精确数量', default: false },
+                },
+                required: ['type', 'itemName', 'targetCount'],
+              },
+              {
+                properties: {
+                  type: { const: 'craft' },
+                  itemName: { type: 'string', description: '要合成的物品名称（游戏内部名称）' },
+                  targetCount: { type: 'number', description: '目标合成数量', minimum: 1 },
+                },
+                required: ['type', 'itemName', 'targetCount'],
+              },
+              {
+                properties: {
+                  type: { const: 'location' },
+                  targetX: { type: 'number', description: 'X坐标' },
+                  targetY: { type: 'number', description: 'Y坐标' },
+                  targetZ: { type: 'number', description: 'Z坐标' },
+                  radius: { type: 'number', description: '到达半径', default: 2 },
+                },
+                required: ['type', 'targetX', 'targetY', 'targetZ'],
+              },
+              {
+                properties: {
+                  type: { const: 'composite' },
+                  logic: {
+                    type: 'string',
+                    enum: ['and', 'or'],
+                    description: '组合逻辑：and表示所有子任务都要完成，or表示完成其中之一即可',
+                  },
+                  trackers: {
+                    type: 'array',
+                    description: '子追踪器列表',
+                    items: { type: 'object' },
+                    minItems: 1,
+                  },
+                },
+                required: ['type', 'logic', 'trackers'],
+              },
+            ],
+          },
+          dependencies: {
+            type: 'array',
+            description: '依赖的任务索引列表（从0开始），该任务必须在依赖任务完成后才能开始',
+            items: { type: 'string' },
+            default: [],
+          },
+        },
+        required: ['title', 'description', 'tracker'],
+      },
+      minItems: 1,
+    },
+  },
+  required: ['title', 'description', 'tasks'],
+};

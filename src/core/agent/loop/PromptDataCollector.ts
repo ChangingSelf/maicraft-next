@@ -6,6 +6,7 @@
 import { getLogger, type Logger } from '@/utils/Logger';
 import type { AgentState } from '../types';
 import type { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
+import { promptManager } from '../prompt';
 
 export interface BasicInfoData {
   bot_name: string;
@@ -36,6 +37,7 @@ export interface MemoryData {
 }
 
 export interface MainThinkingData {
+  role_description: string;
   basic_info: string;
   available_actions: string;
   eat_action: string;
@@ -46,6 +48,7 @@ export interface MainThinkingData {
   position: string;
   chat_str: string;
   judge_guidance: string;
+  goal: string;
 }
 
 export class PromptDataCollector {
@@ -121,8 +124,18 @@ export class PromptDataCollector {
     const dynamicActions = this.collectDynamicActions();
     const memoryData = this.collectMemoryData();
 
+    // 生成角色描述（静态部分，可缓存）
+    const roleDescription = promptManager.generatePrompt('role_description', {
+      bot_name: basicInfo.bot_name,
+      player_name: basicInfo.player_name,
+    });
+
+    // 生成 basic_info 提示词（动态部分）
+    const basicInfoPrompt = promptManager.generatePrompt('basic_info', basicInfo);
+
     return {
-      basic_info: basicInfo.basic_info || '', // 需要从外部生成
+      role_description: roleDescription,
+      basic_info: basicInfoPrompt,
       available_actions: this.actionPromptGenerator.generatePrompt(),
       ...dynamicActions,
       ...memoryData,
@@ -130,29 +143,16 @@ export class PromptDataCollector {
       position: basicInfo.position,
       chat_str: basicInfo.chat_str,
       judge_guidance: this.getJudgeGuidance(),
+      goal: basicInfo.goal,
     };
   }
 
   /**
    * 生成完整的 main_thinking 数据（包含格式化的 basic_info）
+   * @deprecated 使用 collectAllData() 代替
    */
   collectMainThinkingData(): MainThinkingData {
-    const basicInfo = this.collectBasicInfo();
-    const dynamicActions = this.collectDynamicActions();
-    const memoryData = this.collectMemoryData();
-
-    // 这里需要访问 promptManager 来生成 basic_info
-    // 由于循环依赖，我们返回基础数据，让调用者处理
-    return {
-      basic_info: '', // 由调用者设置
-      available_actions: this.actionPromptGenerator.generatePrompt(),
-      ...dynamicActions,
-      ...memoryData,
-      nearby_block_info: basicInfo.nearby_block_info,
-      position: basicInfo.position,
-      chat_str: basicInfo.chat_str,
-      judge_guidance: this.getJudgeGuidance(),
-    };
+    return this.collectAllData();
   }
 
   // 私有辅助方法

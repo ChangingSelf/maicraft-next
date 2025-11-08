@@ -12,9 +12,11 @@ import {
   ACTION_RESPONSE_SCHEMA,
   CHEST_OPERATION_SCHEMA,
   FURNACE_OPERATION_SCHEMA,
+  PLAN_GENERATION_SCHEMA,
   StructuredLLMResponse,
   StructuredAction,
   ExperienceSummaryResponse,
+  PlanGenerationResponse,
 } from './ActionSchema';
 
 const logger = getLogger('StructuredOutputManager');
@@ -122,6 +124,236 @@ export class StructuredOutputManager {
       logger.error('请求经验总结失败', undefined, error as Error);
       return null;
     }
+  }
+
+  /**
+   * 请求规划生成（结构化输出）
+   */
+  async requestPlanGeneration(prompt: string, systemPrompt?: string): Promise<PlanGenerationResponse | null> {
+    try {
+      logger.debug('开始请求规划生成', {
+        useStructuredOutput: this.useStructuredOutput,
+        promptLength: prompt.length,
+        systemPromptLength: systemPrompt?.length || 0,
+      });
+
+      if (this.useStructuredOutput) {
+        return await this.requestPlanWithStructuredOutput(prompt, systemPrompt);
+      } else {
+        return await this.requestPlanWithManualParsing(prompt, systemPrompt);
+      }
+    } catch (error) {
+      logger.error('请求规划生成失败', undefined, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * 使用结构化输出请求规划
+   */
+  private async requestPlanWithStructuredOutput(prompt: string, systemPrompt: string | undefined): Promise<PlanGenerationResponse | null> {
+    try {
+      const fullSystemPrompt = systemPrompt
+        ? `${systemPrompt}\n\n你必须返回一个有效的JSON对象，包含title、description和tasks字段。`
+        : '你必须返回一个有效的JSON对象，包含title、description和tasks字段。';
+
+      logger.debug('调用LLM进行结构化规划生成');
+
+      const response = await this.llmManager.chatCompletion(prompt, fullSystemPrompt, {
+        response_format: {
+          type: 'json_object',
+        },
+      });
+
+      if (!response.success || !response.content) {
+        logger.error('规划生成LLM调用失败', { error: response.error });
+        return null;
+      }
+
+      logger.debug('LLM返回内容预览', {
+        contentLength: response.content.length,
+        contentPreview: response.content.substring(0, 200),
+      });
+
+      try {
+        const parsed = JSON.parse(response.content);
+        logger.debug('JSON解析成功，开始验证响应格式');
+        const validated = this.validatePlanResponse(parsed);
+        if (validated) {
+          logger.debug('规划响应验证通过', { tasksCount: validated.tasks.length });
+        } else {
+          logger.warn('规划响应验证失败');
+        }
+        return validated;
+      } catch (parseError) {
+        logger.error('规划JSON解析失败', {
+          error: parseError.message,
+          contentPreview: response.content.substring(0, 200),
+        });
+        return await this.extractPlanResponse(response.content);
+      }
+    } catch (error) {
+      logger.error('结构化规划请求失败', undefined, error as Error);
+      return await this.requestPlanWithManualParsing(prompt, systemPrompt);
+    }
+  }
+
+  /**
+   * 手动解析规划
+   */
+  private async requestPlanWithManualParsing(prompt: string, systemPrompt: string | undefined): Promise<PlanGenerationResponse | null> {
+    try {
+      const manualPrompt = `${prompt}\n\n请返回一个JSON对象，格式严格如下：
+{
+  "title": "计划标题",
+  "description": "计划描述",
+  "tasks": [
+    {
+      "title": "任务标题",
+      "description": "任务描述",
+      "tracker": {
+        "type": "inventory",
+        "itemName": "物品名称",
+        "targetCount": 数字
+      },
+      "dependencies": []
+    }
+  ]
+}
+
+只返回JSON对象，不要有任何其他内容！`;
+
+      logger.debug('使用手动解析模式调用LLM');
+
+      const response = await this.llmManager.chatCompletion(manualPrompt, systemPrompt);
+
+      if (!response.success || !response.content) {
+        logger.error('规划生成手动解析LLM调用失败', { error: response.error });
+        return null;
+      }
+
+      const parsed = this.extractPlanResponse(response.content);
+
+      if (!parsed) {
+        logger.warn('无法从响应中提取规划', { content: response.content.substring(0, 200) });
+        return null;
+      }
+
+      const validated = this.validatePlanResponse(parsed);
+      if (validated) {
+        logger.debug('手动解析模式验证通过', { tasksCount: validated.tasks.length });
+      } else {
+        logger.warn('手动解析模式验证失败');
+      }
+
+      return validated;
+    } catch (error) {
+      logger.error('手动解析规划失败', undefined, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * 从文本中提取规划响应
+   */
+  private extractPlanResponse(text: string): PlanGenerationResponse | null {
+    logger.debug('开始手动提取规划响应');
+
+    // 首先尝试直接解析整个文本
+    try {
+      const parsed = JSON.parse(text);
+      if (this.isValidPlanResponse(parsed)) {
+        logger.debug('直接解析整个文本成功');
+        return parsed;
+      }
+    } catch (error) {
+      logger.debug('直接解析整个文本失败');
+    }
+
+    // 尝试找到被 ```json 包裹的内容
+    const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonBlockMatch) {
+      try {
+        const parsed = JSON.parse(jsonBlockMatch[1]);
+        if (this.isValidPlanResponse(parsed)) {
+          logger.debug('解析```json代码块成功');
+          return parsed;
+        }
+      } catch (error) {
+        logger.debug('解析```json代码块失败');
+      }
+    }
+
+    // 使用栈方法查找第一个完整的JSON对象
+    const jsonObj = this.findFirstCompleteJson(text);
+    if (jsonObj) {
+      try {
+        const parsed = JSON.parse(jsonObj);
+        if (this.isValidPlanResponse(parsed)) {
+          logger.debug('使用栈方法找到并解析JSON成功');
+          return parsed;
+        }
+      } catch (error) {
+        logger.debug('栈方法找到的JSON解析失败');
+      }
+    }
+
+    logger.warn('所有手动解析方法都失败了');
+    return null;
+  }
+
+  /**
+   * 验证规划响应格式
+   */
+  private validatePlanResponse(data: any): PlanGenerationResponse | null {
+    if (!data || typeof data !== 'object') {
+      logger.warn('规划响应不是对象');
+      return null;
+    }
+
+    if (typeof data.title !== 'string' || !data.title) {
+      logger.warn('规划响应缺少有效的title字段');
+      return null;
+    }
+
+    if (typeof data.description !== 'string' || !data.description) {
+      logger.warn('规划响应缺少有效的description字段');
+      return null;
+    }
+
+    if (!Array.isArray(data.tasks) || data.tasks.length === 0) {
+      logger.warn('规划响应缺少有效的tasks数组');
+      return null;
+    }
+
+    // 验证每个任务
+    for (const task of data.tasks) {
+      if (!task.title || !task.description || !task.tracker) {
+        logger.warn('任务缺少必需字段', { task });
+        return null;
+      }
+
+      if (!task.tracker.type) {
+        logger.warn('任务追踪器缺少type字段', { task });
+        return null;
+      }
+
+      // 确保dependencies是数组
+      if (!task.dependencies) {
+        task.dependencies = [];
+      } else if (!Array.isArray(task.dependencies)) {
+        task.dependencies = [];
+      }
+    }
+
+    return data as PlanGenerationResponse;
+  }
+
+  /**
+   * 检查是否是有效的规划响应
+   */
+  private isValidPlanResponse(data: any): boolean {
+    return this.validatePlanResponse(data) !== null;
   }
 
   /**

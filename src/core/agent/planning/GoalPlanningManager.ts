@@ -11,6 +11,10 @@ import { Goal } from './Goal';
 import { Plan } from './Plan';
 import { Task } from './Task';
 import { TaskHistory } from './TaskHistory';
+import { TrackerFactory } from './trackers/TrackerFactory';
+import type { LLMManager } from '@/llm/LLMManager';
+import { StructuredOutputManager } from '../structured/StructuredOutputManager';
+import { promptManager } from '../prompt';
 
 export class GoalPlanningManager {
   private goals: Map<string, Goal> = new Map();
@@ -29,10 +33,23 @@ export class GoalPlanningManager {
   private autoCheckInterval: NodeJS.Timeout | null = null;
   private autoSaveInterval: NodeJS.Timeout | null = null;
 
+  private llmManager: LLMManager | null = null;
+  private structuredOutputManager: StructuredOutputManager | null = null;
+
   constructor(context: GameContext) {
     this.context = context;
     this.logger = getLogger('GoalPlanningManager');
     this.taskHistory = new TaskHistory();
+  }
+
+  /**
+   * 设置 LLM Manager（用于生成计划）
+   */
+  setLLMManager(llmManager: LLMManager): void {
+    this.llmManager = llmManager;
+    this.structuredOutputManager = new StructuredOutputManager(llmManager, {
+      useStructuredOutput: false, // 暂时使用手动解析
+    });
   }
 
   /**
@@ -374,6 +391,117 @@ export class GoalPlanningManager {
    */
   getRecentTaskHistory(limit: number = 20) {
     return this.taskHistory.getRecentHistory(limit);
+  }
+
+  /**
+   * 为当前目标生成计划（使用 LLM）
+   */
+  async generatePlanForCurrentGoal(): Promise<Plan | null> {
+    const goal = this.getCurrentGoal();
+    if (!goal) {
+      this.logger.warn('没有当前目标，无法生成计划');
+      return null;
+    }
+
+    if (!this.llmManager || !this.structuredOutputManager) {
+      this.logger.warn('LLM Manager 未设置，无法生成计划');
+      return null;
+    }
+
+    try {
+      this.logger.info(`🎯 开始为目标生成计划: ${goal.description}`);
+
+      // 收集环境信息
+      const { gameState } = this.context;
+      const position = gameState.blockPosition;
+      const health = gameState.health;
+      const food = gameState.food;
+      const inventory = gameState.getInventoryDescription?.() || '空';
+
+      // 获取周边环境信息
+      const nearbyBlocks =
+        gameState.nearbyBlocks
+          ?.slice(0, 10)
+          .map((b: any) => `${b.name} (${b.distance}m)`)
+          .join(', ') || '无数据';
+      const nearbyEntities =
+        gameState.nearbyEntities
+          ?.slice(0, 5)
+          .map((e: any) => `${e.name} (${e.distance}m)`)
+          .join(', ') || '无实体';
+
+      // 获取相关经验
+      const experiences = this.context.gameState.context?.memory?.experience?.query(goal.description, 5) || [];
+      const experiencesText =
+        experiences.length > 0
+          ? experiences.map((e: any) => `- ${e.content} (置信度: ${(e.confidence * 100).toFixed(0)}%)`).join('\n')
+          : '暂无相关经验';
+
+      // 生成提示词
+      const prompt = promptManager.generatePrompt('plan_generation', {
+        goal: goal.description,
+        position: `(${position.x}, ${position.y}, ${position.z})`,
+        health: health.toString(),
+        food: food.toString(),
+        inventory,
+        environment: `附近方块: ${nearbyBlocks}\n附近实体: ${nearbyEntities}`,
+        experiences: experiencesText,
+      });
+
+      // 请求 LLM 生成计划
+      const planResponse = await this.structuredOutputManager.requestPlanGeneration(prompt);
+
+      if (!planResponse) {
+        this.logger.error('LLM 未能生成有效的计划');
+        return null;
+      }
+
+      this.logger.info(`📋 LLM 生成计划: ${planResponse.title} (${planResponse.tasks.length} 个任务)`);
+
+      // 创建任务列表
+      const tasks: Task[] = [];
+      for (const taskDef of planResponse.tasks) {
+        try {
+          // 从 JSON 创建追踪器
+          const tracker = TrackerFactory.fromJSON(taskDef.tracker);
+
+          // 创建任务
+          const task = new Task({
+            title: taskDef.title,
+            description: taskDef.description,
+            tracker,
+            dependencies: taskDef.dependencies || [],
+          });
+
+          tasks.push(task);
+          this.logger.debug(`✅ 创建任务: ${task.title}`);
+        } catch (error) {
+          this.logger.error(`❌ 创建任务失败: ${taskDef.title}`, {}, error as Error);
+        }
+      }
+
+      if (tasks.length === 0) {
+        this.logger.error('没有成功创建任何任务');
+        return null;
+      }
+
+      // 创建计划
+      const plan = this.createPlan({
+        title: planResponse.title,
+        description: planResponse.description,
+        goalId: goal.id,
+        tasks,
+      });
+
+      // 自动设置为当前计划
+      this.setCurrentPlan(plan.id);
+
+      this.logger.info(`✅ 成功生成并激活计划: ${plan.title}`);
+      return plan;
+    } catch (error) {
+      this.logger.error('生成计划失败:', {}, error as Error);
+      return null;
+    }
   }
 
   /**
