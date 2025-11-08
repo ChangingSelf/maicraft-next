@@ -435,7 +435,7 @@ export class LLMManager {
 /**
  * 便捷函数：创建全局LLM客户端实例
  */
-let globalLLMManager: LLMManager | null = null;
+const globalLLMManager: LLMManager | null = null;
 
 /**
  * LLMManager 工厂 - 确保单例

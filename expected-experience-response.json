@@ -1,0 +1,20 @@
+{
+  "analysis": "多次因为物品名称错误导致合成失败",
+  "lessons": [
+    {
+      "lesson": "铁镐的游戏名称是iron_pickaxe",
+      "context": "多次尝试合成后发现的正确名称",
+      "confidence": 0.9
+    },
+    {
+      "lesson": "工作台需要4块木板（planks）合成",
+      "context": "成功合成工作台的配方",
+      "confidence": 0.95
+    },
+    {
+      "lesson": "合成物品时必须使用准确的游戏内部名称",
+      "context": "反复出现的合成失败模式",
+      "confidence": 0.85
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "recent_decisions": "❌ 尝试合成铁镐 | 物品名称错误：找不到'iron_pick'\n❌ 尝试合成铁镐 | 物品名称错误：找不到'iron_pickaxe'\n✅ 合成工作台 | 成功合成工作台\n✅ 合成铁镐 | 使用正确的物品名称'iron_pickaxe'成功合成",
+  "recent_thoughts": "1. 需要找到正确的物品名称进行合成\n2. 铁镐的正确名称可能是iron_pickaxe\n3. 工作台合成成功，证明物品名称正确\n4. 经验：物品名称必须准确，否则合成会失败",
+  "current_goal": "学习Minecraft物品名称和合成配方",
+  "current_task": "测试经验总结功能"
+}

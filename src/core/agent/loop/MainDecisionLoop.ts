@@ -14,9 +14,11 @@ import { LLMManager } from '@/llm/LLMManager';
 import { BaseLoop } from './BaseLoop';
 import { promptManager, initAllTemplates } from '../prompt';
 import { ModeManager } from '../mode/ModeManager';
+import { StructuredOutputManager } from '../structured';
 
 export class MainDecisionLoop extends BaseLoop<AgentState> {
   private llmManager: LLMManager;
+  private structuredOutputManager: StructuredOutputManager;
   private evaluationCounter: number = 0;
   private promptsInitialized: boolean = false;
 
@@ -25,6 +27,11 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
 
     // 必须传入 llmManager，不允许创建新实例
     this.llmManager = llmManager;
+
+    // 初始化结构化输出管理器
+    this.structuredOutputManager = new StructuredOutputManager(llmManager, {
+      useStructuredOutput: true,
+    });
 
     // 初始化提示词模板（只初始化一次）
     if (!this.promptsInitialized) {
@@ -186,7 +193,7 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
 
   /**
    * 总结经验教训
-   * 通过LLM分析最近的决策历史，提取经验教训
+   * 通过LLM分析最近的决策历史，提取多条简短的经验教训
    */
   private async summarizeExperience(): Promise<void> {
     try {
@@ -210,7 +217,6 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
           this.logger.error('❌ 经验总结模板不存在');
           return;
         }
-        this.logger.info('✅ 经验总结模板存在');
       } catch (error) {
         this.logger.error('❌ 检查经验总结模板失败', undefined, error as Error);
         return;
@@ -218,55 +224,63 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
 
       // 构建经验总结提示词
       const experienceData = {
-        recent_decisions: recentDecisions.map(d => ({
-          intention: d.intention,
-          result: d.result,
-          feedback: d.feedback,
-          timestamp: new Date(d.timestamp).toLocaleString(),
-        })),
-        recent_thoughts: recentThoughts.map(t => t.content),
+        recent_decisions: recentDecisions
+          .map(d => {
+            const resultIcon = d.result === 'success' ? '✅' : d.result === 'failed' ? '❌' : '⚠️';
+            const feedback = d.feedback ? ` | ${d.feedback}` : '';
+            return `${resultIcon} ${d.intention}${feedback}`;
+          })
+          .join('\n'),
+        recent_thoughts: recentThoughts.map((t, i) => `${i + 1}. ${t.content}`).join('\n'),
         current_goal: this.state.goal,
         current_task: this.state.planningManager.getCurrentTask()?.title || '无任务',
       };
 
-      const prompt = promptManager.generatePrompt('experience_summary', experienceData);
+      this.logger.debug('经验总结数据构建完成', {
+        decisionsCount: recentDecisions.length,
+        thoughtsCount: recentThoughts.length,
+        goal: experienceData.current_goal,
+        task: experienceData.current_task,
+      });
 
+      const prompt = promptManager.generatePrompt('experience_summary', experienceData);
       const systemPrompt = promptManager.generatePrompt('experience_summary_system', {
         bot_name: this.state.context.gameState.playerName || 'Bot',
       });
 
-      const response = await this.llmManager.chatCompletion(prompt, systemPrompt);
+      this.logger.debug('经验总结提示词生成完成', {
+        promptLength: prompt.length,
+        systemPromptLength: systemPrompt.length,
+      });
 
-      if (response.success && response.content) {
-        // 从LLM响应中提取经验教训
-        const experienceMatch = response.content.match(/【经验】([\s\S]*?)【/);
-        if (experienceMatch) {
-          const lesson = experienceMatch[1].trim();
-          const confidence = this.calculateConfidence(recentDecisions);
+      // 使用结构化输出管理器
+      const summaryResponse = await this.structuredOutputManager.requestExperienceSummary(prompt, systemPrompt);
 
-          memory.recordExperience(lesson, '通过分析最近决策历史总结得出', confidence);
-
-          this.logger.info(`📚 记录经验教训: ${lesson.substring(0, 50)}${lesson.length > 50 ? '...' : ''}`);
+      if (summaryResponse && summaryResponse.lessons && summaryResponse.lessons.length > 0) {
+        // 记录总体分析（如果有）
+        if (summaryResponse.analysis) {
+          this.logger.info(`📊 总体分析: ${summaryResponse.analysis}`);
         }
+
+        // 记录每条经验
+        let successCount = 0;
+        for (const lesson of summaryResponse.lessons) {
+          try {
+            memory.recordExperience(lesson.lesson, lesson.context, lesson.confidence);
+            successCount++;
+
+            this.logger.info(`📚 经验 ${successCount}: ${lesson.lesson} (置信度: ${(lesson.confidence * 100).toFixed(0)}%)`);
+          } catch (error) {
+            this.logger.error('❌ 记录单条经验失败', { lesson }, error as Error);
+          }
+        }
+
+        this.logger.info(`✅ 成功记录 ${successCount}/${summaryResponse.lessons.length} 条经验`);
+      } else {
+        this.logger.warn('⚠️ 未能从LLM响应中提取到有效的经验教训');
       }
     } catch (error) {
       this.logger.error('❌ 经验总结异常', undefined, error as Error);
     }
-  }
-
-  /**
-   * 计算经验置信度
-   */
-  private calculateConfidence(decisions: any[]): number {
-    if (decisions.length === 0) return 0.5;
-
-    const successCount = decisions.filter(d => d.result === 'success').length;
-    const successRate = successCount / decisions.length;
-
-    // 基于成功率和样本数量计算置信度
-    const baseConfidence = Math.min(successRate, 0.8); // 最高0.8
-    const sampleBonus = Math.min(decisions.length / 50, 0.2); // 样本越多置信度越高
-
-    return Math.max(0.3, Math.min(1.0, baseConfidence + sampleBonus));
   }
 }

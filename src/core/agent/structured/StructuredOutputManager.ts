@@ -8,7 +8,14 @@
 
 import { getLogger } from '@/utils/Logger';
 import type { LLMManager } from '@/llm/LLMManager';
-import { ACTION_RESPONSE_SCHEMA, CHEST_OPERATION_SCHEMA, FURNACE_OPERATION_SCHEMA, StructuredLLMResponse, StructuredAction } from './ActionSchema';
+import {
+  ACTION_RESPONSE_SCHEMA,
+  CHEST_OPERATION_SCHEMA,
+  FURNACE_OPERATION_SCHEMA,
+  StructuredLLMResponse,
+  StructuredAction,
+  ExperienceSummaryResponse,
+} from './ActionSchema';
 
 const logger = getLogger('StructuredOutputManager');
 
@@ -23,6 +30,20 @@ export interface StructuredOutputOptions {
 export class StructuredOutputManager {
   private llmManager: LLMManager;
   private useStructuredOutput: boolean;
+
+  /**
+   * 测试JSON解析功能（用于调试）
+   */
+  static testJsonParsing(jsonString: string): ExperienceSummaryResponse | null {
+    try {
+      const parsed = JSON.parse(jsonString);
+      const manager = new StructuredOutputManager(null as any, { useStructuredOutput: true });
+      return manager.validateExperienceResponse(parsed);
+    } catch (error) {
+      logger.error('测试JSON解析失败', undefined, error as Error);
+      return null;
+    }
+  }
 
   constructor(llmManager: LLMManager, options: StructuredOutputOptions = {}) {
     this.llmManager = llmManager;
@@ -79,6 +100,244 @@ export class StructuredOutputManager {
       logger.error('请求熔炉操作失败', undefined, error as Error);
       return null;
     }
+  }
+
+  /**
+   * 请求经验总结（结构化输出）
+   */
+  async requestExperienceSummary(prompt: string, systemPrompt?: string): Promise<ExperienceSummaryResponse | null> {
+    try {
+      logger.debug('开始请求经验总结', {
+        useStructuredOutput: this.useStructuredOutput,
+        promptLength: prompt.length,
+        systemPromptLength: systemPrompt?.length || 0,
+      });
+
+      if (this.useStructuredOutput) {
+        return await this.requestExperienceWithStructuredOutput(prompt, systemPrompt);
+      } else {
+        return await this.requestExperienceWithManualParsing(prompt, systemPrompt);
+      }
+    } catch (error) {
+      logger.error('请求经验总结失败', undefined, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * 使用结构化输出请求经验总结
+   */
+  private async requestExperienceWithStructuredOutput(prompt: string, systemPrompt: string | undefined): Promise<ExperienceSummaryResponse | null> {
+    try {
+      const fullSystemPrompt = systemPrompt
+        ? `${systemPrompt}\n\n你必须返回一个有效的JSON对象，包含analysis（可选）和lessons（必需）字段。`
+        : '你必须返回一个有效的JSON对象，包含analysis（可选）和lessons（必需）字段。';
+
+      logger.debug('调用LLM进行结构化经验总结', {
+        fullSystemPromptLength: fullSystemPrompt.length,
+        promptPreview: prompt.substring(0, 100) + '...',
+      });
+
+      const response = await this.llmManager.chatCompletion(prompt, fullSystemPrompt, {
+        response_format: {
+          type: 'json_object',
+        },
+      });
+
+      if (!response.success || !response.content) {
+        logger.error('经验总结LLM调用失败', { error: response.error });
+        return null;
+      }
+
+      logger.debug('LLM返回内容预览', {
+        contentLength: response.content.length,
+        contentPreview: response.content.substring(0, 200),
+      });
+
+      try {
+        const parsed = JSON.parse(response.content);
+        logger.debug('JSON解析成功，开始验证响应格式');
+        const validated = this.validateExperienceResponse(parsed);
+        if (validated) {
+          logger.debug('经验总结响应验证通过', { lessonsCount: validated.lessons.length });
+        } else {
+          logger.warn('经验总结响应验证失败');
+        }
+        return validated;
+      } catch (parseError) {
+        logger.error('经验总结JSON解析失败', {
+          error: parseError.message,
+          contentPreview: response.content.substring(0, 200),
+        });
+        logger.debug('尝试手动提取经验总结响应');
+        return await this.extractExperienceResponse(response.content);
+      }
+    } catch (error) {
+      logger.error('结构化经验总结请求失败', undefined, error as Error);
+      logger.debug('降级到手动解析模式');
+      return await this.requestExperienceWithManualParsing(prompt, systemPrompt);
+    }
+  }
+
+  /**
+   * 手动解析经验总结
+   */
+  private async requestExperienceWithManualParsing(prompt: string, systemPrompt: string | undefined): Promise<ExperienceSummaryResponse | null> {
+    try {
+      const manualPrompt = `${prompt}\n\n请返回一个JSON对象，格式如下：
+{
+  "analysis": "简短的总体分析（可选）",
+  "lessons": [
+    {
+      "lesson": "经验内容，用一句话简短描述",
+      "context": "经验的来源或适用场景",
+      "confidence": 0.0到1.0之间的数字
+    }
+  ]
+}
+
+只返回JSON对象，不要有任何其他内容！`;
+
+      logger.debug('使用手动解析模式调用LLM', {
+        manualPromptLength: manualPrompt.length,
+        systemPromptLength: systemPrompt?.length || 0,
+      });
+
+      const response = await this.llmManager.chatCompletion(manualPrompt, systemPrompt);
+
+      if (!response.success || !response.content) {
+        logger.error('经验总结手动解析LLM调用失败', { error: response.error });
+        return null;
+      }
+
+      logger.debug('手动解析模式LLM返回内容预览', {
+        contentLength: response.content.length,
+        contentPreview: response.content.substring(0, 200),
+      });
+
+      const parsed = this.extractExperienceResponse(response.content);
+
+      if (!parsed) {
+        logger.warn('无法从响应中提取经验总结', { content: response.content.substring(0, 200) });
+        return null;
+      }
+
+      const validated = this.validateExperienceResponse(parsed);
+      if (validated) {
+        logger.debug('手动解析模式验证通过', { lessonsCount: validated.lessons.length });
+      } else {
+        logger.warn('手动解析模式验证失败');
+      }
+
+      return validated;
+    } catch (error) {
+      logger.error('手动解析经验总结失败', undefined, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * 从文本中提取经验总结响应
+   */
+  private extractExperienceResponse(text: string): ExperienceSummaryResponse | null {
+    logger.debug('开始手动提取经验总结响应', { textLength: text.length });
+
+    // 首先尝试直接解析整个文本
+    try {
+      const parsed = JSON.parse(text);
+      if (this.isValidExperienceResponse(parsed)) {
+        logger.debug('直接解析整个文本成功');
+        return parsed;
+      } else {
+        logger.debug('直接解析的JSON不满足经验总结格式要求');
+      }
+    } catch (error) {
+      logger.debug('直接解析整个文本失败', { error: error.message });
+    }
+
+    // 尝试找到被 ```json 包裹的内容
+    const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonBlockMatch) {
+      try {
+        const parsed = JSON.parse(jsonBlockMatch[1]);
+        if (this.isValidExperienceResponse(parsed)) {
+          logger.debug('解析```json代码块成功');
+          return parsed;
+        } else {
+          logger.debug('```json代码块中的JSON不满足经验总结格式要求');
+        }
+      } catch (error) {
+        logger.debug('解析```json代码块失败', { error: error.message });
+      }
+    } else {
+      logger.debug('未找到```json代码块');
+    }
+
+    // 使用栈方法查找第一个完整的JSON对象
+    const jsonObj = this.findFirstCompleteJson(text);
+    if (jsonObj) {
+      try {
+        const parsed = JSON.parse(jsonObj);
+        if (this.isValidExperienceResponse(parsed)) {
+          logger.debug('使用栈方法找到并解析JSON成功');
+          return parsed;
+        } else {
+          logger.debug('栈方法找到的JSON不满足经验总结格式要求');
+        }
+      } catch (error) {
+        logger.debug('栈方法找到的JSON解析失败', { error: error.message, jsonObj: jsonObj.substring(0, 100) });
+      }
+    } else {
+      logger.debug('栈方法未找到完整的JSON对象');
+    }
+
+    logger.warn('所有手动解析方法都失败了');
+    return null;
+  }
+
+  /**
+   * 检查是否是有效的经验总结响应
+   */
+  private isValidExperienceResponse(obj: any): boolean {
+    return obj && typeof obj === 'object' && Array.isArray(obj.lessons) && obj.lessons.length > 0;
+  }
+
+  /**
+   * 验证经验总结响应格式
+   */
+  private validateExperienceResponse(response: any): ExperienceSummaryResponse | null {
+    if (!response || typeof response !== 'object') {
+      logger.warn('经验总结响应不是对象');
+      return null;
+    }
+
+    if (!Array.isArray(response.lessons)) {
+      logger.warn('经验总结响应缺少lessons数组');
+      return null;
+    }
+
+    if (response.lessons.length === 0) {
+      logger.warn('经验总结lessons数组为空');
+      return null;
+    }
+
+    // 验证每条经验
+    for (const lesson of response.lessons) {
+      if (!lesson.lesson || typeof lesson.lesson !== 'string') {
+        logger.warn('经验缺少lesson字段或格式不正确', { lesson });
+        return null;
+      }
+      if (!lesson.context || typeof lesson.context !== 'string') {
+        logger.warn('经验缺少context字段或格式不正确', { lesson });
+        return null;
+      }
+      if (typeof lesson.confidence !== 'number' || lesson.confidence < 0 || lesson.confidence > 1) {
+        logger.warn('经验的confidence字段无效', { lesson });
+        return null;
+      }
+    }
+
+    return response as ExperienceSummaryResponse;
   }
 
   /**

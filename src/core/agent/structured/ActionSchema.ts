@@ -330,3 +330,59 @@ export const FURNACE_OPERATION_SCHEMA = {
   },
   required: ['actions'],
 };
+
+/**
+ * 经验总结响应结构
+ */
+export interface ExperienceSummaryResponse {
+  analysis?: string; // 总体分析（可选）
+  lessons: ExperienceLesson[]; // 经验教训列表
+}
+
+/**
+ * 单条经验教训
+ */
+export interface ExperienceLesson {
+  lesson: string; // 经验内容，简短描述（不超过100字）
+  context: string; // 经验来源或适用场景
+  confidence: number; // 置信度 0-1
+}
+
+/**
+ * 经验总结的 JSON Schema
+ */
+export const EXPERIENCE_SUMMARY_SCHEMA = {
+  type: 'object',
+  properties: {
+    analysis: {
+      type: 'string',
+      description: '对最近决策和思维的总体分析，简短说明主要模式和问题',
+    },
+    lessons: {
+      type: 'array',
+      description: '从实践中提取的具体经验教训列表',
+      items: {
+        type: 'object',
+        properties: {
+          lesson: {
+            type: 'string',
+            description: '经验内容，用一句简短的话描述（不超过100字），例如："铁镐的游戏名称是iron_pickaxe"、"熔炉需要8个圆石合成"',
+          },
+          context: {
+            type: 'string',
+            description: '经验的来源或适用场景，简短说明',
+          },
+          confidence: {
+            type: 'number',
+            description: '对这条经验的置信度，范围0.0-1.0',
+            minimum: 0,
+            maximum: 1,
+          },
+        },
+        required: ['lesson', 'context', 'confidence'],
+      },
+      minItems: 1,
+    },
+  },
+  required: ['lessons'],
+};

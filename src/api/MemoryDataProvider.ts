@@ -38,7 +38,7 @@ export class MemoryDataProvider {
       },
     };
 
-    this.logger.info(`📤 推送记忆: ${memoryType} - ${entry.id}`);
+    this.logger.debug(`📤 推送记忆: ${memoryType} - ${entry.id}`);
     this.server.broadcastToSubscribed('memory', message);
   }
 
