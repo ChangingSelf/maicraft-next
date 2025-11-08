@@ -49,6 +49,7 @@ export class CacheManager {
       autoSaveInterval: 5 * 60 * 1000, // 5分钟
       enableAutoScan: true,
       enableAutoSave: true,
+      performanceMode: 'balanced' as const,
       ...config,
     };
 
@@ -90,7 +91,7 @@ export class CacheManager {
       this.scanNearbyBlocks();
     }, this.config.blockScanInterval);
 
-    this.logger.debug(`方块扫描已启动，间隔: ${this.config.blockScanInterval}ms，半径: ${this.config.blockScanRadius}`);
+    this.logger.info(`✅ 方块扫描已启动，间隔: ${this.config.blockScanInterval}ms，半径: ${this.config.blockScanRadius}`);
   }
 
   /**
@@ -129,12 +130,31 @@ export class CacheManager {
    */
   private startAutoSave(): void {
     this.autoSaveTimer = setInterval(() => {
+      // 保存前清理过期缓存
+      this.cleanupExpiredCache();
+
       this.saveCaches().catch(error => {
         this.logger.error('自动保存失败', undefined, error);
       });
     }, this.config.autoSaveInterval);
 
     this.logger.debug(`自动保存已启动，间隔: ${this.config.autoSaveInterval}ms`);
+  }
+
+  /**
+   * 清理过期的缓存
+   */
+  private cleanupExpiredCache(): void {
+    if (!this.blockCache || !this.bot.entity) return;
+
+    const currentPos = this.bot.entity.position;
+
+    // 清除超过200格的缓存（比扫描保留范围150格更大一些）
+    const removed = this.blockCache.clearOutOfRange(currentPos.x, currentPos.y, currentPos.z, 200);
+
+    if (removed > 0) {
+      this.logger.info(`🧹 定期清理: 移除 ${removed} 个远距离方块缓存`);
+    }
   }
 
   /**
@@ -148,25 +168,23 @@ export class CacheManager {
   }
 
   /**
-   * 扫描周围方块
+   * 扫描周围方块 - 实时模式，每次都扫描
    */
   private async scanNearbyBlocks(): Promise<void> {
     if (!this.blockCache || !this.bot.entity || this.isScanning) {
       return;
     }
 
-    // 检查位置是否变化（移动超过5格才重新扫描，减少频繁扫描）
+    // 不检查移动阈值，每次都扫描（实时更新模式）
     const currentPosition = this.bot.entity.position;
-    const distance = currentPosition.distanceTo(this.lastScanPosition);
-
-    if (distance < 5) {
-      return; // 位置变化不大，跳过扫描
-    }
 
     this.isScanning = true;
     this.lastScanPosition = currentPosition.clone();
 
-    this.logger.debug(`开始扫描方块，位置: ${currentPosition.toString()}, 半径: ${this.config.blockScanRadius}`);
+    const currentPosInt = currentPosition.floored();
+    this.logger.info(
+      `🔍 [实时扫描开始] 位置:(${currentPosInt.x},${currentPosInt.y},${currentPosInt.z}) 半径:${this.config.blockScanRadius} Y范围:[${Math.max(0, currentPosInt.y - this.config.blockScanRadius)}~${Math.min(255, currentPosInt.y + this.config.blockScanRadius)}]`,
+    );
 
     try {
       const blocks: Array<{ x: number; y: number; z: number; block: any }> = [];
@@ -176,59 +194,72 @@ export class CacheManager {
       let importantBlocks = 0;
 
       // 性能控制：限制扫描时间和方块数量 (为AI决策优化)
-      const maxScanTime = 200; // 最大扫描时间200ms，允许更详细的扫描
-      const maxImportantBlocks = 100; // 最多缓存100个重要方块，提供更丰富的环境信息
+      const maxScanTime = 800; // 最大扫描时间800ms，允许扫描大范围
+      const maxBlocks = 10000; // 最多缓存10000个方块，50格半径需要更多容量
       const scanStartTime = Date.now();
 
-      // 扫描周围的方块（优化性能）
-      const scanStartY = Math.max(0, centerPos.y - 4); // 不扫描过深的地底
-      const scanEndY = Math.min(centerPos.y + 8, 255); // 不扫描过高的天空
+      // 扫描周围的方块（全范围Y轴扫描）
+      const scanStartY = Math.max(0, centerPos.y - radius); // 下方扫描半径格
+      const scanEndY = Math.min(centerPos.y + radius, 255); // 上方扫描半径格
+
+      let airCount = 0;
+      let skipCount = 0;
 
       scanLoop: for (let x = -radius; x <= radius; x++) {
-        for (let y = scanEndY; y >= scanStartY; y--) {
-          // 限制扫描高度范围
-          for (let z = -radius; z <= radius; z++) {
+        for (let z = -radius; z <= radius; z++) {
+          for (let y = scanStartY; y <= scanEndY; y++) {
             // 性能控制：检查扫描时间
             if (Date.now() - scanStartTime > maxScanTime) {
-              this.logger.debug(`扫描超时，已扫描 ${totalBlocks} 个方块`);
+              this.logger.warn(`⏱️ 扫描超时(${maxScanTime}ms)，已检查:${totalBlocks} 已缓存:${blocks.length} 空气:${airCount}`);
               break scanLoop;
             }
 
-            // 性能控制：限制重要方块数量
-            if (importantBlocks >= maxImportantBlocks) {
-              this.logger.debug(`已达到最大重要方块数量 ${maxImportantBlocks}，停止扫描`);
+            // 性能控制：限制方块数量
+            if (blocks.length >= maxBlocks) {
+              this.logger.warn(`📦 达到方块限制(${maxBlocks})，已检查:${totalBlocks} 已缓存:${blocks.length} 空气:${airCount}`);
               break scanLoop;
             }
 
             const worldX = centerPos.x + x;
-            const worldY = centerPos.y + y;
+            const worldY = y; // 直接使用y，因为scanStartY和scanEndY已经是绝对坐标
             const worldZ = centerPos.z + z;
 
             try {
               totalBlocks++;
               const block = this.bot.blockAt(new Vec3(worldX, worldY, worldZ));
-              if (block && block.type !== 0) {
-                // 不是空气方块
-                // 只缓存重要的方块
+              if (block) {
+                // 缓存所有方块（包括空气），这对环境感知至关重要
+                const blockName = block.name || 'unknown';
+
+                // 统计空气方块
+                if (blockName === 'air' || blockName === 'cave_air') {
+                  airCount++;
+                }
+
+                // 统计重要方块（用于日志）
                 if (this.isImportantBlock(block)) {
                   importantBlocks++;
-                  blocks.push({
-                    x: worldX,
-                    y: worldY,
-                    z: worldZ,
-                    block: {
-                      name: block.name,
-                      type: block.type,
-                      metadata: block.metadata,
-                      hardness: (block as any).hardness,
-                      lightLevel: (block as any).lightLevel,
-                      transparent: (block as any).transparent,
-                      state: this.getBlockState(block),
-                    },
-                  });
                 }
+
+                blocks.push({
+                  x: worldX,
+                  y: worldY,
+                  z: worldZ,
+                  block: {
+                    name: blockName,
+                    type: block.type,
+                    metadata: block.metadata,
+                    hardness: (block as any).hardness,
+                    lightLevel: (block as any).lightLevel,
+                    transparent: (block as any).transparent,
+                    state: this.getBlockState(block),
+                  },
+                });
+              } else {
+                skipCount++;
               }
             } catch (error) {
+              skipCount++;
               // 忽略单个方块的错误
             }
           }
@@ -237,10 +268,30 @@ export class CacheManager {
 
       // 批量更新缓存
       if (blocks.length > 0) {
+        // 统计方块类型
+        const blockTypes = new Map<string, number>();
+        for (const b of blocks) {
+          const count = blockTypes.get(b.block.name) || 0;
+          blockTypes.set(b.block.name, count + 1);
+        }
+        const topTypes = Array.from(blockTypes.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => `${name}:${count}`)
+          .join(', ');
+
         this.blockCache.setBlocks(blocks);
-        this.logger.info(`扫描完成: 总方块 ${totalBlocks}, 重要方块 ${importantBlocks}, 已缓存 ${blocks.length} 个`);
+
+        // 清除超出范围的旧缓存（保留当前位置周围150格的数据，因为扫描半径是50格）
+        const removedCount = this.blockCache.clearOutOfRange(centerPos.x, centerPos.y, centerPos.z, 150);
+
+        this.logger.info(
+          `✅ [扫描完成] 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 检查:${totalBlocks} 已缓存:${blocks.length} 清理:${removedCount} 总数:${this.blockCache.size()} 方块类型:[${topTypes}]`,
+        );
       } else {
-        this.logger.debug(`扫描完成: 总方块 ${totalBlocks}, 没有发现重要方块`);
+        this.logger.error(
+          `⚠️ 扫描完成但未缓存任何方块! 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 总检查:${totalBlocks} 重要方块:${importantBlocks}`,
+        );
       }
     } catch (error) {
       this.logger.error('方块扫描失败', undefined, error as Error);
@@ -303,16 +354,7 @@ export class CacheManager {
     ];
 
     const blockName = block.name.toLowerCase();
-    const isImportant = importantPatterns.some(pattern => blockName.includes(pattern));
-
-    // 调试日志：记录所有扫描到的方块
-    if (!isImportant) {
-      this.logger.debug(`跳过非重要方块: ${block.name} (${block.type})`);
-    } else {
-      this.logger.debug(`缓存重要方块: ${block.name} (${block.type})`);
-    }
-
-    return isImportant;
+    return importantPatterns.some(pattern => blockName.includes(pattern));
   }
 
   /**

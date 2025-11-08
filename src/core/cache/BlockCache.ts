@@ -111,8 +111,6 @@ export class BlockCache {
     this.cache.set(key, blockInfo);
     this.stats.totalEntries = this.cache.size;
     this.stats.lastUpdate = now;
-
-    this.logger.debug(`方块缓存已更新: ${key} -> ${blockInfo.name}`);
   }
 
   /**
@@ -146,9 +144,12 @@ export class BlockCache {
    */
   getBlocksInRadius(centerX: number, centerY: number, centerZ: number, radius: number): BlockInfo[] {
     const blocks: BlockInfo[] = [];
+    let expired = 0;
+    let outOfRange = 0;
 
     for (const [key, blockInfo] of this.cache) {
       if (this.isExpired(blockInfo)) {
+        expired++;
         continue;
       }
 
@@ -158,7 +159,16 @@ export class BlockCache {
 
       if (distance <= radius) {
         blocks.push(blockInfo);
+      } else {
+        outOfRange++;
       }
+    }
+
+    if (blocks.length < 100) {
+      // 只有在结果很少时才记录，避免日志过多
+      this.logger.debug(
+        `getBlocksInRadius: 中心(${centerX},${centerY},${centerZ}) 半径:${radius} 找到:${blocks.length} 过期:${expired} 超出范围:${outOfRange} 总缓存:${this.cache.size}`,
+      );
     }
 
     return blocks;
@@ -336,6 +346,45 @@ export class BlockCache {
     this.stats.totalEntries = 0;
     this.stats.lastUpdate = Date.now();
     this.logger.info('BlockCache 已清空');
+  }
+
+  /**
+   * 清除超出指定范围的方块缓存
+   * @param centerX 中心X坐标
+   * @param centerY 中心Y坐标
+   * @param centerZ 中心Z坐标
+   * @param maxDistance 最大保留距离
+   * @returns 清除的方块数量
+   */
+  clearOutOfRange(centerX: number, centerY: number, centerZ: number, maxDistance: number): number {
+    if (!this.config.enabled) return 0;
+
+    let removedCount = 0;
+    const keysToRemove: string[] = [];
+
+    for (const [key, blockInfo] of this.cache) {
+      const distance = Math.sqrt(
+        Math.pow(blockInfo.position.x - centerX, 2) + Math.pow(blockInfo.position.y - centerY, 2) + Math.pow(blockInfo.position.z - centerZ, 2),
+      );
+
+      if (distance > maxDistance) {
+        keysToRemove.push(key);
+      }
+    }
+
+    // 批量删除
+    for (const key of keysToRemove) {
+      this.cache.delete(key);
+      removedCount++;
+    }
+
+    this.stats.totalEntries = this.cache.size;
+
+    if (removedCount > 0) {
+      this.logger.info(`🗑️ 清除了 ${removedCount} 个超出范围(${maxDistance}格)的方块缓存`);
+    }
+
+    return removedCount;
   }
 
   /**

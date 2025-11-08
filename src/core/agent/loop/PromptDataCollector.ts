@@ -233,58 +233,46 @@ export class PromptDataCollector {
   private getNearbyBlocksInfo(): string {
     try {
       const { gameState } = this.state.context;
-      const nearbyBlocks = gameState.getNearbyBlocks?.(16) || [];
+      const blockPosition = gameState.blockPosition;
 
-      // 调试日志
-      this.logger.debug(`🔍 获取周围方块: 找到 ${nearbyBlocks.length} 个方块`);
-      if (nearbyBlocks.length > 0) {
-        this.logger.debug(
-          `📍 方块列表: ${nearbyBlocks
-            .slice(0, 5)
-            .map(b => b.name)
-            .join(', ')}${nearbyBlocks.length > 5 ? '...' : ''}`,
-        );
+      if (!blockPosition) {
+        return '位置信息不可用';
       }
+
+      // 使用 NearbyBlockManager 获取格式化的方块信息
+      const nearbyBlockManager = gameState.getNearbyBlockManager?.();
+      if (nearbyBlockManager) {
+        const blockInfo = nearbyBlockManager.getVisibleBlocksInfo(
+          {
+            x: blockPosition.x,
+            y: blockPosition.y,
+            z: blockPosition.z,
+          },
+          16, // 搜索距离16格
+        );
+
+        this.logger.debug(`🔍 获取周围方块信息完成`);
+        return blockInfo;
+      }
+
+      // 降级方案：使用旧的方式
+      const nearbyBlocks = gameState.getNearbyBlocks?.(16) || [];
+      this.logger.debug(`🔍 获取周围方块: 找到 ${nearbyBlocks.length} 个方块`);
 
       if (nearbyBlocks.length === 0) {
-        return '附近没有重要方块';
+        return '附近没有方块信息';
       }
 
-      // 过滤重要方块并按距离排序
-      const importantPatterns = [
-        'chest',
-        'furnace',
-        'crafting_table',
-        'bed',
-        'door',
-        'torch',
-        'workbench',
-        'ore',
-        'log',
-        'wood',
-        'sapling',
-        'diamond',
-        'emerald',
-        'gold',
-        'iron',
-        'coal',
-        'stone',
-        'planks',
-        'brick',
-        'glass',
-        'wool',
-        'bookshelf',
-      ];
+      // 不再过滤方块，显示所有方块（除了普通空气）
+      const validBlocks = nearbyBlocks.filter(block => block.name !== 'air');
 
-      const importantBlocks = nearbyBlocks.filter(block => importantPatterns.some(pattern => block.name.includes(pattern)));
-
-      if (importantBlocks.length === 0) {
-        return '附近没有发现重要方块';
+      if (validBlocks.length === 0) {
+        return '附近都是空气方块';
       }
 
-      // 计算距离并排序，显示最近的方块
-      const botPosition = this.state.context.gameState.blockPosition;
-      importantBlocks.sort((a, b) => {
+      // 按距离排序
+      const botPosition = gameState.blockPosition;
+      validBlocks.sort((a, b) => {
         const distA = Math.sqrt(
           Math.pow(a.position.x - botPosition.x, 2) + Math.pow(a.position.y - botPosition.y, 2) + Math.pow(a.position.z - botPosition.z, 2),
         );
@@ -294,31 +282,31 @@ export class PromptDataCollector {
         return distA - distB;
       });
 
-      // 生成详细信息，包含坐标
-      const blockLines: string[] = [];
-
-      // 显示每个重要方块的详细信息
-      for (const block of importantBlocks.slice(0, 15)) {
-        // 最多显示15个方块
+      // 按类型分组显示
+      const groupedBlocks = new Map<string, Array<{ position: any; distance: number }>>();
+      for (const block of validBlocks) {
         const pos = block.position;
         const distance = Math.sqrt(Math.pow(pos.x - botPosition.x, 2) + Math.pow(pos.y - botPosition.y, 2) + Math.pow(pos.z - botPosition.z, 2));
 
-        let line = `  ${block.name} at (${pos.x}, ${pos.y}, ${pos.z})`;
-        line += ` [距离: ${distance.toFixed(1)}格]`;
-
-        // 添加特殊方块的状态信息
-        if (block.state && Object.keys(block.state).length > 0) {
-          const stateStr = Object.entries(block.state)
-            .map(([key, value]) => `${key}:${value}`)
-            .join(', ');
-          line += ` [${stateStr}]`;
+        if (!groupedBlocks.has(block.name)) {
+          groupedBlocks.set(block.name, []);
         }
-
-        blockLines.push(line);
+        groupedBlocks.get(block.name)!.push({ position: pos, distance });
       }
 
-      return `附近重要方块 (${importantBlocks.length}个):\n${blockLines.join('\n')}`;
+      // 生成详细信息
+      const blockLines: string[] = [];
+      for (const [blockName, positions] of groupedBlocks) {
+        const count = positions.length;
+        const nearest = positions[0]; // 已排序，第一个是最近的
+        blockLines.push(
+          `  ${blockName} (${count}个) 最近: (${nearest.position.x}, ${nearest.position.y}, ${nearest.position.z}) [${nearest.distance.toFixed(1)}格]`,
+        );
+      }
+
+      return `附近方块 (${validBlocks.length}个):\n${blockLines.join('\n')}`;
     } catch (error) {
+      this.logger.error('获取附近方块信息失败', undefined, error as Error);
       return '获取附近方块信息失败';
     }
   }

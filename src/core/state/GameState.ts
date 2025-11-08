@@ -16,6 +16,7 @@ import { getLogger, type Logger } from '@/utils/Logger';
 import { BlockCache } from '@/core/cache/BlockCache';
 import { ContainerCache } from '@/core/cache/ContainerCache';
 import { CacheManager } from '@/core/cache/CacheManager';
+import { NearbyBlockManager } from '@/core/cache/NearbyBlockManager';
 import type { BlockInfo, ContainerInfo } from '@/core/cache/types';
 
 /**
@@ -97,6 +98,7 @@ export class GameState {
   blockCache: BlockCache | null = null;
   containerCache: ContainerCache | null = null;
   cacheManager: CacheManager | null = null;
+  nearbyBlockManager: NearbyBlockManager | null = null;
 
   // 初始化标志
   private initialized: boolean = false;
@@ -182,8 +184,8 @@ export class GameState {
     try {
       // 创建缓存配置，优化性能
       const cacheConfig = {
-        maxEntries: 5000, // 减少最大条目数，减少内存使用
-        expirationTime: 60 * 60 * 1000, // 1小时过期
+        maxEntries: 50000, // 大幅增加缓存容量，支持大范围探索
+        expirationTime: 60 * 1000, // 60秒过期（LLM决策需要时间，且clearOutOfRange会清理远处方块）
         autoSaveInterval: 5 * 60 * 1000, // 5分钟自动保存，减少I/O频率
         enabled: true,
         updateStrategy: 'smart' as const,
@@ -191,17 +193,19 @@ export class GameState {
 
       this.blockCache = new BlockCache(cacheConfig);
       this.containerCache = new ContainerCache(cacheConfig);
+      this.nearbyBlockManager = new NearbyBlockManager(this.blockCache);
 
       this.logger.info('缓存实例创建完成', {
         blockCachePath: 'data/block_cache.json',
         containerCachePath: 'data/container_cache.json',
         autoSaveInterval: '30秒',
+        nearbyBlockManager: '已创建',
       });
 
       // 创建缓存管理器，配置适合AI决策的扫描频率
       const managerConfig = {
-        blockScanInterval: 15 * 1000, // 15秒扫描一次，更及时的环境感知
-        blockScanRadius: 12, // 扫描半径12格，更大的感知范围
+        blockScanInterval: 500, // 0.5秒扫描一次，实时更新
+        blockScanRadius: 50, // 扫描半径50格，大范围感知
         containerUpdateInterval: 60 * 1000, // 60秒更新容器
         autoSaveInterval: 5 * 60 * 1000, // 5分钟自动保存，减少I/O
         enableAutoScan: true,
@@ -223,6 +227,16 @@ export class GameState {
           if (this.cacheManager) {
             this.cacheManager.start();
             this.logger.info('缓存管理器已启动');
+
+            // 立即触发一次方块扫描，确保初始化时有数据
+            this.cacheManager
+              .triggerBlockScan()
+              .then(() => {
+                this.logger.info('初始方块扫描完成');
+              })
+              .catch(err => {
+                this.logger.error('初始方块扫描失败', undefined, err);
+              });
           }
         })
         .catch(error => {
@@ -475,6 +489,13 @@ export class GameState {
   }
 
   /**
+   * 获取附近方块管理器
+   */
+  getNearbyBlockManager(): NearbyBlockManager | null {
+    return this.nearbyBlockManager;
+  }
+
+  /**
    * 按名称查找方块
    */
   findBlocksByName(name: string): BlockInfo[] {
@@ -550,6 +571,7 @@ export class GameState {
 
   /**
    * 扫描周围方块并更新缓存
+   * 缓存所有方块类型，包括空气、水、岩浆等环境方块
    */
   scanNearbyBlocks(bot: Bot, radius: number = 8): void {
     if (!this.blockCache || !bot.blockAt) return;
@@ -565,8 +587,9 @@ export class GameState {
             const worldZ = Math.floor(this.blockPosition.z + z);
 
             const block = bot.blockAt(new Vec3(worldX, worldY, worldZ));
-            if (block && block.type !== 0) {
-              // 不是空气方块
+            if (block) {
+              // 缓存所有方块，包括空气方块
+              // 这对环境感知非常重要（如检测水、岩浆等）
               blocks.push({
                 x: worldX,
                 y: worldY,
@@ -586,7 +609,7 @@ export class GameState {
       }
 
       this.blockCache.setBlocks(blocks);
-      this.logger.debug(`扫描并缓存了 ${blocks.length} 个方块 (半径: ${radius})`);
+      this.logger.debug(`扫描并缓存了 ${blocks.length} 个方块 (半径: ${radius})，包含所有方块类型`);
     } catch (error) {
       this.logger.error('扫描周围方块失败', undefined, error as Error);
     }

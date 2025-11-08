@@ -122,7 +122,7 @@ export class LLMManager {
         message_count: messages.length,
         has_system_message: !!systemMessage,
       });
-      this.logger.debug(prompt);
+      this.logger.info(prompt);
 
       // 发送请求
       const response = await this.activeProvider!.chat(requestConfig);
