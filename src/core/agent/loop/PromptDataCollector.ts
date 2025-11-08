@@ -37,18 +37,32 @@ export interface MemoryData {
 }
 
 export interface MainThinkingData {
+  // 嵌套模板（会自动生成）
   role_description: string;
   basic_info: string;
+
+  // 动作相关
   available_actions: string;
   eat_action: string;
   kill_mob_action: string;
+
+  // 记忆和历史
   failed_hint: string;
   thinking_list: string;
+  judge_guidance: string;
+
+  // 基础信息（用于嵌套模板）
+  bot_name: string;
+  player_name: string;
+  goal: string;
+  to_do_list: string;
+  self_status_info: string;
+  inventory_info: string;
   nearby_block_info: string;
   position: string;
+  container_cache_info: string;
+  nearby_entities_info: string;
   chat_str: string;
-  judge_guidance: string;
-  goal: string;
 }
 
 export class PromptDataCollector {
@@ -118,32 +132,40 @@ export class PromptDataCollector {
 
   /**
    * 收集所有数据（用于 main_thinking）
+   *
+   * 优化：利用自动嵌套模板引用，无需手动生成子模板
+   * 提示词系统会自动识别并生成 role_description 和 basic_info
    */
   collectAllData(): MainThinkingData {
     const basicInfo = this.collectBasicInfo();
     const dynamicActions = this.collectDynamicActions();
     const memoryData = this.collectMemoryData();
 
-    // 生成角色描述（静态部分，可缓存）
-    const roleDescription = promptManager.generatePrompt('role_description', {
-      bot_name: basicInfo.bot_name,
-      player_name: basicInfo.player_name,
-    });
-
-    // 生成 basic_info 提示词（动态部分）
-    const basicInfoPrompt = promptManager.generatePrompt('basic_info', basicInfo);
-
     return {
-      role_description: roleDescription,
-      basic_info: basicInfoPrompt,
+      // 嵌套模板（会自动生成，无需提供值）
+      role_description: '',
+      basic_info: '',
+
+      // 动作相关
       available_actions: this.actionPromptGenerator.generatePrompt(),
       ...dynamicActions,
+
+      // 记忆和历史
       ...memoryData,
+      judge_guidance: this.getJudgeGuidance(),
+
+      // 基础参数（用于自动生成嵌套模板）
+      bot_name: basicInfo.bot_name,
+      player_name: basicInfo.player_name,
+      goal: basicInfo.goal,
+      to_do_list: basicInfo.to_do_list,
+      self_status_info: basicInfo.self_status_info,
+      inventory_info: basicInfo.inventory_info,
       nearby_block_info: basicInfo.nearby_block_info,
       position: basicInfo.position,
+      container_cache_info: basicInfo.container_cache_info,
+      nearby_entities_info: basicInfo.nearby_entities_info,
       chat_str: basicInfo.chat_str,
-      judge_guidance: this.getJudgeGuidance(),
-      goal: basicInfo.goal,
     };
   }
 

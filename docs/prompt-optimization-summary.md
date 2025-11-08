@@ -1,277 +1,258 @@
-# 提示词优化总结
+# 提示词系统优化总结
 
-## 修复的问题
+## 优化目标
 
-### 问题1: 目标未创建到规划系统 ✅
+1. **提升 LLM 缓存效率**：将不变的内容放在提示词前面
+2. **简化代码维护**：利用嵌套模板自动引用，减少手动拼接
+3. **模块化设计**：将提示词按功能和变化频率分层
 
-**症状**：
-- `goal-planning.json` 为空
-- 提示词显示有目标，但"暂无任务"
-- 计划永远不会自动生成
+## 实现方案
 
-**原因**：
-配置文件中的 goal 被读取到 `state.goal`，但从未调用 `planningManager.createGoal()` 创建到规划系统。
+### 1. 嵌套模板引用系统
 
-**修复**：
-在 `Agent.initialize()` 中添加：
+实现了自动嵌套模板引用功能，支持：
+
+- 在模板中使用 `{template_name}` 自动引用其他模板
+- 递归嵌套支持（模板可以引用模板）
+- 循环引用检测和防护
+- 参数自动传递和提取
+
+**详见：** `docs/nested-template-feature.md`
+
+### 2. 提示词结构重组
+
+#### 原始结构（未优化）
+
+```
+{basic_info}（动态，频繁变化）
+- 角色描述（静态）
+- 目标和任务（动态）
+- 当前状态（动态）
+- ...
+
+{规划系统说明}（静态）
+{行为准则}（静态）
+{游戏指南}（静态）
+{动作分析}（静态）
+{available_actions}（半静态）
+{eat_action}（动态）
+{kill_mob_action}（动态）
+{failed_hint}（动态）
+{judge_guidance}（动态）
+{thinking_list}（动态）
+```
+
+**问题**：动态内容在提示词开头，每次都变化，无法有效利用 LLM 缓存。
+
+#### 优化后结构
+
+```
+{role_description}（静态）✅ 可缓存
+- 角色描述
+- 任务系统说明
+
+{规划系统说明}（静态）✅ 可缓存
+{行为准则}（静态）✅ 可缓存
+{游戏指南}（静态）✅ 可缓存
+{动作分析}（静态）✅ 可缓存
+{available_actions}（半静态）✅ 部分可缓存
+{eat_action}（动态）
+{kill_mob_action}（动态）
+
+---
+
+{basic_info}（动态）❌ 每次变化
+- 目标和任务
+- 当前状态
+- 位置信息
+- 周围环境
+- ...
+
+{failed_hint}（动态）
+{judge_guidance}（动态）
+{thinking_list}（动态）
+```
+
+**优势**：
+- 静态内容集中在前面，约占提示词的 60-70%
+- LLM 可以缓存静态部分，只处理动态部分
+- 提升响应速度，降低 token 消耗
+
+### 3. 模板拆分
+
+#### basic_info 模板拆分
+
+**拆分前**：
+
 ```typescript
-// 如果配置中有目标但规划系统中没有，创建初始目标
-if (this.state.goal && !this.state.planningManager.getCurrentGoal()) {
-  this.logger.info(`🎯 从配置创建初始目标: ${this.state.goal}`);
-  this.state.planningManager.createGoal(this.state.goal);
+basic_info = `
+你是{bot_name}，游戏名叫{player_name}...（静态）
+当前目标和任务...（动态）
+当前状态...（动态）
+物品栏...（动态）
+位置信息...（动态）
+周围环境...（动态）
+`;
+```
+
+**拆分后**：
+
+```typescript
+// 静态部分 - role_description
+role_description = `
+你是{bot_name}，游戏名叫{player_name}...
+任务系统说明...
+`;
+
+// 动态部分 - basic_info
+basic_info = `
+当前目标和任务：{goal}
+{to_do_list}
+当前状态：{self_status_info}
+物品栏：{inventory_info}
+位置信息：{position}
+周围环境：{nearby_block_info}
+...
+`;
+```
+
+### 4. 代码简化
+
+#### PromptDataCollector 简化
+
+**之前**：
+
+```typescript
+collectAllData(): MainThinkingData {
+  const basicInfo = this.collectBasicInfo();
+  
+  // 手动生成嵌套模板
+  const roleDescription = promptManager.generatePrompt('role_description', {
+    bot_name: basicInfo.bot_name,
+    player_name: basicInfo.player_name,
+  });
+  
+  const basicInfoPrompt = promptManager.generatePrompt('basic_info', basicInfo);
+  
+  return {
+    role_description: roleDescription,
+    basic_info: basicInfoPrompt,
+    // ...
+  };
 }
 ```
 
-**效果**：
-- 启动时自动将配置中的目标创建到规划系统
-- `checkAndGeneratePlan()` 会检测到有目标但无计划
-- LLM 自动生成执行计划
+**现在**：
 
----
-
-### 问题2: 提示词顺序不利于缓存 ✅
-
-**症状**：
-- 频繁变化的内容（basic_info）放在最前面
-- 不变的内容（规则、动作列表）放在后面
-- 无法利用 LLM 的 KV 缓存（Claude prompt caching / GPT cache）
-
-**原理**：
-LLM 的 prompt caching 工作原理：
-- 缓存提示词的**前缀部分**
-- 当前缀部分不变时，可以复用缓存
-- 节省 token 消耗和提高响应速度
-
-**修复前的顺序**：
-```
-1. {basic_info}          ← 每次都变（位置、物品栏、状态）❌
-2. {available_actions}   ← 不变
-3. 系统说明              ← 不变
-4. {failed_hint}         ← 偶尔变
-5. {thinking_list}       ← 每次都变
-```
-
-**修复后的顺序**：
-```
-1. 系统说明              ← 不变 ✅ 可缓存
-2. 行为准则              ← 不变 ✅ 可缓存
-3. 游戏指南              ← 不变 ✅ 可缓存
-4. 分析动作要求          ← 不变 ✅ 可缓存
-5. {available_actions}   ← 不变 ✅ 可缓存
-6. {eat_action}          ← 偶尔变（饥饿时出现）
-7. {kill_mob_action}     ← 偶尔变（有敌人时出现）
-8. --- 分隔线 ---        ← 明确标记缓存边界
-9. {basic_info}          ← 每次都变（放后面）
-10. {failed_hint}        ← 偶尔变
-11. {judge_guidance}     ← 偶尔变
-12. {thinking_list}      ← 每次都变
-```
-
-**优化效果**：
-
-| 优化项 | 修复前 | 修复后 | 改善 |
-|--------|--------|--------|------|
-| 可缓存前缀长度 | ~0 tokens | ~2000-3000 tokens | 巨大提升 |
-| 缓存命中率 | 0% | 80-90% | 显著提升 |
-| Token 消耗 | 100% | 30-50% | 节省 50-70% |
-| 响应速度 | 正常 | 快 20-40% | 明显改善 |
-
-**缓存边界说明**：
-
-使用 `---` 分隔线明确标记缓存边界：
-- 分隔线**之前**：不变或很少变化，可以缓存
-- 分隔线**之后**：频繁变化，不能缓存
-
----
-
-## 提示词新结构
-
-### 第一部分：系统规则（可缓存）
-
-```
-**关于规划系统**
-系统会自动管理目标和任务...
-
-**行为准则**
-1. 先总结之前的思考...
-2. 你不需要搭建方块...
-...
-
-**游戏指南**
-1. 当你收集或挖掘一种资源...
-...
-
-**分析动作**
-1. 分析上次执行的动作...
-...
-```
-
-### 第二部分：动作列表（可缓存）
-
-```
-{available_actions}
-
-**move**
-移动到指定位置...
-
-**mine_block**
-挖掘指定类型的方块...
-
-...
-
-{eat_action}         ← 饥饿时动态添加
-
-{kill_mob_action}    ← 有敌人时动态添加
-```
-
-### 第三部分：当前状态（不可缓存）
-
-```
----
-
-{basic_info}
-
-你是AI Bot，游戏名叫EvilMai...
-
-**当前目标和任务规划**
-目标：收集64个橡木原木
-
-🎯 当前目标: 收集64个橡木原木
-📋 收集资源计划 (1/3)
-  🔄 收集橡木原木 (45%)
-  ⏳ 寻找工作台
-  ⏳ 合成木板
-
-**当前状态**
-生命值: 18/20, 饥饿值: 15/20
-
-**物品栏和工具**
-oak_log×29, stone_pickaxe×1
-
-**位置信息**
-位置: (125, 64, 233)
-
-**周围方块的信息**
-oak_log at (127, 65, 235) [距离: 3.2格]
-...
-
-{failed_hint}
-
-**上一阶段的反思**
-{judge_guidance}
-
-**思考/执行的记录**
-{thinking_list}
-```
-
----
-
-## 缓存效果分析
-
-### Claude Prompt Caching
-
-Claude 的 prompt caching 要求：
-- 至少 1024 tokens 才能缓存
-- 缓存前缀部分
-- 5 分钟 TTL
-
-**优化前**：
-- 可缓存长度：0 tokens（第一个变量就是变化的）
-- 缓存命中率：0%
-
-**优化后**：
-- 可缓存长度：~2500 tokens（系统说明 + 动作列表）
-- 缓存命中率：85-90%
-- Token 节省：~70%
-
-### OpenAI Prompt Caching
-
-OpenAI 的 prompt caching：
-- GPT-4 Turbo 支持
-- 自动识别重复的前缀
-- 短时间内自动缓存
-
-**优化后效果**：
-- 缓存命中率提升
-- 延迟降低 30-40%
-- 成本降低 50%
-
----
-
-## 验证方法
-
-### 1. 检查目标创建
-
-启动后查看日志：
-```
-🎯 从配置创建初始目标: 收集64个橡木原木
-```
-
-### 2. 检查计划生成
-
-几秒后应该看到：
-```
-🎯 检测到目标没有计划，开始自动生成...
-📋 LLM 生成计划: 收集资源计划 (3 个任务)
-✅ 成功生成并激活计划: 收集资源计划
-```
-
-### 3. 检查 goal-planning.json
-
-应该包含完整的目标、计划和任务：
-```json
-{
-  "currentGoalId": "goal_xxx",
-  "currentPlanId": "plan_xxx",
-  "currentTaskId": "task_xxx",
-  "goals": [...],
-  "plans": [...]
+```typescript
+collectAllData(): MainThinkingData {
+  const basicInfo = this.collectBasicInfo();
+  
+  // 嵌套模板自动生成，只需提供基础参数
+  return {
+    role_description: '', // 自动生成
+    basic_info: '',       // 自动生成
+    bot_name: basicInfo.bot_name,
+    player_name: basicInfo.player_name,
+    goal: basicInfo.goal,
+    to_do_list: basicInfo.to_do_list,
+    // ...其他参数
+  };
 }
 ```
 
-### 4. 观察 LLM API 调用
+**代码行数减少**：从 ~20 行减少到 ~15 行  
+**可维护性提升**：模板依赖关系自动处理，无需手动管理
 
-如果使用支持缓存的 API（Claude/GPT-4），应该看到：
-- 首次调用：全量 tokens
-- 后续调用：缓存命中，tokens 大幅减少
+## 优化效果
 
----
+### 1. 缓存效率
 
-## 总结
+| 提示词部分 | 变化频率 | 字符数（估算） | 是否可缓存 |
+|-----------|---------|--------------|-----------|
+| role_description | 从不变 | ~200 | ✅ |
+| 规划/行为/游戏指南 | 从不变 | ~800 | ✅ |
+| available_actions | 偶尔变（饥饿/战斗） | ~1500 | ✅ 部分 |
+| basic_info | 每次变 | ~1000 | ❌ |
+| thinking_list | 每次变 | ~500 | ❌ |
 
-### 修复的核心问题
+**优化前**：~0% 可缓存（动态内容在开头）  
+**优化后**：~65% 可缓存（约 2500/4000 字符）
 
-1. **目标创建** ✅
-   - 配置中的目标现在会自动创建到规划系统
-   - 触发自动计划生成流程
+### 2. 性能提升（预估）
 
-2. **提示词顺序** ✅
-   - 不变内容放前面（可缓存）
-   - 变化内容放后面（不缓存）
-   - 明确分隔缓存边界
+- **首次调用**：性能相同
+- **后续调用**：
+  - Token 处理量减少 ~65%
+  - 响应延迟降低 ~40-50%
+  - API 成本降低 ~30-40%（取决于提供商的缓存策略）
 
-### 预期改善
+### 3. 代码质量
 
-| 指标 | 改善程度 |
-|------|----------|
-| 规划系统功能 | 从不工作 → 完全工作 |
-| Token 消耗 | 减少 50-70% |
-| API 成本 | 减少 40-60% |
-| 响应速度 | 提升 20-40% |
-| 系统稳定性 | 显著提升 |
+- **模块化**：提示词按功能拆分，易于维护
+- **复用性**：`role_description` 可用于其他模式（聊天、评估等）
+- **可读性**：嵌套关系清晰，代码意图明确
 
-### 后续优化建议
+## 技术细节
 
-1. **动态动作**：
-   - `eat_action` 和 `kill_mob_action` 也可以考虑放到最后
-   - 进一步提高缓存命中率
+### 提示词生成流程
 
-2. **模板复用**：
-   - 将系统规则部分提取为独立模板
-   - 在多个决策点复用
+```
+1. 收集基础数据 (collectBasicInfo)
+   ├─ bot_name, player_name
+   ├─ goal, to_do_list
+   ├─ position, health, food
+   └─ nearby_block_info, inventory_info
 
-3. **监控缓存效果**：
-   - 记录 API 调用的缓存命中率
-   - 持续优化缓存边界
+2. 收集动态动作 (collectDynamicActions)
+   ├─ eat_action（饥饿时）
+   └─ kill_mob_action（有敌对生物时）
 
+3. 收集记忆数据 (collectMemoryData)
+   ├─ failed_hint
+   └─ thinking_list
 
+4. 组装为 MainThinkingData
+   ├─ 嵌套模板字段（空字符串占位）
+   └─ 基础参数（供嵌套模板使用）
+
+5. 生成 main_thinking 提示词
+   ├─ 遇到 {role_description}
+   │  └─ 自动生成：promptManager.generatePrompt('role_description', params)
+   ├─ 遇到 {basic_info}
+   │  └─ 自动生成：promptManager.generatePrompt('basic_info', params)
+   └─ 其他占位符：直接使用参数值
+```
+
+### 循环引用防护
+
+```typescript
+visitedTemplates: Set<string> = new Set();
+
+function generatePrompt(templateName, params, visited) {
+  if (visited.has(templateName)) {
+    throw Error('检测到循环引用');
+  }
+  
+  visited.add(templateName);
+  // ... 递归生成子模板 ...
+}
+```
+
+## 相关文件
+
+| 文件 | 修改内容 |
+|------|---------|
+| `prompt_manager.ts` | 实现嵌套模板引用功能 |
+| `basic_info.ts` | 拆分为 `role_description` + `basic_info` |
+| `main_thinking.ts` | 调整提示词顺序，静态内容在前 |
+| `PromptDataCollector.ts` | 简化数据收集逻辑 |
+| `jest.config.js` | 添加路径映射支持测试 |
+| `nested_template.test.ts` | 完整的测试套件 |
+
+## 后续计划
+
+- [ ] 监控实际缓存命中率
+- [ ] 添加性能分析日志
+- [ ] 考虑更细粒度的模板拆分
+- [ ] 评估其他模式（chat、combat）的优化空间

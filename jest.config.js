@@ -16,6 +16,9 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   moduleFileExtensions: ['ts', 'js', 'json'],
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
   verbose: true,
   testTimeout: 30000, // 增加超时时间，因为文件操作可能较慢
 };
