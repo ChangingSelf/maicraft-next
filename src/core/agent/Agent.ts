@@ -54,6 +54,9 @@ export class Agent {
 
     // 设置事件监听
     this.setupEventListeners();
+
+    // 设置定期保存记忆
+    this.setupPeriodicSave();
   }
 
   /**
@@ -173,6 +176,20 @@ export class Agent {
     await this.saveState();
 
     this.logger.info('✅ Agent 已停止');
+  }
+
+  /**
+   * 设置定期保存记忆
+   */
+  private setupPeriodicSave(): void {
+    // 每30秒保存一次记忆
+    setInterval(async () => {
+      try {
+        await this.state.memory.saveAll();
+      } catch (error) {
+        this.logger.error('定期保存记忆失败', undefined, error as Error);
+      }
+    }, 30 * 1000);
   }
 
   /**

@@ -10,6 +10,7 @@ export { initTaskEvaluationTemplate } from './task_evaluation';
 export { initSystemPromptTemplates } from './system_prompts';
 export { initFurnaceOperationTemplate } from './furnace_operation';
 export { initChestOperationTemplate } from './chest_operation';
+export { initExperienceSummaryTemplate } from './experience_summary';
 
 /**
  * 初始化所有核心模板
@@ -24,6 +25,7 @@ import { initTaskEvaluationTemplate } from './task_evaluation';
 import { initSystemPromptTemplates } from './system_prompts';
 import { initFurnaceOperationTemplate } from './furnace_operation';
 import { initChestOperationTemplate } from './chest_operation';
+import { initExperienceSummaryTemplate } from './experience_summary';
 
 export function initAllCoreTemplates(): void {
   initBasicInfoTemplate();
@@ -34,4 +36,5 @@ export function initAllCoreTemplates(): void {
   initSystemPromptTemplates();
   initFurnaceOperationTemplate();
   initChestOperationTemplate();
+  initExperienceSummaryTemplate();
 }

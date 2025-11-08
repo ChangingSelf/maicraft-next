@@ -23,6 +23,7 @@ export class ChatLoop extends BaseLoop<AgentState> {
 
     // 监听聊天事件
     this.setupChatListener();
+    this.logger.info('💬 聊天循环初始化完成，等待聊天事件...');
   }
 
   /**
@@ -44,6 +45,7 @@ export class ChatLoop extends BaseLoop<AgentState> {
       this.state.memory.recordConversation('player', data.message, {
         username: data.username,
       });
+      this.logger.debug(`📝 记录对话: ${data.username}: ${data.message}`);
 
       // 检查是否被呼叫
       const botName = botUsername || 'bot';

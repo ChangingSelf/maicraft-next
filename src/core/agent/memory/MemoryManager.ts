@@ -78,6 +78,7 @@ export class MemoryManager {
       context,
       timestamp: Date.now(),
     });
+    this.logger.debug(`💬 记录对话: ${speaker} - ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`);
   }
 
   /**
@@ -92,6 +93,7 @@ export class MemoryManager {
       feedback,
       timestamp: Date.now(),
     });
+    this.logger.debug(`🎯 记录决策: ${result} - ${intention}`);
   }
 
   /**
@@ -107,6 +109,7 @@ export class MemoryManager {
       timestamp: Date.now(),
       lastOccurrence: Date.now(),
     });
+    this.logger.debug(`📚 记录经验: ${lesson.substring(0, 50)}${lesson.length > 50 ? '...' : ''} (置信度: ${(confidence * 100).toFixed(0)}%)`);
   }
 
   /**

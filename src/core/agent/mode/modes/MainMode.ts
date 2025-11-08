@@ -160,8 +160,18 @@ export class MainMode extends BaseMode {
 
     this.logger.info('🤖 LLM 响应完成');
 
-    // 解析并执行动作
+    // 记录LLM的思维过程
     if (response.content) {
+      // 从LLM响应中提取思维过程
+      const thinkingMatch = response.content.match(/【思考】([\s\S]*?)【/);
+      if (thinkingMatch) {
+        this.state!.memory.recordThought(`🤔 LLM思维: ${thinkingMatch[1].trim()}`, {
+          context: 'main_decision',
+          prompt: prompt.substring(0, 200) + '...',
+          mode: 'main',
+        });
+      }
+
       await this.parseAndExecuteActions(response.content);
     }
   }
@@ -185,6 +195,10 @@ export class MainMode extends BaseMode {
 
       this.logger.info(`📋 准备执行 ${actionMatches.length} 个动作`);
 
+      // 记录决策开始
+      const decisionIntention = `执行 ${actionMatches.length} 个动作`;
+      const allActions: any[] = [];
+
       // 执行每个动作
       for (let i = 0; i < actionMatches.length; i++) {
         try {
@@ -202,17 +216,40 @@ export class MainMode extends BaseMode {
 
           this.logger.info(`🎬 执行动作 ${i + 1}/${actionMatches.length}: ${actionName}`);
 
+          // 记录动作信息
+          allActions.push({
+            action: actionName,
+            params: actionJson.params || actionJson,
+            index: i + 1,
+          });
+
           // 检查是否是GUI操作，需要切换模式
           if (this.isGUIAction(actionName)) {
             const modeSwitchResult = await this.handleGUIAction(actionName, actionJson);
             if (modeSwitchResult) {
               this.logger.info(`✅ 动作 ${i + 1}/${actionMatches.length}: 切换到${modeSwitchResult}模式`);
+              // 记录成功的决策
+              this.state!.memory.recordDecision(decisionIntention, allActions, 'success', `切换到${modeSwitchResult}模式`);
               // GUI模式切换后，停止后续动作执行
               break;
             }
           } else {
             // 执行普通动作
             const result = await this.state!.context.executor.execute(actionName, actionJson.params || actionJson);
+
+            // 记录决策结果
+            const decisionResult = result.success ? 'success' : 'failed';
+            this.state!.memory.recordDecision(
+              `${actionName} 动作执行`,
+              [
+                {
+                  actionType: actionName,
+                  params: actionJson.params || actionJson,
+                },
+              ],
+              decisionResult,
+              `位置: (${this.state!.context.gameState.blockPosition.x}, ${this.state!.context.gameState.blockPosition.y}, ${this.state!.context.gameState.blockPosition.z}) - ${result.message}`,
+            );
 
             if (result.success) {
               this.logger.info(`✅ 动作 ${i + 1}/${actionMatches.length}: 成功`);
@@ -224,11 +261,20 @@ export class MainMode extends BaseMode {
           }
         } catch (parseError) {
           this.logger.error(`❌ 动作 ${i + 1}/${actionMatches.length} 解析失败:`, undefined, parseError as Error);
+          // 记录异常的决策
+          this.state!.memory.recordDecision(decisionIntention, allActions, 'failed', `解析失败: ${(parseError as Error).message}`);
           break;
         }
       }
+
+      // 如果所有动作都成功执行，记录成功的决策
+      if (allActions.length > 0 && !allActions.some(a => a.failed)) {
+        this.state!.memory.recordDecision(decisionIntention, allActions, 'success');
+      }
     } catch (error) {
       this.logger.error('❌ 动作解析执行异常:', undefined, error as Error);
+      // 记录异常的决策
+      this.state!.memory.recordDecision('执行动作序列', [], 'failed', (error as Error).message);
     }
   }
 
@@ -245,7 +291,7 @@ export class MainMode extends BaseMode {
     const entities = this.state.context.gameState.nearbyEntities || [];
     const enemies = entities.filter((e: any) => hostileMobs.includes(e.name?.toLowerCase()));
 
-    return enemies.length > 0 && enemies[0].distance < 10;
+    return enemies.length > 0 && (enemies[0].distance ?? 100) < 10;
   }
 
   /**
@@ -294,12 +340,11 @@ export class MainMode extends BaseMode {
       }
 
       // 切换到GUI模式
-      const success = await this.state.modeManager.setMode(targetMode, `LLM决策使用${actionName}`);
-
-      if (success) {
+      try {
+        await this.state.modeManager.setMode(targetMode, `LLM决策使用${actionName}`);
         return targetMode;
-      } else {
-        this.logger.warn(`⚠️ 切换到${targetMode}模式失败`);
+      } catch (error) {
+        this.logger.warn(`⚠️ 切换到${targetMode}模式失败: ${(error as Error).message}`);
         return null;
       }
     } catch (error) {

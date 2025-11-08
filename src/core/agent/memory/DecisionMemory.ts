@@ -19,6 +19,7 @@ export class DecisionMemory implements MemoryStore<DecisionEntry> {
 
   add(entry: DecisionEntry): void {
     this.entries.push(entry);
+    this.logger.debug(`📝 DecisionMemory添加条目: ${entry.intention}, 结果: ${entry.result}, 当前条目数: ${this.entries.length}`);
     this.cleanup({ maxEntries: this.maxEntries });
   }
 
@@ -108,9 +109,11 @@ export class DecisionMemory implements MemoryStore<DecisionEntry> {
 
   async save(): Promise<void> {
     try {
+      this.logger.info(`💾 DecisionMemory保存 ${this.entries.length} 条决策记录到 ${this.dataFile}`);
       // 确保目录存在
       await fs.mkdir(path.dirname(this.dataFile), { recursive: true });
       await fs.writeFile(this.dataFile, JSON.stringify(this.entries, null, 2));
+      this.logger.info(`✅ DecisionMemory保存完成`);
     } catch (error) {
       this.logger.error('保存决策记忆失败:', undefined, error instanceof Error ? error : new Error(String(error)));
     }

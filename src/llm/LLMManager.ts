@@ -116,7 +116,7 @@ export class LLMManager {
         ...options,
       };
 
-      this.logger.debug('发送LLM请求', {
+      this.logger.info('发送LLM请求', {
         provider: this.activeProvider?.provider,
         model: requestConfig.model,
         message_count: messages.length,

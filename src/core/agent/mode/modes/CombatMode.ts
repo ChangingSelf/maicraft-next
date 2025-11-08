@@ -227,22 +227,37 @@ export class CombatMode extends BaseMode {
         timeout: 30,
       });
 
-      if (result.success) {
-        this.logger.info(`✅ 成功击杀: ${enemy.name}`);
+      // 记录决策结果
+      const decisionResult = result.success ? 'success' : 'failed';
+      if (this.state?.memory) {
+        this.state.memory.recordDecision(
+          `战斗行动: 攻击 ${enemy.name}`,
+          [
+            {
+              actionType: 'kill_mob',
+              params: {
+                entity: enemy.name,
+                timeout: 30,
+              },
+            },
+          ],
+          decisionResult,
+          `战斗持续${this.getRunningTime()}秒，敌人血量${enemy.health}，距离${enemy.distance} - ${result.message}`,
+        );
 
         // 记录战斗结果到思考日志
-        if (this.state?.memory) {
+        if (result.success) {
           this.state.memory.recordThought(`⚔️ 成功击杀 ${enemy.name}`);
+          this.logger.info(`✅ 成功击杀: ${enemy.name}`);
+        } else {
+          this.state.memory.recordThought(`⚠️ 战斗失败: ${result.message}`);
+          this.logger.warn(`⚠️ 战斗失败: ${result.message}`);
         }
+      }
 
+      if (result.success) {
         // 清理当前敌人，下次循环会寻找新目标
         this.currentEnemy = null;
-      } else {
-        this.logger.warn(`⚠️ 战斗失败: ${result.message}`);
-
-        if (this.state?.memory) {
-          this.state.memory.recordThought(`⚠️ 战斗失败: ${result.message}`);
-        }
       }
     } catch (error) {
       this.logger.error('❌ 攻击动作执行异常:', undefined, error as Error);
