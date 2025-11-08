@@ -53,7 +53,7 @@ export class ConversationMemory implements MemoryStore<ConversationEntry> {
    */
   getConversationWith(playerName: string, limit: number = 10): ConversationEntry[] {
     return this.entries
-      .filter(e => (e.speaker === 'player' && e.context?.username === playerName) || (e.speaker === 'ai' && e.context?.replyTo === playerName))
+      .filter(e => e.speaker === playerName || e.context?.replyTo === playerName)
       .slice(-limit);
   }
 

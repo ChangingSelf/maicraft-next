@@ -109,7 +109,7 @@ export interface ThoughtEntry {
  */
 export interface ConversationEntry {
   id: string;
-  speaker: 'ai' | 'player';
+  speaker: string; // 说话人用户名（包括AI的用户名）
   message: string;
   context?: Record<string, any>;
   timestamp: number;

@@ -75,6 +75,8 @@ export class Agent {
     };
 
     const memory = new MemoryManager();
+    // 设置机器人配置，用于对话格式化
+    memory.setBotConfig(config);
     const planningManager = new GoalPlanningManager(gameContext);
     // 设置 LLM Manager 以便规划管理器可以生成计划
     planningManager.setLLMManager(this.llmManager);

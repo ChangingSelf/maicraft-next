@@ -42,7 +42,7 @@ export class ChatLoop extends BaseLoop<AgentState> {
       }
 
       // 记录到记忆系统
-      this.state.memory.recordConversation('player', data.message, {
+      this.state.memory.recordConversation(data.username, data.message, {
         username: data.username,
       });
       this.logger.debug(`📝 记录对话: ${data.username}: ${data.message}`);
@@ -86,12 +86,11 @@ export class ChatLoop extends BaseLoop<AgentState> {
    * 是否应该响应
    */
   private shouldRespond(conversation: ConversationEntry): boolean {
-    // 不响应自己的消息
-    if (conversation.speaker === 'ai') {
+    // 不响应自己的消息（AI的消息）
+    const botName = this.state.config.minecraft.username || this.state.context.gameState.playerName || '麦麦';
+    if (conversation.speaker === botName) {
       return false;
     }
-
-    const botName = this.state.config.minecraft.username || this.state.context.gameState.playerName || 'bot';
 
     // 被呼叫时，一定响应
     if (conversation.message.includes(botName)) {
@@ -114,7 +113,13 @@ export class ChatLoop extends BaseLoop<AgentState> {
   private async respondToChat(): Promise<void> {
     try {
       const recentConversations = this.state.memory.conversation.getRecent(10);
-      const conversationText = recentConversations.map(c => `[${c.speaker}]: ${c.message}`).join('\n');
+      const conversationText = recentConversations
+        .map(c => {
+          const botName = this.state.config.minecraft.username || this.state.context.gameState.playerName || '麦麦';
+          const speakerDisplay = c.speaker === botName ? '[我]' : `[${c.speaker}]`;
+          return `${speakerDisplay}: ${c.message}`;
+        })
+        .join('\n');
 
       const userPrompt = promptManager.generatePrompt('chat_response', {
         player_name: this.state.context.gameState.playerName || 'Bot',
@@ -133,7 +138,7 @@ export class ChatLoop extends BaseLoop<AgentState> {
 
       if (message) {
         await this.state.context.executor.execute(ActionIds.CHAT, { message });
-        this.state.memory.recordConversation('ai', message);
+        this.state.memory.recordConversation(this.state.context.gameState.playerName || '麦麦', message);
         this.logger.info(`💬 发送聊天: ${message}`);
       }
     } catch (error) {
@@ -147,7 +152,13 @@ export class ChatLoop extends BaseLoop<AgentState> {
   private async initiateChat(): Promise<void> {
     try {
       const recentConversations = this.state.memory.conversation.getRecent(5);
-      const conversationText = recentConversations.map(c => `[${c.speaker}]: ${c.message}`).join('\n');
+      const conversationText = recentConversations
+        .map(c => {
+          const botName = this.state.config.minecraft.username || this.state.context.gameState.playerName || '麦麦';
+          const speakerDisplay = c.speaker === botName ? '[我]' : `[${c.speaker}]`;
+          return `${speakerDisplay}: ${c.message}`;
+        })
+        .join('\n');
 
       const userPrompt = promptManager.generatePrompt('chat_initiate', {
         player_name: this.state.context.gameState.playerName || 'Bot',
@@ -166,7 +177,7 @@ export class ChatLoop extends BaseLoop<AgentState> {
 
       if (message) {
         await this.state.context.executor.execute(ActionIds.CHAT, { message });
-        this.state.memory.recordConversation('ai', message);
+        this.state.memory.recordConversation(this.state.context.gameState.playerName || '麦麦', message);
         this.logger.info(`💬 主动聊天: ${message}`);
       }
     } catch (error) {

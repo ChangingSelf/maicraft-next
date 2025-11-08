@@ -69,7 +69,7 @@ interface MemoryEntry {
     "memoryTypes": ["thought", "conversation"],
     "limit": 50,
     "filters": {
-      "speaker": "player",
+      "speaker": "用户名",
       "importance": "high"
     }
   }
@@ -160,7 +160,7 @@ interface MemoryEntry {
 ## 常见过滤条件
 
 - **重要性**: `importance: "high"` - 只接收重要记忆
-- **说话者**: `speaker: "player"` - 只接收玩家对话
+- **说话者**: `speaker: "用户名"` - 只接收指定用户的对话
 - **执行结果**: `result: "success"` - 只接收成功决策
 - **记忆类型**: `memoryTypes: ["thought", "decision"]` - 只接收思维和决策记忆
 

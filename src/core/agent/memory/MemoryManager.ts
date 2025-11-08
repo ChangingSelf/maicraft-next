@@ -21,6 +21,7 @@ export class MemoryManager {
 
   private logger: Logger;
   private webSocketServer?: any; // WebSocket服务器引用
+  private botConfig?: any; // 机器人配置
 
   constructor() {
     this.logger = getLogger('MemoryManager');
@@ -51,6 +52,13 @@ export class MemoryManager {
       serverExists: !!server,
       hasMemoryDataProvider,
     });
+  }
+
+  /**
+   * 设置机器人配置，用于格式化对话
+   */
+  setBotConfig(config: any): void {
+    this.botConfig = config;
   }
 
   /**
@@ -95,7 +103,7 @@ export class MemoryManager {
   /**
    * 记录对话
    */
-  recordConversation(speaker: 'ai' | 'player', message: string, context?: Record<string, any>): void {
+  recordConversation(speaker: string, message: string, context?: Record<string, any>): void {
     const entry = {
       id: this.generateId(),
       speaker,
@@ -344,7 +352,9 @@ export class MemoryManager {
   }
 
   private formatConversation(c: ConversationEntry): string {
-    const speaker = c.speaker === 'ai' ? '[我]' : '[玩家]';
+    // 如果是AI的消息，显示为 [我]，否则显示具体的用户名
+    const botName = this.botConfig?.minecraft?.username || this.botConfig?.playerName || '麦麦';
+    const speaker = c.speaker === botName ? '[我]' : c.speaker;
     return `${this.formatTime(c.timestamp)} ${speaker}: ${c.message}`;
   }
 
