@@ -48,7 +48,7 @@ export class MineBlockByPositionAction extends BaseAction<MineBlockByPositionPar
         context.logger.warn(`方块距离过远 (${distance.toFixed(2)} > 6)，尝试移动靠近`);
 
         // 使用 MovementUtils 移动到方块附近
-        const moveResult = await MovementUtils.moveToCoordinate(
+        const moveResult = await context.movementUtils.moveToCoordinate(
           context.bot,
           targetPos.x,
           targetPos.y,

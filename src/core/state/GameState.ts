@@ -178,42 +178,19 @@ export class GameState {
   }
 
   /**
-   * 初始化缓存系统
+   * 初始化缓存系统（依赖注入版本）
    */
   private initializeCaches(bot: Bot): void {
     try {
-      // 创建缓存配置，优化性能
-      const cacheConfig = {
-        maxEntries: 50000, // 大幅增加缓存容量，支持大范围探索
-        expirationTime: 60 * 1000, // 60秒过期（LLM决策需要时间，且clearOutOfRange会清理远处方块）
-        autoSaveInterval: 5 * 60 * 1000, // 5分钟自动保存，减少I/O频率
-        enabled: true,
-        updateStrategy: 'smart' as const,
-      };
+      // 缓存实例现在通过依赖注入提供，不在这里创建
+      // 只需要加载缓存数据并启动缓存管理器
 
-      this.blockCache = new BlockCache(cacheConfig);
-      this.containerCache = new ContainerCache(cacheConfig);
-      this.nearbyBlockManager = new NearbyBlockManager(this.blockCache, bot);
-
-      this.logger.info('缓存实例创建完成', {
+      this.logger.info('缓存实例初始化', {
         blockCachePath: 'data/block_cache.json',
         containerCachePath: 'data/container_cache.json',
-        autoSaveInterval: '30秒',
-        nearbyBlockManager: '已创建',
+        hasCacheManager: !!this.cacheManager,
+        hasNearbyBlockManager: !!this.nearbyBlockManager,
       });
-
-      // 创建缓存管理器，配置适合AI决策的扫描频率
-      const managerConfig = {
-        blockScanInterval: 500, // 0.5秒扫描一次，实时更新
-        blockScanRadius: 50, // 扫描半径50格，大范围感知
-        containerUpdateInterval: 60 * 1000, // 60秒更新容器
-        autoSaveInterval: 5 * 60 * 1000, // 5分钟自动保存，减少I/O
-        enableAutoScan: true,
-        enableAutoSave: true,
-        performanceMode: 'performance' as const, // 优先性能，减少扫描开销
-      };
-
-      this.cacheManager = new CacheManager(bot, this.blockCache, this.containerCache, managerConfig);
 
       // 异步加载缓存数据
       this.loadCaches()
@@ -680,7 +657,3 @@ export class GameState {
   }
 }
 
-/**
- * 全局游戏状态实例
- */
-export const globalGameState = new GameState();

@@ -10,7 +10,7 @@ import { CraftTracker } from './CraftTracker';
 import { CompositeTracker } from './CompositeTracker';
 
 export class TrackerFactory {
-  private static trackers: Map<string, any> = new Map([
+  private trackers: Map<string, any> = new Map([
     ['inventory', InventoryTracker],
     ['location', LocationTracker],
     ['craft', CraftTracker],
@@ -20,14 +20,14 @@ export class TrackerFactory {
   /**
    * 注册自定义追踪器
    */
-  static register(type: string, trackerClass: any): void {
+  register(type: string, trackerClass: any): void {
     this.trackers.set(type, trackerClass);
   }
 
   /**
    * 从 JSON 创建追踪器
    */
-  static fromJSON(json: any): TaskTracker {
+  fromJSON(json: any): TaskTracker {
     const TrackerClass = this.trackers.get(json.type);
 
     if (!TrackerClass) {
@@ -36,7 +36,7 @@ export class TrackerFactory {
 
     // CompositeTracker 需要特殊处理
     if (json.type === 'composite') {
-      return CompositeTracker.fromJSON(json, TrackerFactory);
+      return CompositeTracker.fromJSON(json, this);
     }
 
     return TrackerClass.fromJSON(json);
@@ -45,7 +45,34 @@ export class TrackerFactory {
   /**
    * 获取所有注册的追踪器类型
    */
-  static getRegisteredTypes(): string[] {
+  getRegisteredTypes(): string[] {
     return Array.from(this.trackers.keys());
+  }
+
+  /**
+   * 兼容旧代码的静态方法
+   * @deprecated 使用DI容器：container.resolve(ServiceKeys.TrackerFactory).fromJSON(json)
+   */
+  static fromJSON(json: any): TaskTracker {
+    const factory = new TrackerFactory();
+    return factory.fromJSON(json);
+  }
+
+  /**
+   * 兼容旧代码的静态方法
+   * @deprecated 使用DI容器
+   */
+  static register(type: string, trackerClass: any): void {
+    const factory = new TrackerFactory();
+    factory.register(type, trackerClass);
+  }
+
+  /**
+   * 兼容旧代码的静态方法
+   * @deprecated 使用DI容器
+   */
+  static getRegisteredTypes(): string[] {
+    const factory = new TrackerFactory();
+    return factory.getRegisteredTypes();
   }
 }

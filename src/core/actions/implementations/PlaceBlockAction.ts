@@ -8,7 +8,6 @@ import { BaseAction } from '../Action';
 import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, PlaceBlockParams } from '../types';
 import { ActionIds } from '../ActionIds';
-import { PlaceBlockUtils } from '@/utils/PlaceBlockUtils';
 
 export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
   readonly id = ActionIds.PLACE_BLOCK;
@@ -31,7 +30,7 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
       context.logger.info(`放置方块: ${block} at (${x}, ${y}, ${z})`);
 
       // 使用 PlaceBlockUtils 放置方块
-      const result = await PlaceBlockUtils.placeBlock(context.bot, {
+      const result = await context.placeBlockUtils.placeBlock(context.bot, {
         x: Math.floor(x),
         y: Math.floor(y),
         z: Math.floor(z),

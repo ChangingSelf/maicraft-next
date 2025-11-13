@@ -139,6 +139,7 @@ pnpm start
 - **[模式系统](docs/mode-system.md)** - 模式切换和管理机制
 - **[提示词系统](docs/prompt-system.md)** - Prompt 模板管理和生成
 - **[LLM 集成](docs/llm-integration.md)** - 多提供商 LLM 管理和调用
+- **[依赖注入](docs/dependency-injection.md)** - DI 容器架构和使用指南
 
 #### 开发指南
 

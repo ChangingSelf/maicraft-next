@@ -1,9 +1,7 @@
 import { Bot } from 'mineflayer';
 import { Vec3 } from 'vec3';
 import { MovementUtils, GoalType } from './MovementUtils';
-import { getLogger } from './Logger';
-
-const logger = getLogger('PlaceBlockUtils');
+import { Logger } from './Logger';
 
 /**
  * 放置方块参数接口
@@ -50,32 +48,40 @@ export interface PlaceBlockResult {
  * 提供统一的方块放置功能，基于 mineflayer
  */
 export class PlaceBlockUtils {
+  private logger: Logger;
+  private movementUtils: MovementUtils;
+
+  constructor(logger: Logger, movementUtils: MovementUtils) {
+    this.logger = logger;
+    this.movementUtils = movementUtils;
+  }
+
   /**
    * 在指定位置放置方块
    */
-  static async placeBlock(bot: Bot, params: PlaceBlockParams): Promise<PlaceBlockResult> {
+  async placeBlock(bot: Bot, params: PlaceBlockParams): Promise<PlaceBlockResult> {
     try {
       // 检查 mcData
       const mcData = bot.registry;
       if (!mcData) {
-        return this.createErrorResult('mcData 未加载，请检查 mineflayer 版本', 'MCDATA_NOT_LOADED');
+        return PlaceBlockUtils.createErrorResult('mcData 未加载，请检查 mineflayer 版本', 'MCDATA_NOT_LOADED');
       }
 
       const blockByName = mcData.blocksByName[params.block];
       if (!blockByName) {
-        return this.createErrorResult(`未找到方块: ${params.block}`, 'BLOCK_NOT_FOUND');
+        return PlaceBlockUtils.createErrorResult(`未找到方块: ${params.block}`, 'BLOCK_NOT_FOUND');
       }
 
       // 在背包中查找对应的物品
       const itemByName = mcData.itemsByName[params.block];
       if (!itemByName) {
-        return this.createErrorResult(`未找到对应的物品: ${params.block}`, 'ITEM_NOT_FOUND');
+        return PlaceBlockUtils.createErrorResult(`未找到对应的物品: ${params.block}`, 'ITEM_NOT_FOUND');
       }
 
       // 在背包中查找物品
       const item = bot.inventory.findInventoryItem(itemByName.id, null, false);
       if (!item) {
-        return this.createErrorResult(`背包中没有 ${params.block}`, 'ITEM_NOT_IN_INVENTORY');
+        return PlaceBlockUtils.createErrorResult(`背包中没有 ${params.block}`, 'ITEM_NOT_IN_INVENTORY');
       }
 
       // 根据useRelativeCoords参数确定坐标类型
@@ -92,7 +98,7 @@ export class PlaceBlockUtils {
       // 检查目标位置是否已经有方块
       const targetBlock = bot.blockAt(position);
       if (targetBlock && targetBlock.name !== 'air') {
-        return this.createErrorResult(`目标位置已有方块: ${targetBlock.name}`, 'POSITION_OCCUPIED');
+        return PlaceBlockUtils.createErrorResult(`目标位置已有方块: ${targetBlock.name}`, 'POSITION_OCCUPIED');
       }
 
       // 检查bot身体是否占据目标位置（bot高2格）
@@ -106,9 +112,9 @@ export class PlaceBlockUtils {
 
       if (isBotOccupyingTarget) {
         // 尝试移动到周围位置以让出目标位置
-        const relocationResult = await this.tryRelocateBot(bot, position);
+        const relocationResult = await PlaceBlockUtils.tryRelocateBot(bot, position, this.logger, this.movementUtils);
         if (!relocationResult.success) {
-          return this.createErrorResult(`bot占据目标位置，尝试移动失败: ${relocationResult.error}`, 'BOT_OCCUPYING_POSITION');
+          return PlaceBlockUtils.createErrorResult(`bot占据目标位置，尝试移动失败: ${relocationResult.error}`, 'BOT_OCCUPYING_POSITION');
         }
 
         // 移动后再次检查是否仍然占据
@@ -121,7 +127,7 @@ export class PlaceBlockUtils {
           (newBotHeadPos.x === position.x && newBotHeadPos.z === position.z && newBotHeadPos.y === position.y);
 
         if (stillOccupying) {
-          return this.createErrorResult(`移动后bot仍然占据目标位置，无法放置方块`, 'STILL_OCCUPYING_POSITION');
+          return PlaceBlockUtils.createErrorResult(`移动后bot仍然占据目标位置，无法放置方块`, 'STILL_OCCUPYING_POSITION');
         }
       }
 
@@ -166,14 +172,14 @@ export class PlaceBlockUtils {
           if (block && block.name !== 'air') {
             referenceBlock = block;
             faceVector = vector;
-            logger.debug(`找到参照方块: ${block.name} 在位置 ${block.position}`);
+            this.logger.debug(`找到参照方块: ${block.name} 在位置 ${block.position}`);
             break;
           }
         }
       }
 
       if (!referenceBlock || !faceVector) {
-        return this.createErrorResult(
+        return PlaceBlockUtils.createErrorResult(
           `无法找到有效的参照方块来放置 ${params.block}。无法放置悬浮方块，请移动到可以放置 ${params.block} 的位置`,
           'NO_REFERENCE_BLOCK',
         );
@@ -197,7 +203,7 @@ export class PlaceBlockUtils {
         const facing = getFacingFromFaceVector(faceVector);
 
         // 使用统一的移动工具类移动到目标位置，使用 GoalPlaceBlock 目标类型
-        const moveResult = await MovementUtils.moveTo(bot, {
+        const moveResult = await this.movementUtils.moveTo(bot, {
           type: 'coordinate',
           x: position.x,
           y: position.y,
@@ -219,7 +225,7 @@ export class PlaceBlockUtils {
         });
 
         if (!moveResult.success) {
-          logger.warn(`移动到目标位置失败: ${moveResult.error}，尝试直接放置`);
+          this.logger.warn(`移动到目标位置失败: ${moveResult.error}，尝试直接放置`);
         }
 
         // 装备物品
@@ -229,7 +235,7 @@ export class PlaceBlockUtils {
         await bot.placeBlock(referenceBlock, faceVector);
 
         // 只要没有抛出错误，就认为放置成功
-        return this.createSuccessResult(`成功放置 ${params.block}`, {
+        return PlaceBlockUtils.createSuccessResult(`成功放置 ${params.block}`, {
           block: params.block,
           position: { x: position.x, y: position.y, z: position.z },
           referenceBlock: referenceBlock.name,
@@ -237,10 +243,10 @@ export class PlaceBlockUtils {
           useRelativeCoords: params.useRelativeCoords || false,
         });
       } catch (error) {
-        return this.createExceptionResult(error, `放置 ${params.block} 失败`, 'PLACE_FAILED');
+        return PlaceBlockUtils.createExceptionResult(error, `放置 ${params.block} 失败`, 'PLACE_FAILED');
       }
     } catch (error) {
-      return this.createExceptionResult(error, '放置方块失败', 'PLACE_FAILED');
+      return PlaceBlockUtils.createExceptionResult(error, '放置方块失败', 'PLACE_FAILED');
     }
   }
 
@@ -303,7 +309,12 @@ export class PlaceBlockUtils {
   /**
    * 尝试移动bot到周围位置以让出目标位置
    */
-  private static async tryRelocateBot(bot: Bot, targetPosition: Vec3): Promise<{ success: boolean; error?: string }> {
+  private static async tryRelocateBot(
+    bot: Bot,
+    targetPosition: Vec3,
+    logger: Logger,
+    movementUtils: MovementUtils,
+  ): Promise<{ success: boolean; error?: string }> {
     // 定义周围的位置偏移（前后左右各1格）
     const offsets = [
       new Vec3(1, 0, 0), // 东
@@ -330,7 +341,7 @@ export class PlaceBlockUtils {
           logger.info(`尝试移动到位置: (${newPosition.x}, ${newPosition.y}, ${newPosition.z})`);
 
           // 使用MovementUtils移动到新位置
-          const moveResult = await MovementUtils.moveTo(bot, {
+          const moveResult = await movementUtils.moveTo(bot, {
             type: 'coordinate',
             x: newPosition.x,
             y: newPosition.y,

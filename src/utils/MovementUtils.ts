@@ -1,9 +1,7 @@
 import { Bot } from 'mineflayer';
 import { Vec3 } from 'vec3';
 import pathfinder from 'mineflayer-pathfinder-mai';
-import { getLogger } from './Logger';
-
-const logger = getLogger('MovementUtils');
+import { Logger } from './Logger';
 
 /**
  * 移动目标类型枚举 - 基于 mineflayer-pathfinder-mai 的目标类型
@@ -119,12 +117,18 @@ export interface MovementResult {
  * 提供统一的移动功能，基于 mineflayer-pathfinder-mai
  */
 export class MovementUtils {
+  private logger: Logger;
+
+  constructor(logger: Logger) {
+    this.logger = logger;
+  }
+
   /**
    * 检查 pathfinder 插件是否可用
    */
-  private static checkPathfinderAvailable(bot: Bot): boolean {
+  private checkPathfinderAvailable(bot: Bot): boolean {
     if (!bot.pathfinder) {
-      logger.error('路径寻找插件未加载，请先加载 mineflayer-pathfinder-mai 插件');
+      this.logger.error('路径寻找插件未加载，请先加载 mineflayer-pathfinder-mai 插件');
       return false;
     }
     return true;
@@ -133,7 +137,7 @@ export class MovementUtils {
   /**
    * 根据移动类型和参数确定目标类型
    */
-  private static determineGoalType(params: MovementParams): GoalType {
+  private determineGoalType(params: MovementParams): GoalType {
     // 如果用户指定了目标类型，直接使用
     if (params.goalType) {
       return params.goalType;
@@ -156,7 +160,7 @@ export class MovementUtils {
   /**
    * 根据目标类型创建相应的路径寻找目标
    */
-  private static createGoal(goalType: GoalType, targetPosition: Vec3, distance: number, params: MovementParams, bot: Bot): any {
+  private createGoal(goalType: GoalType, targetPosition: Vec3, distance: number, params: MovementParams, bot: Bot): any {
     const { GoalBlock, GoalNear, GoalXZ, GoalNearXZ, GoalY, GoalGetToBlock, GoalFollow, GoalPlaceBlock, GoalLookAtBlock } = pathfinder.goals;
 
     switch (goalType) {
@@ -192,7 +196,7 @@ export class MovementUtils {
             return new GoalFollow(entity, distance);
           } else {
             // 如果找不到实体，回退到 GoalNear
-            logger.warn(`找不到实体，使用 GoalNear 作为回退目标`);
+            this.logger.warn(`找不到实体，使用 GoalNear 作为回退目标`);
             return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
           }
         } else {
@@ -203,7 +207,7 @@ export class MovementUtils {
       case GoalType.GoalPlaceBlock:
         const world = bot.world;
         if (!world) {
-          logger.warn('无法获取世界信息，使用 GoalNear 作为回退目标');
+          this.logger.warn('无法获取世界信息，使用 GoalNear 作为回退目标');
           return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
         }
 
@@ -220,7 +224,7 @@ export class MovementUtils {
           return new GoalPlaceBlock(targetPosition, world, options);
         } else {
           // 回退到旧的逻辑（向后兼容）
-          logger.warn('未提供参照方块信息，使用旧的查找逻辑');
+          this.logger.warn('未提供参照方块信息，使用旧的查找逻辑');
 
           // 查找参照方块（用于放置方块）
           const referenceBlock = bot.blockAt(targetPosition.offset(0, -1, 0)); // 假设在目标位置下方放置
@@ -239,7 +243,7 @@ export class MovementUtils {
               facing: 'up',
             });
           } else {
-            logger.warn('找不到参照方块，使用 GoalNear 作为回退目标');
+            this.logger.warn('找不到参照方块，使用 GoalNear 作为回退目标');
             return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
           }
         }
@@ -247,7 +251,7 @@ export class MovementUtils {
       case GoalType.GoalLookAtBlock:
         const worldForLook = bot.world;
         if (!worldForLook) {
-          logger.warn('无法获取世界信息，使用 GoalNear 作为回退目标');
+          this.logger.warn('无法获取世界信息，使用 GoalNear 作为回退目标');
           return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
         }
 
@@ -255,12 +259,12 @@ export class MovementUtils {
         if (blockToLookAt) {
           return new GoalLookAtBlock(targetPosition, worldForLook, { reach: distance });
         } else {
-          logger.warn('找不到要看向的方块，使用 GoalNear 作为回退目标');
+          this.logger.warn('找不到要看向的方块，使用 GoalNear 作为回退目标');
           return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
         }
 
       default:
-        logger.warn(`不支持的目标类型: ${goalType}，使用 GoalNear 作为默认目标`);
+        this.logger.warn(`不支持的目标类型: ${goalType}，使用 GoalNear 作为默认目标`);
         return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
     }
   }
@@ -268,7 +272,7 @@ export class MovementUtils {
   /**
    * 验证移动参数
    */
-  private static validateMovementParams(params: MovementParams): { isValid: boolean; error?: string } {
+  private validateMovementParams(params: MovementParams): { isValid: boolean; error?: string } {
     const { type, x, y, z, block, player, entity } = params;
 
     switch (type) {
@@ -302,7 +306,7 @@ export class MovementUtils {
   /**
    * 计算目标位置
    */
-  private static async calculateTargetPosition(bot: Bot, params: MovementParams): Promise<{ position: Vec3; description: string } | null> {
+  private async calculateTargetPosition(bot: Bot, params: MovementParams): Promise<{ position: Vec3; description: string } | null> {
     const { type, x, y, z, block, player, entity, useRelativeCoords = false } = params;
 
     switch (type) {
@@ -377,7 +381,7 @@ export class MovementUtils {
   /**
    * 执行移动操作
    */
-  static async moveTo(bot: Bot, params: MovementParams): Promise<MovementResult> {
+  async moveTo(bot: Bot, params: MovementParams): Promise<MovementResult> {
     try {
       // 检查 pathfinder 插件
       if (!this.checkPathfinderAvailable(bot)) {
@@ -464,7 +468,7 @@ export class MovementUtils {
 
       const { position: targetPosition, description: targetDescription } = targetResult;
 
-      logger.debug(`开始移动到 ${targetDescription}，距离: ${distance}`);
+      this.logger.debug(`开始移动到 ${targetDescription}，距离: ${distance}`);
 
       // 检查是否已经在目标位置
       const currentDistance = bot.entity.position.distanceTo(targetPosition);
@@ -539,7 +543,7 @@ export class MovementUtils {
         const botPos = bot.entity.position;
 
         if (finalDistance <= distance) {
-          logger.debug(`成功移动到 ${targetDescription} (距离: ${finalDistance.toFixed(2)})`);
+          this.logger.debug(`成功移动到 ${targetDescription} (距离: ${finalDistance.toFixed(2)})`);
           return {
             success: true,
             type: params.type,
@@ -565,7 +569,7 @@ export class MovementUtils {
             timestamp: Date.now(),
           };
         } else {
-          logger.debug(`移动完成，最终距离: ${finalDistance.toFixed(2)} (目标距离: ${distance})`);
+          this.logger.debug(`移动完成，最终距离: ${finalDistance.toFixed(2)} (目标距离: ${distance})`);
           return {
             success: true,
             type: params.type,
@@ -596,7 +600,7 @@ export class MovementUtils {
         throw error;
       }
     } catch (error) {
-      logger.error(`移动失败: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`移动失败: ${error instanceof Error ? error.message : String(error)}`);
       const botPos = bot.entity.position;
       return {
         success: false,
@@ -625,7 +629,7 @@ export class MovementUtils {
   /**
    * 移动到方块附近（用于挖掘、交互等）
    */
-  static async moveToBlock(bot: Bot, blockName: string, distance: number = 4, maxDistance: number = 64): Promise<MovementResult> {
+  async moveToBlock(bot: Bot, blockName: string, distance: number = 4, maxDistance: number = 64): Promise<MovementResult> {
     return this.moveTo(bot, {
       type: 'block',
       block: blockName,
@@ -637,7 +641,7 @@ export class MovementUtils {
   /**
    * 移动到玩家附近
    */
-  static async moveToPlayer(bot: Bot, playerName: string, distance: number = 3, maxDistance: number = 100): Promise<MovementResult> {
+  async moveToPlayer(bot: Bot, playerName: string, distance: number = 3, maxDistance: number = 100): Promise<MovementResult> {
     return this.moveTo(bot, {
       type: 'player',
       player: playerName,
@@ -649,7 +653,7 @@ export class MovementUtils {
   /**
    * 移动到实体附近
    */
-  static async moveToEntity(bot: Bot, entityName: string, distance: number = 2, maxDistance: number = 50): Promise<MovementResult> {
+  async moveToEntity(bot: Bot, entityName: string, distance: number = 2, maxDistance: number = 50): Promise<MovementResult> {
     return this.moveTo(bot, {
       type: 'entity',
       entity: entityName,
@@ -661,7 +665,7 @@ export class MovementUtils {
   /**
    * 移动到指定坐标
    */
-  static async moveToCoordinate(
+  async moveToCoordinate(
     bot: Bot,
     x: number,
     y: number,

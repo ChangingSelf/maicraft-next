@@ -609,3 +609,6 @@ export function getLoggingConfig() {
     };
   }
 }
+
+// 导出 ConfigLoader
+export { ConfigLoader, configLoader } from './ConfigLoader';

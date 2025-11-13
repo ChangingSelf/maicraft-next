@@ -65,7 +65,7 @@ export class CraftItemAction extends BaseAction<CraftParams> {
         context.logger.info(`找到工作台: (${craftingTableBlock.position.x}, ${craftingTableBlock.position.y}, ${craftingTableBlock.position.z})`);
 
         // 使用 MovementUtils 移动到工作台附近
-        const moveResult = await MovementUtils.moveToCoordinate(
+        const moveResult = await context.movementUtils.moveToCoordinate(
           context.bot,
           craftingTableBlock.position.x,
           craftingTableBlock.position.y,

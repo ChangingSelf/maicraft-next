@@ -15,6 +15,8 @@ import { EventManager } from '../events/EventManager';
 import { InterruptSignal } from '../interrupt/InterruptSignal';
 import type { ActionExecutor } from '../actions/ActionExecutor';
 import type { Location } from '../cache/LocationManager';
+import { PlaceBlockUtils } from '../../utils/PlaceBlockUtils';
+import { MovementUtils } from '../../utils/MovementUtils';
 
 /**
  * Logger 接口
@@ -159,6 +161,10 @@ export interface RuntimeContext {
 
   // 配置
   config: Config;
+
+  // 工具类
+  placeBlockUtils: PlaceBlockUtils;
+  movementUtils: MovementUtils;
 }
 
 /**

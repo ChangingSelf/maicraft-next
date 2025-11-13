@@ -59,7 +59,7 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
       const startTime = Date.now();
       for (const pos of positions) {
         // 使用统一的移动工具类移动到陆地位置
-        const moveResult = await MovementUtils.moveTo(context.bot, {
+        const moveResult = await context.movementUtils.moveTo(context.bot, {
           type: 'coordinate',
           x: pos.x,
           y: pos.y + 1,

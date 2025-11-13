@@ -16,42 +16,15 @@ import { plugin as pvpPlugin } from 'mineflayer-pvp';
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as collectBlock } from 'mineflayer-collectblock-colalab';
 
-// 核心系统
-import { ActionExecutor } from '@/core/actions/ActionExecutor';
-import { ContextManager } from '@/core/context/ContextManager';
-
-// 动作实现
-import {
-  ChatAction,
-  MoveAction,
-  FindBlockAction,
-  MineBlockAction,
-  MineBlockByPositionAction,
-  MineInDirectionAction,
-  PlaceBlockAction,
-  CraftItemAction,
-  UseChestAction,
-  UseFurnaceAction,
-  EatAction,
-  TossItemAction,
-  KillMobAction,
-  SwimToLandAction,
-  SetLocationAction,
-} from './core/actions/implementations';
-
-// AI代理系统
-import { Agent } from '@/core/agent/Agent';
-
-// LLM管理器
-import { LLMManager, LLMManagerFactory } from '@/llm/LLMManager';
+// 依赖注入
+import { Container, ServiceKeys, configureServices } from '@/core/di';
+import type { Agent } from '@/core/agent/Agent';
+import type { WebSocketServer } from '@/api/WebSocketServer';
 
 // 工具类
-import { initializeConfig, getSection, getConfig, type AppConfig } from '@/utils/Config';
-import { getLogger, createLogger, LogLevel, type Logger } from '@/utils/Logger';
-
-// API服务
-import { WebSocketServer } from '@/api/WebSocketServer';
-import { WebSocketManager } from '@/api/WebSocketManager';
+import { type AppConfig } from '@/utils/Config';
+import { createLogger, LogLevel, type Logger } from '@/utils/Logger';
+import { ConfigLoader } from '@/utils/Config';
 
 /**
  * 基础错误日志记录器（在配置加载前使用）
@@ -66,14 +39,10 @@ const basicErrorLogger: Logger = createLogger({
  * 主应用程序类
  */
 class MaicraftNext {
+  private container!: Container;
   private bot?: Bot;
   private config?: AppConfig;
   private logger: Logger = createLogger();
-  private contextManager?: ContextManager;
-  private executor?: ActionExecutor;
-  private agent?: Agent;
-  private llmManager?: LLMManager;
-  private websocketServer?: WebSocketServer;
 
   private isShuttingDown = false;
   private reconnectTimer?: NodeJS.Timeout;
@@ -84,29 +53,44 @@ class MaicraftNext {
    */
   async initialize(): Promise<void> {
     try {
-      // 加载配置
-      await this.loadConfiguration();
+      // 1. 使用 ConfigLoader 加载配置
+      const configLoader = new ConfigLoader();
+      this.config = await configLoader.loadDefaultConfig();
 
       this.logger.info('🚀 Maicraft-Next 正在启动...');
       this.logger.info(`版本: ${this.config!.app.version}`);
 
-      // 初始化LLM管理器
-      await this.initializeLLM();
+      // 2. 创建 DI 容器
+      this.container = new Container(this.logger);
 
-      // 连接到Minecraft服务器
+      // 3. 连接到Minecraft服务器
       await this.connectToMinecraft();
 
-      // 初始化核心系统
-      await this.initializeCore();
+      // 4. 注册基础服务到容器
+      this.container.registerInstance(ServiceKeys.Config, this.config!);
+      this.container.registerInstance(ServiceKeys.Logger, this.logger);
+      this.container.registerInstance(ServiceKeys.Bot, this.bot!);
 
-      // 启动WebSocket服务器（必须在Agent启动之前，以便Agent能获取WebSocket引用）
-      await this.startWebSocketServer();
+      // 5. 配置所有其他服务
+      configureServices(this.container);
 
-      // 初始化AI代理
-      await this.initializeAgent();
+      // 6. 初始化插件设置
+      this.initializePluginSettings();
 
-      // 启动AI代理
-      await this.startAgent();
+      // 7. 启动 WebSocket 服务器
+      await this.container.resolveAsync<WebSocketServer>(ServiceKeys.WebSocketServer);
+      this.logger.info('✅ WebSocket服务器启动完成');
+
+      // 8. 启动 Agent 并连接 WebSocket
+      const agent = await this.container.resolveAsync<Agent>(ServiceKeys.Agent);
+      const wsServer = this.container.resolve<WebSocketServer>(ServiceKeys.WebSocketServer);
+
+      // 连接 Agent 和 WebSocket 服务器
+      agent.setWebSocketServer(wsServer);
+      wsServer.setMemoryManager(agent.getMemoryManager());
+
+      await agent.start();
+      this.logger.info('✅ Agent已启动');
 
       this.logger.info('✅ Maicraft-Next 启动完成');
       this.logger.info('AI代理现在正在运行...');
@@ -117,65 +101,10 @@ class MaicraftNext {
   }
 
   /**
-   * 启动WebSocket服务器
-   */
-  private async startWebSocketServer(): Promise<void> {
-    try {
-      this.websocketServer = new WebSocketServer();
-      await this.websocketServer.start();
-
-      // 设置到全局WebSocket管理器
-      WebSocketManager.getInstance().setWebSocketServer(this.websocketServer);
-
-      this.logger.info('✅ WebSocket服务器启动完成');
-    } catch (error) {
-      this.logger.error('启动WebSocket服务器失败', undefined, error as Error);
-      // WebSocket服务器启动失败不应该阻止主程序运行
-      // 可以继续运行，但API功能不可用
-    }
-  }
-
-  /**
    * 获取WebSocket服务器实例
    */
   getWebSocketServer(): WebSocketServer | undefined {
-    return this.websocketServer;
-  }
-
-  /**
-   * 加载配置文件
-   */
-  private async loadConfiguration(): Promise<void> {
-    try {
-      this.config = await initializeConfig('./config.toml', './config-template.toml');
-      this.logger.info('✅ 配置加载成功');
-    } catch (error) {
-      this.logger.error('❌ 配置加载失败', undefined, error as Error);
-      throw new Error('无法加载配置文件，请检查 config.toml 是否存在且格式正确');
-    }
-  }
-
-  /**
-   * 初始化LLM管理器
-   */
-  private async initializeLLM(): Promise<void> {
-    if (!this.config || !this.logger) {
-      throw new Error('配置或日志系统未初始化');
-    }
-
-    try {
-      this.llmManager = LLMManagerFactory.create(this.config.llm, this.logger);
-      this.logger.info('✅ LLM管理器初始化完成', {
-        provider: this.llmManager.getActiveProvider(),
-      });
-
-      // 执行健康检查
-      const health = await this.llmManager.healthCheck();
-      this.logger.info('LLM提供商健康检查', { health });
-    } catch (error) {
-      this.logger.error('LLM管理器初始化失败', undefined, error as Error);
-      throw error;
-    }
+    return this.container?.resolve<WebSocketServer>(ServiceKeys.WebSocketServer);
   }
 
   /**
@@ -219,9 +148,6 @@ class MaicraftNext {
         clearTimeout(timeout);
         this.logger.info('✅ 成功连接到服务器并重生');
 
-        // 初始化插件设置
-        this.initializePluginSettings();
-
         resolve();
       });
 
@@ -264,11 +190,11 @@ class MaicraftNext {
   }
 
   /**
-   * 初始化插件设置（在spawn后调用）
+   * 初始化插件设置
    */
   private initializePluginSettings(): void {
-    if (!this.bot || !this.config || !this.logger) {
-      this.logger?.error('Bot、配置或日志系统未初始化');
+    if (!this.bot || !this.config) {
+      this.logger.error('Bot或配置未初始化');
       return;
     }
 
@@ -385,163 +311,16 @@ class MaicraftNext {
   private async reconnect(): Promise<void> {
     this.logger.info('正在重新连接...');
 
-    // 停止当前agent
-    if (this.agent) {
-      await this.agent.stop();
-      this.agent = undefined; // 清除引用
+    // 销毁旧容器
+    if (this.container) {
+      await this.container.dispose();
     }
 
-    // 重新连接到Minecraft
-    await this.connectToMinecraft();
-
-    // 重新初始化LLM（总是重新初始化，因为可能被关闭）
-    await this.initializeLLM();
-
-    // 重新初始化核心系统
-    await this.initializeCore();
-
-    // 重新初始化agent
-    await this.initializeAgent();
-
-    // 启动agent
-    await this.startAgent();
+    // 重新初始化
+    await this.initialize();
 
     this.reconnectAttempts = 0;
     this.logger.info('✅ 重连成功');
-  }
-
-  /**
-   * 初始化核心系统
-   */
-  private async initializeCore(): Promise<void> {
-    if (!this.bot || !this.logger) {
-      throw new Error('Bot或日志系统未初始化');
-    }
-
-    this.logger.info('初始化核心系统...');
-
-    // 1. GameState将由 ContextManager 创建和管理
-    this.logger.info('✅ GameState将由ContextManager管理');
-
-    // 2. 创建上下文管理器
-    this.contextManager = new ContextManager();
-    this.contextManager.createContext({
-      bot: this.bot!,
-      executor: null as any, // 先传 null，稍后注入真正的 executor
-      config: this.config!,
-      logger: this.logger,
-    });
-    this.logger.info('✅ ContextManager初始化完成');
-
-    // 3. 创建ActionExecutor
-    this.executor = new ActionExecutor(this.contextManager, this.logger);
-
-    // 更新 ContextManager 中的 executor 引用
-    this.contextManager.updateExecutor(this.executor);
-
-    this.logger.info('✅ ActionExecutor初始化完成');
-
-    // 4. 注册所有动作
-    this.registerActions();
-
-    // 5. 设置事件监听
-    const events = this.executor.getEventManager();
-
-    events.on('actionComplete', data => {
-      this.logger.debug(`动作完成: ${data.actionName}`, {
-        duration: data.duration,
-        result: data.result.message,
-      });
-    });
-
-    events.on('actionError', data => {
-      this.logger.error(`动作错误: ${data.actionName}`, undefined, data.error);
-    });
-
-    this.logger.info('✅ 核心系统初始化完成');
-  }
-
-  /**
-   * 注册所有动作
-   */
-  private registerActions(): void {
-    if (!this.executor) {
-      throw new Error('ActionExecutor未初始化');
-    }
-
-    const actions = [
-      // P0 核心动作
-      new ChatAction(),
-      new MoveAction(),
-      new FindBlockAction(),
-      new MineBlockAction(),
-      new MineBlockByPositionAction(),
-      new PlaceBlockAction(),
-      new CraftItemAction(),
-      new MineInDirectionAction(),
-
-      // 容器操作
-      new UseChestAction(),
-      new UseFurnaceAction(),
-
-      // 生存相关
-      new EatAction(),
-      new TossItemAction(),
-      new KillMobAction(),
-
-      // 移动和探索
-      new SwimToLandAction(),
-
-      // 地标管理
-      new SetLocationAction(),
-    ];
-
-    this.executor.registerAll(actions);
-    this.logger.info(`✅ 已注册 ${actions.length} 个动作`);
-  }
-
-  /**
-   * 初始化AI代理
-   */
-  private async initializeAgent(): Promise<void> {
-    if (!this.bot || !this.executor || !this.llmManager || !this.config || !this.logger) {
-      throw new Error('必要组件未初始化');
-    }
-
-    this.logger.info('初始化AI代理系统...');
-
-    // 创建Agent
-    this.agent = new Agent(this.bot, this.executor, this.llmManager, this.config, this.logger);
-
-    // 初始化Agent（加载内存、计划等）
-    await this.agent.initialize();
-
-    this.logger.info('✅ AI代理初始化完成');
-  }
-
-  /**
-   * 启动AI代理
-   */
-  private async startAgent(): Promise<void> {
-    if (!this.agent) {
-      throw new Error('Agent未初始化');
-    }
-
-    this.logger.info('启动AI代理...');
-
-    // 连接记忆系统到WebSocket服务器（用于推送记忆更新）
-    if (this.websocketServer) {
-      this.agent.setWebSocketServer(this.websocketServer);
-    }
-
-    await this.agent.start();
-
-    // Agent启动完成后设置记忆管理器到WebSocket服务器，用于处理记忆操作请求
-    if (this.websocketServer) {
-      this.websocketServer.setMemoryManager(this.agent.getMemoryManager());
-    }
-
-    this.logger.info('✅ AI代理已启动');
   }
 
   /**
@@ -561,47 +340,17 @@ class MaicraftNext {
       this.reconnectTimer = undefined;
     }
 
-    // 1. 停止Agent
-    if (this.agent) {
+    // 1. 销毁容器（会自动调用所有服务的 disposer）
+    if (this.container) {
       try {
-        await this.agent.stop();
-        this.logger?.info('✅ Agent已停止');
+        await this.container.dispose();
+        this.logger?.info('✅ 容器已销毁');
       } catch (error) {
-        this.logger?.error('停止Agent时出错', undefined, error as Error);
+        this.logger?.error('销毁容器时出错', undefined, error as Error);
       }
     }
 
-    // 2. 关闭LLM管理器
-    if (this.llmManager) {
-      try {
-        this.llmManager.close();
-        this.logger?.info('✅ LLM管理器已关闭');
-      } catch (error) {
-        this.logger?.error('关闭LLM管理器时出错', undefined, error as Error);
-      }
-    }
-
-    // 3. 清理ContextManager（包括GameState）
-    if (this.contextManager) {
-      try {
-        this.contextManager.cleanup();
-        this.logger?.info('✅ ContextManager已清理');
-      } catch (error) {
-        this.logger?.error('清理ContextManager时出错', undefined, error as Error);
-      }
-    }
-
-    // 4. 停止WebSocket服务器
-    if (this.websocketServer) {
-      try {
-        await this.websocketServer.stop();
-        this.logger?.info('✅ WebSocket服务器已停止');
-      } catch (error) {
-        this.logger?.error('停止WebSocket服务器时出错', undefined, error as Error);
-      }
-    }
-
-    // 5. 断开Bot连接
+    // 2. 断开Bot连接
     if (this.bot) {
       try {
         this.bot.quit('Shutting down');

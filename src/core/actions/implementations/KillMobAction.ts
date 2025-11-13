@@ -45,7 +45,7 @@ export class KillMobAction extends BaseAction<KillMobParams> {
       } else {
         context.logger.info('使用简单攻击');
         // 移动到目标附近
-        const moveResult = await MovementUtils.moveTo(context.bot, {
+        const moveResult = await context.movementUtils.moveTo(context.bot, {
           type: 'coordinate',
           x: targetEntity.position.x,
           y: targetEntity.position.y,

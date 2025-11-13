@@ -4,6 +4,7 @@
  * 提供简洁的LLM调用接口，正确使用system/user角色
  */
 
+import { Logger as RuntimeLogger } from '../core/context/RuntimeContext';
 import { Logger, getLogger } from '../utils/Logger.js';
 import {
   LLMConfig,
@@ -38,23 +39,21 @@ export interface LLMClientResponse {
  * LLM客户端类 - 参考原maicraft项目的LLMClient
  */
 export class LLMManager {
-  private logger: Logger;
+  private logger: RuntimeLogger;
   private config: LLMConfig;
   private providers: Map<LLMProvider, ILLMProvider> = new Map();
   private usageTracker: UsageTracker;
   private activeProvider?: ILLMProvider;
   private isActive = true;
 
-  constructor(config: LLMConfig, logger?: Logger) {
+  constructor(config: LLMConfig, usageTracker: UsageTracker, logger?: RuntimeLogger) {
     this.config = config;
     this.logger = logger || getLogger('LLMManager');
+    this.usageTracker = usageTracker;
 
     this.logger.info('LLM客户端初始化', {
       default_provider: config.default_provider,
     });
-
-    // 初始化用量追踪器
-    this.usageTracker = new UsageTracker(config, this.logger);
 
     // 初始化提供商
     this.initializeProviders();
@@ -270,8 +269,7 @@ export class LLMManager {
       this.setActiveProvider(config.default_provider);
     }
 
-    // 更新用量追踪器配置
-    this.usageTracker = new UsageTracker(this.config, this.logger);
+    // 更新用量追踪器配置（现在通过DI管理，不需要重新创建）
   }
 
   /**
@@ -438,24 +436,25 @@ export class LLMManager {
 const globalLLMManager: LLMManager | null = null;
 
 /**
- * LLMManager 工厂 - 确保单例
+ * LLMManager 工厂 - 兼容旧代码，实际由DI容器管理单例
+ * @deprecated 使用DI容器代替此工厂
  */
 export class LLMManagerFactory {
   private static instance: LLMManager | null = null;
 
   /**
-   * 创建 LLMManager 实例（确保单例）
+   * 创建 LLMManager 实例
+   * @deprecated 使用DI容器：container.resolve(ServiceKeys.LLMManager)
    */
   static create(config: LLMConfig, logger?: Logger): LLMManager {
-    if (this.instance) {
-      throw new LLMError('LLMManager already exists. Use getInstance() to get existing instance.', 'MANAGER_ALREADY_EXISTS');
-    }
+    // 移除强制单例限制，允许多个实例（但实际由DI容器管理单例）
     this.instance = new LLMManager(config, logger);
     return this.instance;
   }
 
   /**
    * 获取已创建的 LLMManager 实例
+   * @deprecated 使用DI容器：container.resolve(ServiceKeys.LLMManager)
    */
   static getInstance(): LLMManager {
     if (!this.instance) {

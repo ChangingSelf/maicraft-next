@@ -637,3 +637,6 @@ export function createConfiguredLogger(moduleName: string, config?: Partial<Logg
   };
   return logger;
 }
+
+// 导出 LoggerFactory
+export { LoggerFactory, loggerFactory } from './LoggerFactory';

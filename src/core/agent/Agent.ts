@@ -35,55 +35,27 @@ export class Agent {
 
   private logger: Logger;
 
-  constructor(bot: Bot, executor: ActionExecutor, llmManager: any, config: Config, logger?: Logger) {
+  constructor(
+    bot: Bot,
+    executor: ActionExecutor,
+    llmManager: any,
+    config: Config,
+    memory: MemoryManager,
+    planningManager: GoalPlanningManager,
+    modeManager: ModeManager,
+    interrupt: InterruptController,
+    logger?: Logger,
+  ) {
     this.bot = bot;
     this.executor = executor;
     this.llmManager = llmManager;
     this.externalLogger = logger || getLogger('Agent');
     this.logger = this.externalLogger;
 
-    // 初始化共享状态（使用传入的 executor 中的 contextManager）
-    this.state = this.initializeState(bot, config);
-
-    // 绑定状态到 ModeManager
-    this.state.modeManager.bindState(this.state);
-
-    // 初始化决策循环（传入共享状态和 llmManager）
-    this.mainLoop = new MainDecisionLoop(this.state, this.llmManager);
-    this.chatLoop = new ChatLoop(this.state, this.llmManager);
-
-    // 设置事件监听
-    this.setupEventListeners();
-
-    // 设置定期保存记忆
-    this.setupPeriodicSave();
-  }
-
-  /**
-   * 初始化共享状态
-   */
-  private initializeState(bot: Bot, config: Config): AgentState {
-    // 从 executor 中获取已创建的上下文
+    // 从外部注入的组件构建状态
     const context = this.executor.getContextManager().getContext();
 
-    const gameContext: GameContext = {
-      gameState: context.gameState,
-      blockCache: context.blockCache,
-      containerCache: context.containerCache,
-      locationManager: context.locationManager,
-      logger: context.logger,
-    };
-
-    const memory = new MemoryManager();
-    // 设置机器人配置，用于对话格式化
-    memory.setBotConfig(config);
-    const planningManager = new GoalPlanningManager(gameContext);
-    // 设置 LLM Manager 以便规划管理器可以生成计划
-    planningManager.setLLMManager(this.llmManager);
-    const modeManager = new ModeManager(context);
-    const interrupt = new InterruptController();
-
-    return {
+    this.state = {
       goal: config.agent?.goal || '探索世界',
       isRunning: false,
       context,
@@ -94,6 +66,19 @@ export class Agent {
       interrupt,
       config,
     };
+
+    // 绑定状态到 ModeManager
+    this.state.modeManager.bindState(this.state);
+
+    // 创建决策循环（依赖 AgentState，在这里创建）
+    this.mainLoop = new MainDecisionLoop(this.state, this.llmManager);
+    this.chatLoop = new ChatLoop(this.state, this.llmManager);
+
+    // 设置事件监听
+    this.setupEventListeners();
+
+    // 设置定期保存记忆
+    this.setupPeriodicSave();
   }
 
   /**

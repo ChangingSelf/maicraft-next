@@ -80,7 +80,7 @@ export class UseChestAction extends BaseAction<any> {
       }
 
       // 移动到箱子附近
-      const moveResult = await MovementUtils.moveTo(context.bot, {
+      const moveResult = await context.movementUtils.moveTo(context.bot, {
         type: 'coordinate',
         x: chestBlock.position.x,
         y: chestBlock.position.y,
@@ -353,7 +353,7 @@ export class UseChestAction extends BaseAction<any> {
 
       try {
         // 移动到箱子附近
-        const moveResult = await MovementUtils.moveTo(context.bot, {
+        const moveResult = await context.movementUtils.moveTo(context.bot, {
           type: 'coordinate',
           x: chestBlock.position.x,
           y: chestBlock.position.y,

@@ -17,6 +17,8 @@ import { LocationManager } from '../cache/LocationManager';
 import { InterruptSignal } from '../interrupt/InterruptSignal';
 import { EventManager } from '../events/EventManager';
 import { GameState } from '../state/GameState';
+import type { PlaceBlockUtils } from '../../utils/PlaceBlockUtils';
+import type { MovementUtils } from '../../utils/MovementUtils';
 
 /**
  * 上下文管理器
@@ -27,12 +29,19 @@ export class ContextManager {
   /**
    * 创建基础上下文（全局共享）
    */
-  createContext(params: { bot: Bot; executor?: ActionExecutor | null; config: Config; logger: Logger }): RuntimeContext {
+  createContext(params: {
+    bot: Bot;
+    executor?: ActionExecutor | null;
+    config: Config;
+    logger: Logger;
+    placeBlockUtils: PlaceBlockUtils;
+    movementUtils: MovementUtils;
+  }): RuntimeContext {
     if (this.context) {
       throw new Error('Context already created. Use getContext() to access existing context.');
     }
 
-    const { bot, executor, config, logger } = params;
+    const { bot, executor, config, logger, placeBlockUtils, movementUtils } = params;
 
     // 创建 GameState 实例（包含缓存系统）
     const gameState = new GameState();
@@ -69,6 +78,56 @@ export class ContextManager {
       interruptSignal: globalInterruptSignal,
       logger,
       config,
+      placeBlockUtils,
+      movementUtils,
+    };
+
+    return this.context;
+  }
+
+  /**
+   * 创建上下文（使用依赖注入的版本）
+   * @param params 参数，包括注入的依赖
+   */
+  createContextWithDI(params: {
+    bot: Bot;
+    executor: ActionExecutor | null;
+    config: Config;
+    logger: Logger;
+    gameState: GameState;
+    blockCache: BlockCache;
+    containerCache: ContainerCache;
+    locationManager: LocationManager;
+    interruptSignal: any;
+    placeBlockUtils: PlaceBlockUtils;
+    movementUtils: MovementUtils;
+  }): RuntimeContext {
+    if (this.context) {
+      throw new Error('Context already created. Use getContext() to access existing context.');
+    }
+
+    const { bot, executor, config, logger, gameState, blockCache, containerCache, locationManager, interruptSignal, placeBlockUtils, movementUtils } =
+      params;
+
+    // 初始化 GameState
+    gameState.initialize(bot);
+
+    // 如果 executor 未提供，创建一个临时的 EventManager
+    const events = executor ? executor.getEventManager() : new EventManager(bot);
+
+    this.context = {
+      bot,
+      executor: executor || ({} as ActionExecutor), // 临时赋值，后续会更新
+      gameState,
+      blockCache,
+      containerCache,
+      locationManager,
+      events,
+      interruptSignal,
+      logger,
+      config,
+      placeBlockUtils,
+      movementUtils,
     };
 
     return this.context;

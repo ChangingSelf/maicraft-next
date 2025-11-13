@@ -39,7 +39,7 @@ export class UseFurnaceAction extends BaseAction<any> {
       }
 
       // 移动到熔炉附近
-      const moveResult = await MovementUtils.moveTo(context.bot, {
+      const moveResult = await context.movementUtils.moveTo(context.bot, {
         type: 'coordinate',
         x: furnaceBlock.position.x,
         y: furnaceBlock.position.y,

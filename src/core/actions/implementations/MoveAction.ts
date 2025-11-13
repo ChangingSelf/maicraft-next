@@ -8,7 +8,6 @@ import { BaseAction } from '../Action';
 import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, MoveParams } from '../types';
 import { ActionIds } from '../ActionIds';
-import { MovementUtils } from '@/utils/MovementUtils';
 
 export class MoveAction extends BaseAction<MoveParams> {
   readonly id = ActionIds.MOVE;
@@ -29,7 +28,7 @@ export class MoveAction extends BaseAction<MoveParams> {
       context.logger.info(`开始移动: 从 (${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)}) 到 (${x}, ${y}, ${z})`);
 
       // 使用 MovementUtils 进行移动
-      const moveResult = await MovementUtils.moveToCoordinate(
+      const moveResult = await context.movementUtils.moveToCoordinate(
         context.bot,
         Math.floor(x),
         Math.floor(y),
