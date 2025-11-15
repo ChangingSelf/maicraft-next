@@ -56,6 +56,13 @@ export class GoalPlanningManager {
   }
 
   /**
+   * 获取所有目标
+   */
+  getAllGoals(): Map<string, Goal> {
+    return this.goals;
+  }
+
+  /**
    * 设置目标完成回调函数
    */
   setOnGoalCompleted(callback: (goal: Goal) => void): void {

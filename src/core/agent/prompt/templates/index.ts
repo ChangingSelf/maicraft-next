@@ -12,6 +12,7 @@ export { initFurnaceOperationTemplate } from './furnace_operation';
 export { initChestOperationTemplate } from './chest_operation';
 export { initExperienceSummaryTemplate } from './experience_summary';
 export { initPlanGenerationTemplate } from './plan_generation';
+export { initGoalGenerationTemplate } from './goal_generation';
 
 /**
  * 初始化所有核心模板
@@ -28,6 +29,7 @@ import { initFurnaceOperationTemplate } from './furnace_operation';
 import { initChestOperationTemplate } from './chest_operation';
 import { initExperienceSummaryTemplate } from './experience_summary';
 import { initPlanGenerationTemplate } from './plan_generation';
+import { initGoalGenerationTemplate } from './goal_generation';
 
 export function initAllCoreTemplates(): void {
   initBasicInfoTemplate();
@@ -40,4 +42,5 @@ export function initAllCoreTemplates(): void {
   initChestOperationTemplate();
   initExperienceSummaryTemplate();
   initPlanGenerationTemplate();
+  initGoalGenerationTemplate();
 }

@@ -13,7 +13,7 @@ import type { AgentState } from '@/core/agent/types';
 import { LLMManager } from '@/llm/LLMManager';
 import { promptManager, initAllTemplates } from '@/core/agent/prompt';
 import { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
-import { PromptDataCollector } from '@/core/agent/loop/PromptDataCollector';
+import { PromptDataCollector } from '@/core/agent/prompt/PromptDataCollector';
 import { getLogger } from '@/utils/Logger';
 import { StructuredOutputManager } from '@/core/agent/structured/StructuredOutputManager';
 import type { StructuredAction } from '@/core/agent/structured/ActionSchema';

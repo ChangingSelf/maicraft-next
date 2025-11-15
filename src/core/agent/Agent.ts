@@ -16,6 +16,8 @@ import { ModeManager } from './mode/ModeManager';
 import { MainDecisionLoop } from './loop/MainDecisionLoop';
 import { ChatLoop } from './loop/ChatLoop';
 import { ActionExecutor } from '@/core/actions/ActionExecutor';
+import { PromptDataCollector } from './prompt/PromptDataCollector';
+import { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
 
 export class Agent {
   // 共享状态（只读）
@@ -24,6 +26,9 @@ export class Agent {
   // 决策系统（作为内部组件，不暴露）
   private mainLoop: MainDecisionLoop;
   private chatLoop: ChatLoop;
+
+  // 数据收集器
+  private dataCollector: PromptDataCollector;
 
   // 外部传入的组件
   private bot: Bot;
@@ -77,6 +82,10 @@ export class Agent {
     // 创建决策循环（依赖 AgentState，在这里创建）
     this.mainLoop = new MainDecisionLoop(this.state, this.llmManager);
     this.chatLoop = new ChatLoop(this.state, this.llmManager);
+
+    // 初始化数据收集器（用于目标生成）
+    const actionPromptGenerator = new ActionPromptGenerator(this.executor);
+    this.dataCollector = new PromptDataCollector(this.state, actionPromptGenerator);
 
     // 设置事件监听
     this.setupEventListeners();
@@ -244,20 +253,182 @@ export class Agent {
   /**
    * 基于完成的目标自动生成新目标
    */
-  private generateNewGoalAfterCompletion(completedGoal: Goal): void {
-    // 这里可以根据完成的目标类型、环境状态、历史经验等来生成新目标
-    // 暂时实现一个简单的逻辑
-    this.logger.info('🤖 正在分析环境，生成新目标...');
+  private async generateNewGoalAfterCompletion(completedGoal: Goal): Promise<void> {
+    try {
+      this.logger.info('🤖 正在分析环境，生成新目标...');
 
-    // 记录思考过程
-    this.state.memory.recordThought('🤖 分析已完成目标，准备生成新目标', {
-      completedGoal: completedGoal.description,
-    });
+      // 记录思考过程
+      this.state.memory.recordThought('🤖 分析已完成目标，准备生成新目标', {
+        completedGoal: completedGoal.description,
+      });
 
-    // TODO: 实现基于环境分析的智能目标生成
-    // 目前暂时进入等待模式
-    this.logger.info('🎯 自动目标生成功能开发中，暂时等待用户指令');
-    this.state.memory.recordThought('🎯 自动目标生成功能开发中，等待用户指令', {});
+      // 1. 收集环境信息
+      const environmentData = this.collectEnvironmentData();
+
+      // 2. 获取历史目标信息
+      const completedGoalsHistory = this.getCompletedGoalsHistory();
+
+      // 3. 调用LLM生成新目标
+      const newGoalData = await this.generateGoalWithLLM(completedGoal, environmentData, completedGoalsHistory);
+
+      if (newGoalData) {
+        // 4. 创建新目标
+        await this.createNewGoal(newGoalData);
+      } else {
+        // 如果LLM生成失败，记录并等待用户指令
+        this.logger.warn('🎯 LLM目标生成失败，暂时等待用户指令');
+        this.state.memory.recordThought('🎯 LLM目标生成失败，等待用户指令', {});
+      }
+    } catch (error) {
+      this.logger.error('自动目标生成失败:', {}, error as Error);
+      this.state.memory.recordThought('🎯 自动目标生成出错，等待用户指令', {
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
+   * 收集当前环境数据，用于目标生成
+   */
+  private collectEnvironmentData(): any {
+    const gameState = this.state.context.gameState;
+    // 使用PromptDataCollector收集的基础信息，获得格式化的数据
+    const basicInfo = this.dataCollector.collectBasicInfo();
+
+    return {
+      position: basicInfo.position, // "位置: (x, y, z)"
+      health: gameState.health || 20,
+      food: gameState.food || 20,
+      inventory: basicInfo.inventory_info, // 格式化的物品栏信息
+      time: gameState.timeOfDay > 12000 ? '夜晚' : '白天',
+      environment: gameState.getStatusDescription(), // 完整的状态描述
+    };
+  }
+
+  /**
+   * 获取已完成目标的历史
+   */
+  private getCompletedGoalsHistory(): any[] {
+    const goals = this.state.planningManager.getAllGoals();
+    const completedGoals = Array.from(goals.values())
+      .filter((goal: Goal) => goal.status === 'completed')
+      .map((goal: Goal) => ({
+        description: goal.description,
+        createdAt: goal.createdAt,
+        completedAt: goal.completedAt,
+        duration: goal.completedAt ? goal.completedAt - goal.createdAt : 0,
+        planCount: goal.planIds.length,
+      }))
+      .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0)) // 按完成时间倒序
+      .slice(0, 10); // 只取最近10个
+
+    return completedGoals;
+  }
+
+  /**
+   * 使用LLM生成新目标
+   */
+  private async generateGoalWithLLM(completedGoal: Goal, environmentData: any, completedGoalsHistory: any[]): Promise<any> {
+    try {
+      const { promptManager } = await import('@/core/agent/prompt');
+
+      const promptData = {
+        completed_goals: completedGoalsHistory.map(g => `- ${g.description} (${Math.round(g.duration / 60000)}分钟)`).join('\n'),
+        position: environmentData.position
+          ? `${environmentData.position.x}, ${environmentData.position.y}, ${environmentData.position.z}`
+          : '未知位置',
+        health: environmentData.health,
+        food: environmentData.food,
+        inventory: environmentData.inventory,
+        time: environmentData.time > 12000 ? '夜晚' : '白天',
+        environment: environmentData.environment,
+        experiences: this.state.memory.experience
+          .getRecent(5)
+          .map((e: any) => e.content)
+          .join('\n'), // 最近5条经验
+      };
+
+      const response = await this.llmManager.chatCompletion(
+        promptManager.generatePrompt('goal_generation', promptData),
+        '你是一个Minecraft游戏助手，需要生成合适的下一个游戏目标。',
+      );
+
+      if (!response.success) {
+        this.logger.error('LLM目标生成请求失败:', response.error);
+        return null;
+      }
+
+      // 解析JSON响应
+      const content = response.content.trim();
+      const jsonMatch = content.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+      if (!jsonMatch) {
+        this.logger.error('LLM响应格式错误，无法解析JSON');
+        return null;
+      }
+
+      const goalData = JSON.parse(jsonMatch[1]);
+
+      // 验证必需字段
+      if (!goalData.goal || !goalData.reasoning) {
+        this.logger.error('LLM响应缺少必需字段');
+        return null;
+      }
+
+      this.logger.info(`🎯 LLM生成新目标: ${goalData.goal}`);
+      return goalData;
+    } catch (error) {
+      this.logger.error('LLM目标生成解析失败:', {}, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * 创建新目标并自动生成计划
+   */
+  private async createNewGoal(goalData: any): Promise<void> {
+    try {
+      // 记录生成的目标信息
+      this.state.memory.recordThought(`🎯 生成新目标: ${goalData.goal}`, {
+        reasoning: goalData.reasoning,
+        difficulty: goalData.difficulty,
+        estimatedTime: goalData.estimated_time,
+        priority: goalData.priority,
+        category: goalData.category,
+      });
+
+      // 创建新目标
+      const goal = await this.state.planningManager.createGoal(goalData.goal);
+
+      this.logger.info(`✅ 新目标已创建: ${goalData.goal}`);
+
+      // 自动生成计划
+      await this.generatePlanForNewGoal(goal);
+    } catch (error) {
+      this.logger.error('创建新目标失败:', {}, error as Error);
+    }
+  }
+
+  /**
+   * 为新目标生成计划
+   */
+  private async generatePlanForNewGoal(goal: Goal): Promise<void> {
+    try {
+      this.logger.info('📋 正在为新目标生成计划...');
+
+      // 调用规划管理器的计划生成方法
+      const success = await this.state.planningManager.generatePlanForCurrentGoal();
+
+      if (success) {
+        this.logger.info('✅ 新目标的计划已生成完成');
+      } else {
+        this.logger.warn('⚠️ 新目标的计划生成失败');
+        this.state.memory.recordThought('⚠️ 新目标计划生成失败，可能需要手动规划', {
+          goal: goal.description,
+        });
+      }
+    } catch (error) {
+      this.logger.error('为新目标生成计划失败:', {}, error as Error);
+    }
   }
 
   /**
