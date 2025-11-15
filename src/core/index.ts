@@ -14,6 +14,9 @@ export * from './actions/ActionExecutor';
 export * from './actions/ActionIds';
 export * from './actions/types';
 
+// 合成系统
+export * from './crafting/CraftManager';
+
 // 中断机制
 export * from './interrupt/InterruptSignal';
 

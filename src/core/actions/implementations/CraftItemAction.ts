@@ -1,105 +1,67 @@
 /**
  * CraftItemAction - 智能合成物品
  *
- * 自动查找配方并合成物品
- * 支持工作台和背包合成
+ * 基于设计文档实现的增强合成动作，支持：
+ * - 智能配方选择和递归合成
+ * - 中文物品名称支持
+ * - 材料约束验证
+ * - 工作台自动管理
  */
 
 import { BaseAction } from '@/core/actions/Action';
 import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, CraftParams } from '@/core/actions/types';
 import { ActionIds } from '@/core/actions/ActionIds';
-import { MovementUtils } from '@/utils/MovementUtils';
 
 export class CraftItemAction extends BaseAction<CraftParams> {
   readonly id = ActionIds.CRAFT;
   readonly name = 'CraftItemAction';
-  readonly description = '自动查找配方并合成物品';
+  readonly description = '智能合成物品，自动处理配方、材料和工作台';
 
   async execute(context: RuntimeContext, params: CraftParams): Promise<ActionResult> {
-    const { item, count = 1 } = params;
+    const { item, count = 1, requiredMaterials, maxComplexity } = params;
 
     try {
-      // 验证参数
+      // 1. 参数验证
       if (!item) {
         return this.failure('物品名称不能为空');
       }
 
-      context.logger.info(`开始合成: ${item} x${count}`);
+      context.logger.info(
+        `开始合成: ${item} x${count}` +
+        `${requiredMaterials ? ` (指定材料: ${requiredMaterials.join(', ')})` : ''}` +
+        `${maxComplexity ? ` (最大复杂度: ${maxComplexity})` : ''}`
+      );
 
-      // 获取配方
-      const mcData = require('minecraft-data')(context.bot.version);
-      const itemType = mcData.itemsByName[item];
+      // 2. 使用context中的CraftManager执行合成（遵循DI模式）
+      const result = await context.craftManager.craftItem(item, count, {
+        requiredMaterials,
+        maxComplexity: maxComplexity || 10
+      }, context.logger);
 
-      if (!itemType) {
-        return this.failure(`未知的物品类型: ${item}`);
-      }
-
-      const recipes = context.bot.recipesFor(itemType.id, null, 1, null);
-
-      if (recipes.length === 0) {
-        return this.failure(`找不到 ${item} 的合成配方`);
-      }
-
-      context.logger.info(`找到 ${recipes.length} 个配方`);
-
-      // 选择第一个配方
-      const recipe = recipes[0];
-
-      // 检查是否需要工作台
-      const needsCraftingTable = recipe.requiresTable;
-
-      if (needsCraftingTable) {
-        context.logger.info('需要工作台进行合成');
-
-        // 查找附近的工作台
-        const craftingTableBlock = context.bot.findBlock({
-          matching: mcData.blocksByName.crafting_table.id,
-          maxDistance: 32,
-        });
-
-        if (!craftingTableBlock) {
-          return this.failure('找不到工作台，无法合成 3x3 配方');
-        }
-
-        context.logger.info(`找到工作台: (${craftingTableBlock.position.x}, ${craftingTableBlock.position.y}, ${craftingTableBlock.position.z})`);
-
-        // 使用 MovementUtils 移动到工作台附近
-        const moveResult = await context.movementUtils.moveToCoordinate(
-          context.bot,
-          craftingTableBlock.position.x,
-          craftingTableBlock.position.y,
-          craftingTableBlock.position.z,
-          2, // 到达距离
-          64, // 最大移动距离
-          false, // 不使用相对坐标
-        );
-
-        if (!moveResult.success) {
-          return this.failure(`移动到工作台失败: ${moveResult.message}`);
-        }
-
-        context.logger.info('成功移动到工作台附近');
-
-        // 合成物品
-        context.logger.info('开始合成...');
-        await context.bot.craft(recipe, count, craftingTableBlock);
+      if (result.success) {
+        context.logger.info(`合成成功: ${item} x${count}`);
+        return this.success(result.message, result.data);
       } else {
-        // 使用背包合成（2x2）
-        context.logger.info('使用背包进行合成');
-        await context.bot.craft(recipe, count, undefined);
+        context.logger.warn(`合成失败: ${result.message}`);
+        // 添加更详细的错误信息，包含动作标识和参数
+        const enhancedError = new Error(result.message);
+        (enhancedError as any).actionId = this.id;
+        (enhancedError as any).actionName = this.name;
+        (enhancedError as any).params = {
+          item,
+          count,
+          requiredMaterials,
+          maxComplexity
+        };
+        (enhancedError as any).originalError = result.error;
+        (enhancedError as any).timestamp = Date.now();
+        return this.failure(result.message, enhancedError);
       }
 
-      context.logger.info(`成功合成 ${item} x${count}`);
-
-      return this.success(`成功合成 ${item} x${count}`, {
-        item,
-        count,
-        usedCraftingTable: needsCraftingTable,
-      });
     } catch (error) {
       const err = error as Error;
-      context.logger.error('合成失败:', err);
+      context.logger.error('合成过程中发生错误:', err);
       return this.failure(`合成失败: ${err.message}`, err);
     }
   }
@@ -111,12 +73,29 @@ export class CraftItemAction extends BaseAction<CraftParams> {
     return {
       item: {
         type: 'string',
-        description: '物品名称（如 stick, wooden_pickaxe, iron_sword）',
+        description: '物品名称，支持中文和英文（如：木镐、wooden_pickaxe）',
       },
       count: {
         type: 'number',
-        description: '合成数量，默认 1',
+        description: '合成数量，默认为1',
         optional: true,
+        minimum: 1,
+        maximum: 64,
+      },
+      requiredMaterials: {
+        type: 'array',
+        description: '指定必须使用的材料，如["oak_planks", "cobblestone"]',
+        optional: true,
+        items: {
+          type: 'string'
+        }
+      },
+      maxComplexity: {
+        type: 'number',
+        description: '最大递归合成深度，默认为10',
+        optional: true,
+        minimum: 1,
+        maximum: 20,
       },
     };
   }

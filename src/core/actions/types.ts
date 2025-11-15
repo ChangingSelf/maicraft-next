@@ -79,8 +79,10 @@ export interface PlaceBlockParams {
  * Craft 动作参数
  */
 export interface CraftParams {
-  item: string;
-  count?: number;
+  item: string;                    // 物品名称（必需）
+  count?: number;                  // 合成数量（默认1，可选）
+  requiredMaterials?: string[];    // 指定使用的材料（可选）
+  maxComplexity?: number;          // 最大合成复杂度（默认10，可选）
 }
 
 /**
@@ -214,3 +216,45 @@ export interface ExecuteOptions {
   priority?: number;
   canInterrupt?: boolean;
 }
+
+// ===== 合成系统相关类型定义 =====
+
+/**
+ * 合成选项接口
+ */
+export interface CraftOptions {
+  requiredMaterials?: string[];
+  maxComplexity?: number;
+  currentDepth?: number;
+}
+
+/**
+ * 材料选项接口（用于递归合成）
+ */
+export interface MaterialOptions extends CraftOptions {
+  currentDepth: number;
+}
+
+/**
+ * 材料需求信息
+ */
+export interface MaterialRequirement {
+  name: string;
+  count: number;
+  have: number;
+  need: number;
+}
+
+/**
+ * 合成错误类型
+ */
+export const CRAFT_ERRORS = {
+  ITEM_NOT_FOUND: 'ITEM_NOT_FOUND',
+  RECIPE_NOT_FOUND: 'RECIPE_NOT_FOUND',
+  INSUFFICIENT_MATERIALS: 'INSUFFICIENT_MATERIALS',
+  CRAFTING_TABLE_REQUIRED: 'CRAFTING_TABLE_REQUIRED',
+  CRAFT_FAILED: 'CRAFT_FAILED',
+  COMPLEXITY_TOO_HIGH: 'COMPLEXITY_TOO_HIGH',
+} as const;
+
+export type CraftErrorCode = keyof typeof CRAFT_ERRORS;

@@ -125,6 +125,7 @@ export function configureServices(container: Container): void {
     const locationManager = c.resolve(ServiceKeys.LocationManager) as LocationManager;
     const placeBlockUtils = c.resolve(ServiceKeys.PlaceBlockUtils) as PlaceBlockUtils;
     const movementUtils = c.resolve(ServiceKeys.MovementUtils) as MovementUtils;
+    const craftManager = c.resolve(ServiceKeys.CraftManager) as import('@/core/crafting/CraftManager').CraftManager;
     const interruptSignal = c.resolve(ServiceKeys.InterruptSignal);
 
     contextManager.createContextWithDI({
@@ -139,6 +140,7 @@ export function configureServices(container: Container): void {
       interruptSignal,
       placeBlockUtils,
       movementUtils,
+      craftManager,
     });
 
     return contextManager;
@@ -316,6 +318,13 @@ export function configureServices(container: Container): void {
     const { MovementUtils } = require('@/utils/MovementUtils');
     const logger = c.resolve(ServiceKeys.Logger);
     return new MovementUtils(logger);
+  });
+
+  // CraftManager (单例)
+  container.registerSingleton(ServiceKeys.CraftManager, c => {
+    const { CraftManager } = require('@/core/crafting/CraftManager');
+    const bot = c.resolve(ServiceKeys.Bot);
+    return new CraftManager(bot);
   });
 
   // UsageTracker (单例)

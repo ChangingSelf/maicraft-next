@@ -19,6 +19,7 @@ import { EventManager } from '@/core/events/EventManager';
 import { GameState } from '@/core/state/GameState';
 import type { PlaceBlockUtils } from '@/utils/PlaceBlockUtils';
 import type { MovementUtils } from '@/utils/MovementUtils';
+import type { CraftManager } from '@/core/crafting/CraftManager';
 
 /**
  * 上下文管理器
@@ -101,12 +102,13 @@ export class ContextManager {
     interruptSignal: any;
     placeBlockUtils: PlaceBlockUtils;
     movementUtils: MovementUtils;
+    craftManager: CraftManager;
   }): RuntimeContext {
     if (this.context) {
       throw new Error('Context already created. Use getContext() to access existing context.');
     }
 
-    const { bot, executor, config, logger, gameState, blockCache, containerCache, locationManager, interruptSignal, placeBlockUtils, movementUtils } =
+    const { bot, executor, config, logger, gameState, blockCache, containerCache, locationManager, interruptSignal, placeBlockUtils, movementUtils, craftManager } =
       params;
 
     // 初始化 GameState
@@ -128,6 +130,7 @@ export class ContextManager {
       config,
       placeBlockUtils,
       movementUtils,
+      craftManager,
     };
 
     return this.context;

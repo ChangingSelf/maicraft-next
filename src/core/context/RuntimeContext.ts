@@ -17,6 +17,7 @@ import type { ActionExecutor } from '@/core/actions/ActionExecutor';
 import type { Location } from '@/core/cache/LocationManager';
 import { PlaceBlockUtils } from '@/utils/PlaceBlockUtils';
 import { MovementUtils } from '@/utils/MovementUtils';
+import { CraftManager } from '@/core/crafting/CraftManager';
 
 /**
  * Logger 接口
@@ -165,6 +166,7 @@ export interface RuntimeContext {
   // 工具类
   placeBlockUtils: PlaceBlockUtils;
   movementUtils: MovementUtils;
+  craftManager: CraftManager;
 }
 
 /**

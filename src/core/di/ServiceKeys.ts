@@ -56,6 +56,7 @@ export const ServiceKeys = {
   PromptManager: Symbol('PromptManager'),
   PlaceBlockUtils: Symbol('PlaceBlockUtils'),
   MovementUtils: Symbol('MovementUtils'),
+  CraftManager: Symbol('CraftManager'),
 
   /** LLM用量追踪器 */
   UsageTracker: Symbol('UsageTracker'),
@@ -109,6 +110,7 @@ export interface ServiceTypeMap {
   [ServiceKeys.PromptManager]: import('@/core/agent/prompt/prompt_manager').PromptManager;
   [ServiceKeys.PlaceBlockUtils]: import('@/utils/PlaceBlockUtils').PlaceBlockUtils;
   [ServiceKeys.MovementUtils]: import('@/utils/MovementUtils').MovementUtils;
+  [ServiceKeys.CraftManager]: import('@/core/crafting/CraftManager').CraftManager;
   [ServiceKeys.UsageTracker]: import('@/llm/usage/UsageTracker').UsageTracker;
   [ServiceKeys.InterruptSignal]: import('@/core/interrupt/InterruptSignal').InterruptSignal;
   [ServiceKeys.WebSocketServer]: import('@/api/WebSocketServer').WebSocketServer;
