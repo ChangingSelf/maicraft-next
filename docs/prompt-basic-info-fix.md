@@ -13,7 +13,7 @@
 ```typescript
 collectAllData(): MainThinkingData {
   const basicInfo = this.collectBasicInfo();  // 返回 BasicInfoData
-  
+
   return {
     basic_info: basicInfo.basic_info || '', // ❌ basicInfo 根本没有这个属性！
     ...
@@ -44,6 +44,7 @@ LLM 收到的提示词类似这样：
 ```
 
 **LLM 看不到**：
+
 - ❌ 当前目标和任务规划
 - ❌ 生命值、饥饿值等状态
 - ❌ 物品栏内容
@@ -117,19 +118,19 @@ collectMainThinkingData(): MainThinkingData {
    生成完整的 basic_info 字符串：
    """
    你是AI Bot，游戏名叫Bot...
-   
+
    **当前目标和任务规划**
    目标：建造木屋
-   
+
    🎯 当前目标: 建造木屋
    📋 收集木材 (1/3)
      🔄 收集橡木原木 (100%)
      ⏳ 合成木板
      ...
-   
+
    **当前状态**
    生命值: 20/20, 饥饿值: 18/20
-   
+
    **物品栏和工具**
    oak_log×10, stone_pickaxe×1
    ...
@@ -153,6 +154,7 @@ collectMainThinkingData(): MainThinkingData {
 ### 检查 LLM 决策
 
 如果修复成功，LLM 应该能够：
+
 - ✅ 了解当前目标和任务
 - ✅ 根据物品栏状态做决策
 - ✅ 根据周围方块信息采取行动
@@ -211,6 +213,7 @@ cow (5.2m), sheep (8.1m), ...
 ## 影响范围
 
 这个 bug 影响了：
+
 - ✅ MainMode - 主决策模式
 - ❓ ChatLoop - 可能也受影响，需要检查
 - ❓ 其他模式 - 需要检查是否也使用了 PromptDataCollector
@@ -218,10 +221,9 @@ cow (5.2m), sheep (8.1m), ...
 ## 总结
 
 这是一个**严重的架构级 bug**：
+
 - 提示词收集器收集了数据但没有格式化
 - 导致 LLM 完全"看不见"游戏状态
 - 修复方法很简单：调用 `promptManager.generatePrompt('basic_info', basicInfo)`
 
 修复后，LLM 终于能够正确感知环境并做出合理决策了！
-
-

@@ -18,12 +18,12 @@ Maicraft-Next 使用单一 WebSocket 端点处理所有实时数据通信。
 
 ```typescript
 enum DataType {
-  PLAYER = "player",      // 玩家状态
-  WORLD = "world",        // 世界状态
-  LOGS = "logs",          // 日志
-  TASKS = "tasks",        // 任务列表
-  MEMORY = "memory",      // 记忆统计
-  USAGE = "usage"         // Token使用量
+  PLAYER = 'player', // 玩家状态
+  WORLD = 'world', // 世界状态
+  LOGS = 'logs', // 日志
+  TASKS = 'tasks', // 任务列表
+  MEMORY = 'memory', // 记忆统计
+  USAGE = 'usage', // Token使用量
 }
 ```
 
@@ -31,7 +31,7 @@ enum DataType {
 
 ```typescript
 interface SubscriptionMessage {
-  type: "subscribe" | "unsubscribe";
+  type: 'subscribe' | 'unsubscribe';
   dataTypes: string[]; // ["player", "world", "logs"]
   updateInterval?: number; // 0表示事件驱动，>0表示定期推送
   filters?: Record<string, any>; // 可选的过滤条件（根据数据类型而定）
@@ -46,9 +46,9 @@ interface SubscriptionMessage {
 
 ```typescript
 interface WSMessage {
-  type: string;        // 消息类型
-  timestamp?: number;  // 时间戳（毫秒）
-  data?: any;         // 消息数据（可选）
+  type: string; // 消息类型
+  timestamp?: number; // 时间戳（毫秒）
+  data?: any; // 消息数据（可选）
   [key: string]: any; // 其他字段
 }
 ```
@@ -57,10 +57,10 @@ interface WSMessage {
 
 ```typescript
 interface APIResponse {
-  timestamp: number;  // 时间戳
-  success: boolean;   // 是否成功
-  message: string;    // 响应消息
-  data?: any;         // 响应数据（可选）
+  timestamp: number; // 时间戳
+  success: boolean; // 是否成功
+  message: string; // 响应消息
+  data?: any; // 响应数据（可选）
 }
 ```
 
@@ -74,12 +74,13 @@ interface APIResponse {
 {
   "type": "subscribe",
   "dataTypes": ["logs", "player"],
-  "updateInterval": 0,  // 0表示事件驱动，>0表示定期推送
-  "filters": {}         // 可选的过滤条件（根据数据类型而定）
+  "updateInterval": 0, // 0表示事件驱动，>0表示定期推送
+  "filters": {} // 可选的过滤条件（根据数据类型而定）
 }
 ```
 
 **参数说明：**
+
 - `dataTypes`: 要订阅的数据类型数组
 - `updateInterval`: 更新间隔（毫秒），0表示事件驱动，>0表示定期推送
 - `filters`: 可选的过滤条件对象（具体字段根据数据类型而定）
@@ -94,6 +95,7 @@ interface APIResponse {
 ```
 
 **参数说明：**
+
 - `dataTypes`: 要取消订阅的数据类型数组
 
 ### 订阅确认

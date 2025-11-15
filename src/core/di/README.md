@@ -17,9 +17,9 @@ import { Container, ServiceKeys, configureServices } from '@/core/di';
 const container = new Container();
 
 // 2. 准备基础食材（注册核心组件）
-container.registerInstance(ServiceKeys.Config, config);    // 配置文件
-container.registerInstance(ServiceKeys.Logger, logger);    // 日志工具
-container.registerInstance(ServiceKeys.Bot, bot);          // Minecraft机器人
+container.registerInstance(ServiceKeys.Config, config); // 配置文件
+container.registerInstance(ServiceKeys.Logger, logger); // 日志工具
+container.registerInstance(ServiceKeys.Bot, bot); // Minecraft机器人
 
 // 3. 配置菜单（告诉系统所有菜怎么做）
 configureServices(container);
@@ -38,9 +38,9 @@ const agent = await container.resolveAsync<Agent>(ServiceKeys.Agent);
 
 ```typescript
 // 这些就是菜单名
-ServiceKeys.Logger     // "日志服务"
-ServiceKeys.Bot        // "机器人服务"
-ServiceKeys.Agent      // "AI代理服务"
+ServiceKeys.Logger; // "日志服务"
+ServiceKeys.Bot; // "机器人服务"
+ServiceKeys.Agent; // "AI代理服务"
 ```
 
 为什么要用Symbol而不是字符串？因为Symbol就像身份证号，绝对不会重复，确保不会点错菜。
@@ -60,16 +60,16 @@ ServiceKeys.Agent      // "AI代理服务"
 ```typescript
 // 注册一个"日志服务"（单例）
 container.registerSingleton(ServiceKeys.Logger, () => {
-  return createLogger();  // 创建日志工具
+  return createLogger(); // 创建日志工具
 });
 
 // 注册一个"临时工具"（瞬态）
 container.registerTransient(ServiceKeys.TempTool, () => {
-  return new TempTool();  // 每次都要新的
+  return new TempTool(); // 每次都要新的
 });
 
 // 直接使用已有的东西
-container.registerInstance(ServiceKeys.Config, myConfig);  // 我已经有配置了
+container.registerInstance(ServiceKeys.Config, myConfig); // 我已经有配置了
 ```
 
 ### 点菜（获取你需要的服务）
@@ -125,6 +125,7 @@ container
 ## 💡 为什么需要这个系统？
 
 ### 问题场景
+
 想象没有这个系统的代码：
 
 ```typescript
@@ -137,6 +138,7 @@ await agent.initialize();
 ```
 
 ### 有了DI系统后
+
 ```typescript
 // 只需要点菜，系统自动准备一切
 configureServices(container);
@@ -144,6 +146,7 @@ const agent = await container.resolveAsync(ServiceKeys.Agent);
 ```
 
 ### 好处
+
 - **清晰分工** - 你只管用，他只管准备
 - **容易测试** - 可以轻松替换任何"食材"
 - **自动管理** - 创建、初始化、清理都自动化

@@ -7,6 +7,7 @@
 ### 1. 提示词中的字段名错误
 
 **旧提示词**（错误）：
+
 ```
 - itemType, count  (应该是 itemName, targetCount)
 - x, y, z          (应该是 targetX, targetY, targetZ)
@@ -37,8 +38,9 @@
 ```
 
 这导致 `InventoryTracker.getProgress()` 调用时：
+
 ```typescript
-description: `${current}/${target} ${this.itemName}`
+description: `${current}/${target} ${this.itemName}`;
 //                           ↑         ↑
 //                      undefined   undefined
 ```
@@ -94,19 +96,19 @@ rm data/task-history.json
 
 ## 字段名对照表
 
-| 追踪器类型 | 正确字段名 | 错误字段名（已修复） | 类型 |
-|-----------|-----------|-------------------|------|
-| inventory | itemName | itemType | string |
-| inventory | targetCount | count | number |
-| inventory | exact | - | boolean (可选) |
-| craft | itemName | itemType | string |
-| craft | targetCount | count | number |
-| location | targetX | x | number |
-| location | targetY | y | number |
-| location | targetZ | z | number |
-| location | radius | - | number (可选) |
-| composite | logic | operator | 'and' \| 'or' |
-| composite | trackers | - | array |
+| 追踪器类型 | 正确字段名  | 错误字段名（已修复） | 类型           |
+| ---------- | ----------- | -------------------- | -------------- |
+| inventory  | itemName    | itemType             | string         |
+| inventory  | targetCount | count                | number         |
+| inventory  | exact       | -                    | boolean (可选) |
+| craft      | itemName    | itemType             | string         |
+| craft      | targetCount | count                | number         |
+| location   | targetX     | x                    | number         |
+| location   | targetY     | y                    | number         |
+| location   | targetZ     | z                    | number         |
+| location   | radius      | -                    | number (可选)  |
+| composite  | logic       | operator             | 'and' \| 'or'  |
+| composite  | trackers    | -                    | array          |
 
 ## CompositeTracker 的大小写问题
 
@@ -154,7 +156,7 @@ static fromJSON(json: any, trackerFactory: any): CompositeTracker {
 
 ```json
 {
-  "description": "6/10 oak_log"  // ✅ 正确
+  "description": "6/10 oak_log" // ✅ 正确
 }
 ```
 
@@ -162,7 +164,7 @@ static fromJSON(json: any, trackerFactory: any): CompositeTracker {
 
 ```json
 {
-  "description": "0/undefined undefined"  // ❌ 错误
+  "description": "0/undefined undefined" // ❌ 错误
 }
 ```
 
@@ -172,5 +174,3 @@ static fromJSON(json: any, trackerFactory: any): CompositeTracker {
 2. **重新启动 Bot**
 3. **LLM 会自动生成新的计划**（使用正确的字段名）
 4. **监控日志确认追踪器工作正常**
-
-

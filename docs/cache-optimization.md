@@ -17,6 +17,7 @@ clearOutOfRange(centerX: number, centerY: number, centerZ: number, maxDistance: 
 **功能**：清除超出指定距离的方块缓存
 
 **参数**：
+
 - `centerX, centerY, centerZ`: 中心位置（通常是bot当前位置）
 - `maxDistance`: 最大保留距离（格数）
 
@@ -27,16 +28,17 @@ clearOutOfRange(centerX: number, centerY: number, centerZ: number, maxDistance: 
 ```typescript
 // 扫描完成后，清除100格外的旧方块
 const removedCount = this.blockCache.clearOutOfRange(
-  centerPos.x, 
-  centerPos.y, 
-  centerPos.z, 
-  100  // 保留100格范围内的缓存
+  centerPos.x,
+  centerPos.y,
+  centerPos.z,
+  100, // 保留100格范围内的缓存
 );
 ```
 
 **时机**：每次扫描完成后立即清理
 
 **范围策略**：
+
 - 扫描半径：20格
 - 保留范围：100格（5倍扫描半径）
 - 定期清理：150格（在自动保存时执行）
@@ -52,10 +54,10 @@ private cleanupExpiredCache(): void {
 
 ### 4. 增大缓存容量
 
-| 配置项 | 旧值 | 新值 | 说明 |
-|--------|------|------|------|
-| maxEntries | 10,000 | **50,000** | 5倍容量，支持大范围探索 |
-| expirationTime | 60分钟 | **30分钟** | 缩短过期时间，加快清理 |
+| 配置项         | 旧值   | 新值       | 说明                    |
+| -------------- | ------ | ---------- | ----------------------- |
+| maxEntries     | 10,000 | **50,000** | 5倍容量，支持大范围探索 |
+| expirationTime | 60分钟 | **30分钟** | 缩短过期时间，加快清理  |
 
 ## 缓存清理策略
 
@@ -99,6 +101,7 @@ private cleanupExpiredCache(): void {
 ### 内存使用
 
 **优化前**：
+
 ```
 - 最大容量: 10,000 方块
 - 实际使用: ~9,000 方块（包含大量远距离旧数据）
@@ -106,6 +109,7 @@ private cleanupExpiredCache(): void {
 ```
 
 **优化后**：
+
 ```
 - 最大容量: 50,000 方块
 - 实际使用: ~15,000 方块（只保留100格内有效数据）
@@ -115,6 +119,7 @@ private cleanupExpiredCache(): void {
 ### 扫描性能
 
 **clearOutOfRange 性能**：
+
 ```typescript
 // 时间复杂度: O(n) - 遍历所有缓存
 // 对于 15,000 个方块: ~5-10ms
@@ -128,7 +133,7 @@ private cleanupExpiredCache(): void {
 
 ```
 缓存大小: 9,082 个方块
-问题: 
+问题:
 - 包含很远位置的旧数据
 - 查询当前位置找不到方块
 - 缓存利用率低
@@ -149,6 +154,7 @@ private cleanupExpiredCache(): void {
 ### 不同场景的配置
 
 **探索模式**（频繁移动）
+
 ```typescript
 blockScanRadius: 20,      // 扫描范围
 保留范围: 100格,           // 5倍扫描半径
@@ -157,6 +163,7 @@ maxEntries: 50000,        // 大容量
 ```
 
 **建造模式**（固定区域）
+
 ```typescript
 blockScanRadius: 30,      // 更大扫描
 保留范围: 200格,           // 保留更多
@@ -165,6 +172,7 @@ maxEntries: 100000,       // 超大容量
 ```
 
 **战斗模式**（快速移动）
+
 ```typescript
 blockScanRadius: 15,      // 快速扫描
 保留范围: 50格,            // 快速清理
@@ -181,6 +189,7 @@ maxEntries: 20000,        // 中等容量
 ```
 
 **观察指标**：
+
 1. **清理数量**：如果持续清理大量方块，说明bot在快速移动
 2. **当前总数**：应该保持在合理范围（10,000-20,000）
 3. **缓存命中**：查询时应该能找到方块
@@ -188,6 +197,7 @@ maxEntries: 20000,        // 中等容量
 ### 异常情况
 
 **缓存持续增长**
+
 ```
 当前缓存总数: 45000 → 48000 → 50000
 问题: 清理不及时或保留范围过大
@@ -195,6 +205,7 @@ maxEntries: 20000,        // 中等容量
 ```
 
 **频繁清理大量方块**
+
 ```
 清理 8000 个旧方块 → 清理 7500 个旧方块
 问题: Bot移动速度过快
@@ -222,4 +233,3 @@ maxEntries: 20000,        // 中等容量
 2. **分区缓存**：按区块(chunk)组织，提高清理效率
 3. **压缩存储**：对远距离数据使用压缩格式
 4. **优先级队列**：重要区域优先保留
-

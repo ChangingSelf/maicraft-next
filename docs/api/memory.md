@@ -12,15 +12,16 @@
 {
   "type": "subscribe",
   "dataTypes": ["memory"],
-  "updateInterval": 0,  // 0表示事件驱动
+  "updateInterval": 0, // 0表示事件驱动
   "filters": {
-    "memoryTypes": ["thought", "decision"],  // 可选：过滤记忆类型
-    "importance": "high"                     // 可选：过滤重要性
+    "memoryTypes": ["thought", "decision"], // 可选：过滤记忆类型
+    "importance": "high" // 可选：过滤重要性
   }
 }
 ```
 
 **参数说明：**
+
 - `dataTypes`: 必须包含 `"memory"`
 - `updateInterval`: 记忆建议使用 0（事件驱动）
 - `filters`:
@@ -150,12 +151,12 @@ interface MemoryEntry {
 
 ## 记忆类型说明
 
-| 类型 | 说明 | 主要字段 |
-|------|------|----------|
-| `thought` | AI思维过程 | content, context |
-| `conversation` | 对话记录 | speaker, message |
-| `decision` | 决策执行记录 | intention, actions, result |
-| `experience` | 经验教训 | lesson, confidence, occurrences |
+| 类型           | 说明         | 主要字段                        |
+| -------------- | ------------ | ------------------------------- |
+| `thought`      | AI思维过程   | content, context                |
+| `conversation` | 对话记录     | speaker, message                |
+| `decision`     | 决策执行记录 | intention, actions, result      |
+| `experience`   | 经验教训     | lesson, confidence, occurrences |
 
 ## 常见过滤条件
 
@@ -222,4 +223,3 @@ interface MemoryEntry {
   }
 }
 ```
-

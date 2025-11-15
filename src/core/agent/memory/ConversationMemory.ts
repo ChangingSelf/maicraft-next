@@ -52,9 +52,7 @@ export class ConversationMemory implements MemoryStore<ConversationEntry> {
    * 获取与特定玩家的对话
    */
   getConversationWith(playerName: string, limit: number = 10): ConversationEntry[] {
-    return this.entries
-      .filter(e => e.speaker === playerName || e.context?.replyTo === playerName)
-      .slice(-limit);
+    return this.entries.filter(e => e.speaker === playerName || e.context?.replyTo === playerName).slice(-limit);
   }
 
   update(id: string, updates: Partial<ConversationEntry>): boolean {

@@ -137,7 +137,7 @@ return {
 ```typescript
 return {
   role_description: '', // 自动生成
-  basic_info: '',       // 自动生成
+  basic_info: '', // 自动生成
   bot_name: basicInfo.bot_name,
   player_name: basicInfo.player_name,
   goal: basicInfo.goal,
@@ -164,6 +164,7 @@ const paramPattern = /(?<!\{)\{([a-zA-Z_][a-zA-Z0-9_]*)(?::[^}]+)?\}(?!\})/g;
 ```
 
 这样可以正确区分：
+
 - 模板占位符：`{role_description}` → 会被替换
 - JSON 示例：`{{ "thinking": "..." }}` → 不会被替换
 
@@ -176,13 +177,13 @@ private formatWithNestedTemplates(
   visitedTemplates: Set<string>,
 ): string {
   let result = template.template;
-  
+
   // 提取所有占位符
   const placeholders = extractPlaceholders(template.template);
-  
+
   for (const placeholder of placeholders) {
     let value: string;
-    
+
     if (placeholder in params) {
       // 1. 参数已提供
       value = String(params[placeholder]);
@@ -193,10 +194,10 @@ private formatWithNestedTemplates(
       // 3. 缺少参数
       throw new Error(`缺少必需参数: ${placeholder}`);
     }
-    
+
     result = result.replace(`{${placeholder}}`, value);
   }
-  
+
   return result;
 }
 ```
@@ -223,4 +224,3 @@ private formatWithNestedTemplates(
 - [ ] 支持嵌套模板的默认值
 - [ ] 添加模板生成缓存（相同参数返回缓存结果）
 - [ ] 支持条件嵌套（根据参数决定是否生成某个嵌套模板）
-

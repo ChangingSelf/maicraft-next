@@ -24,11 +24,13 @@
 **文件**: `src/core/agent/structured/ActionSchema.ts`
 
 添加了：
+
 - `PlanGenerationResponse` 接口
 - `PlanTaskDefinition` 接口
 - `PLAN_GENERATION_SCHEMA` JSON Schema 定义
 
 支持的追踪器类型：
+
 - **inventory**: 物品收集任务
 - **craft**: 合成任务
 - **location**: 到达位置任务
@@ -39,6 +41,7 @@
 **文件**: `src/core/agent/structured/StructuredOutputManager.ts`
 
 添加了：
+
 - `requestPlanGeneration()`: 请求规划生成的主方法
 - `requestPlanWithStructuredOutput()`: 使用结构化输出
 - `requestPlanWithManualParsing()`: 手动解析降级方案
@@ -50,11 +53,13 @@
 **文件**: `src/core/agent/planning/GoalPlanningManager.ts`
 
 添加了：
+
 - `llmManager` 和 `structuredOutputManager` 属性
 - `setLLMManager()`: 设置 LLM Manager
 - `generatePlanForCurrentGoal()`: 为当前目标生成计划的核心方法
 
 生成流程：
+
 1. 收集游戏环境信息（位置、生命值、物品栏等）
 2. 查询相关历史经验
 3. 生成提示词并请求 LLM
@@ -66,6 +71,7 @@
 **文件**: `src/core/agent/Agent.ts`
 
 修改 `initializeState()` 方法：
+
 - 在创建 `planningManager` 后调用 `setLLMManager()` 设置 LLM Manager
 
 ### 6. 在主决策循环中添加自动生成逻辑
@@ -73,14 +79,17 @@
 **文件**: `src/core/agent/loop/MainDecisionLoop.ts`
 
 添加了：
+
 - `checkAndGeneratePlan()`: 检查并生成计划的方法
 
 在 `runLoopIteration()` 中添加调用：
+
 - 在每次循环中检查是否有目标但没有计划
 - 如果检测到这种情况，自动调用 LLM 生成计划
 - 生成成功后自动激活计划
 
 逻辑：
+
 1. 检查是否有当前目标
 2. 检查是否已有当前计划
 3. 如果有目标但没有计划，自动生成
@@ -209,6 +218,7 @@ GoalPlanningManager (每秒自动检查)
 ## 预期效果
 
 修复后，规划系统应该：
+
 1. ✅ 在启动时加载已有的目标和计划
 2. ✅ 当有目标但没有计划时，自动调用 LLM 生成计划
 3. ✅ 生成的计划包含多个任务，每个任务都有合适的追踪器
@@ -232,4 +242,3 @@ GoalPlanningManager (每秒自动检查)
 - Agent 集成: `src/core/agent/Agent.ts`
 - 决策循环: `src/core/agent/loop/MainDecisionLoop.ts`
 - 数据文件: `data/goal-planning.json`
-

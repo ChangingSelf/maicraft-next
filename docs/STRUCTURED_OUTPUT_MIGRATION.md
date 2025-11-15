@@ -24,10 +24,11 @@
   - `FURNACE_OPERATION_SCHEMA` - 熔炉操作
 
 **关键特性**:
+
 ```typescript
 interface StructuredLLMResponse {
-  thinking?: string;    // 可选的思考过程
-  actions: StructuredAction[];  // 必需的动作列表
+  thinking?: string; // 可选的思考过程
+  actions: StructuredAction[]; // 必需的动作列表
 }
 ```
 
@@ -36,16 +37,19 @@ interface StructuredLLMResponse {
 **文件**: `src/core/agent/structured/StructuredOutputManager.ts`
 
 **功能**:
+
 - `requestMainActions()` - 请求主模式动作
 - `requestChestOperations()` - 请求箱子操作
 - `requestFurnaceOperations()` - 请求熔炉操作
 
 **工作模式**:
+
 1. **原生模式** - 使用 OpenAI JSON Schema `response_format`
 2. **降级模式** - 使用栈解析方法提取 JSON
 
 **降级流程**:
-```
+
+````
 1. 尝试使用 response_format 请求
    ↓ 失败
 2. 尝试直接解析整个响应
@@ -55,22 +59,24 @@ interface StructuredLLMResponse {
 4. 使用栈方法提取 JSON
    ↓ 失败
 5. 手动提取 thinking 和多个 action JSON
-```
+````
 
 ### 3. 更新模式使用结构化输出
 
 #### MainMode.ts
+
 - ✅ 导入 `StructuredOutputManager`
 - ✅ 移除旧的正则表达式解析: `/\{[^}]*\}/g`
 - ✅ 使用 `executeStructuredActions()` 代替 `parseAndExecuteActions()`
 - ✅ 直接获得类型安全的 `StructuredAction[]`
 
 **对比**:
+
 ```typescript
 // ❌ 旧方式
 const actionMatches = llmResponse.match(/\{[^}]*\}/g) || [];
 for (const match of actionMatches) {
-  const json = JSON.parse(match);  // 可能失败
+  const json = JSON.parse(match); // 可能失败
   // 无法处理嵌套 JSON
 }
 
@@ -83,6 +89,7 @@ for (const action of response.actions) {
 ```
 
 #### ChestMode.ts 和 FurnaceMode.ts
+
 - ✅ 类似的改进
 - ✅ 添加 `bindState()` 方法初始化结构化输出管理器
 - ✅ 移除正则表达式解析
@@ -91,11 +98,13 @@ for (const action of response.actions) {
 ### 4. 更新提示词模板
 
 **改进的模板**:
+
 - `main_thinking.ts` - 明确要求 JSON Schema 格式
 - `chest_operation.ts` - 添加结构化输出示例
 - `furnace_operation.ts` - 添加结构化输出示例
 
 **新的输出格式说明**:
+
 ```markdown
 **输出格式要求**
 你必须以结构化JSON格式返回你的响应，包含以下字段：
@@ -106,16 +115,16 @@ for (const action of response.actions) {
 **输出示例**
 \`\`\`json
 {
-  "thinking": "当前需要寻找资源并建造工作台",
-  "actions": [
-    {
-      "intention": "前往森林区域收集木材",
-      "action_type": "move",
-      "x": 100,
-      "y": 70,
-      "z": 200
-    }
-  ]
+"thinking": "当前需要寻找资源并建造工作台",
+"actions": [
+{
+"intention": "前往森林区域收集木材",
+"action_type": "move",
+"x": 100,
+"y": 70,
+"z": 200
+}
+]
 }
 \`\`\`
 ```
@@ -125,6 +134,7 @@ for (const action of response.actions) {
 **文件**: `src/llm/types.ts`
 
 添加 `response_format` 支持:
+
 ```typescript
 export interface LLMRequestConfig {
   // ... 其他字段
@@ -143,22 +153,22 @@ export interface LLMRequestConfig {
 
 ### 旧方案的问题
 
-| 问题 | 影响 | 严重性 |
-|------|------|--------|
-| 正则 `/\{[^}]*\}/g` 无法处理嵌套JSON | 遇到嵌套对象时解析失败 | 🔴 严重 |
-| 依赖 LLM 输出格式 | LLM 格式略有变化就失败 | 🔴 严重 |
-| 无类型安全 | 运行时才发现字段错误 | 🟡 中等 |
-| 难以调试 | 不清楚是 LLM 还是解析问题 | 🟡 中等 |
+| 问题                                 | 影响                      | 严重性  |
+| ------------------------------------ | ------------------------- | ------- |
+| 正则 `/\{[^}]*\}/g` 无法处理嵌套JSON | 遇到嵌套对象时解析失败    | 🔴 严重 |
+| 依赖 LLM 输出格式                    | LLM 格式略有变化就失败    | 🔴 严重 |
+| 无类型安全                           | 运行时才发现字段错误      | 🟡 中等 |
+| 难以调试                             | 不清楚是 LLM 还是解析问题 | 🟡 中等 |
 
 ### 新方案的优势
 
-| 优势 | 说明 | 影响 |
-|------|------|------|
+| 优势              | 说明                        | 影响           |
+| ----------------- | --------------------------- | -------------- |
 | ✅ 原生结构化输出 | OpenAI JSON Schema 保证格式 | 🟢 可靠性 100% |
-| ✅ 类型安全 | TypeScript + JSON Schema | 🟢 编译时检查 |
-| ✅ 降级支持 | 自动降级到手动解析 | 🟢 兼容性强 |
-| ✅ 易于调试 | 清晰的错误信息 | 🟢 开发效率 ↑ |
-| ✅ 可扩展 | 易于添加新动作 Schema | 🟢 维护性强 |
+| ✅ 类型安全       | TypeScript + JSON Schema    | 🟢 编译时检查  |
+| ✅ 降级支持       | 自动降级到手动解析          | 🟢 兼容性强    |
+| ✅ 易于调试       | 清晰的错误信息              | 🟢 开发效率 ↑  |
+| ✅ 可扩展         | 易于添加新动作 Schema       | 🟢 维护性强    |
 
 ## 🔄 迁移检查清单
 
@@ -189,10 +199,7 @@ class MyNewMode extends BaseMode {
   }
 
   private async executeLLMDecision(): Promise<void> {
-    const response = await this.structuredOutputManager!.requestMainActions(
-      prompt,
-      systemPrompt
-    );
+    const response = await this.structuredOutputManager!.requestMainActions(prompt, systemPrompt);
 
     if (!response) {
       this.logger.warn('LLM结构化输出获取失败');
@@ -220,15 +227,17 @@ class MyNewMode extends BaseMode {
 ### 问题：结构化输出总是返回 null
 
 **可能原因**:
+
 1. LLM 提供商不支持 `response_format`
 2. JSON Schema 定义过于严格
 3. 提示词没有明确要求 JSON 格式
 
 **解决方案**:
+
 ```typescript
 // 1. 检查降级模式是否工作
 const manager = new StructuredOutputManager(llmManager, {
-  useStructuredOutput: false  // 强制使用降级模式测试
+  useStructuredOutput: false, // 强制使用降级模式测试
 });
 
 // 2. 简化 Schema
@@ -238,6 +247,7 @@ const manager = new StructuredOutputManager(llmManager, {
 ### 问题：解析的动作缺少字段
 
 **检查顺序**:
+
 1. 验证 JSON Schema 是否正确
 2. 检查提示词是否说明了必需字段
 3. 查看 LLM 原始输出
@@ -259,6 +269,7 @@ const manager = new StructuredOutputManager(llmManager, {
 本次迁移彻底解决了解析不可靠的问题，从根本上提升了系统的可靠性和可维护性。通过使用 OpenAI 的结构化输出功能和完善的降级方案，确保了在各种情况下都能正确解析 LLM 的响应。
 
 **关键成果**:
+
 - ✅ 解析可靠性: 60% → 100%
 - ✅ 类型安全: 无 → 完全
 - ✅ 代码可维护性: 显著提升
@@ -266,5 +277,4 @@ const manager = new StructuredOutputManager(llmManager, {
 
 ---
 
-*最后更新: 2025-11-08*
-
+_最后更新: 2025-11-08_

@@ -16,6 +16,7 @@ node scripts/test-websocket.js
 ```
 
 脚本会自动：
+
 1. ✅ 连接到 WebSocket 服务器
 2. ✅ 订阅 'memory' 数据类型
 3. ✅ 添加测试记忆
@@ -111,7 +112,9 @@ wscat -c ws://localhost:25114/ws
 ```
 ❌ WebSocket服务器未设置，无法推送思考记忆
 ```
+
 或
+
 ```
 ❌ memoryDataProvider 未初始化，无法推送思考记忆
 ```
@@ -123,6 +126,7 @@ wscat -c ws://localhost:25114/ws
 **症状：** 无法连接到 `ws://localhost:25114/ws`
 
 **解决方案：**
+
 1. 检查 WebSocket 服务器是否启动
 2. 检查端口 25114 是否被占用
 3. 查看日志中的错误信息
@@ -132,6 +136,7 @@ wscat -c ws://localhost:25114/ws
 **症状：** 订阅返回成功，但没有收到 `memory_push` 消息
 
 **检查清单：**
+
 1. ✅ 确认启动顺序已修正（WebSocket 服务器在 Agent 之前启动）
 2. ✅ 检查日志中是否有 `📡 WebSocket服务器已连接到记忆管理器`
 3. ✅ 确认 `hasMemoryDataProvider: true`
@@ -142,6 +147,7 @@ wscat -c ws://localhost:25114/ws
 **症状：** 收到推送但数据不完整或格式错误
 
 **检查：**
+
 1. 查看 `MemoryDataProvider.pushMemory()` 的实现
 2. 检查 `broadcastToSubscribed()` 是否正常工作
 3. 查看客户端解析 JSON 是否正确
@@ -155,14 +161,16 @@ wscat -c ws://localhost:25114/ws
 const ws = new WebSocket('ws://localhost:25114/ws');
 
 ws.onopen = () => {
-  ws.send(JSON.stringify({
-    type: 'subscribe',
-    dataTypes: ['memory']
-  }));
+  ws.send(
+    JSON.stringify({
+      type: 'subscribe',
+      dataTypes: ['memory'],
+    }),
+  );
 };
 
 let count = 0;
-ws.onmessage = (event) => {
+ws.onmessage = event => {
   const message = JSON.parse(event.data);
   if (message.type === 'memory_push') {
     count++;
@@ -187,4 +195,3 @@ ws.onmessage = (event) => {
 - [修复说明](./fix-memory-push.md)
 - [记忆 API 文档](./api/memory.md)
 - [WebSocket API 文档](./api/websocket.md)
-

@@ -74,6 +74,7 @@
 ```
 
 **优势**：
+
 - 静态内容集中在前面，约占提示词的 60-70%
 - LLM 可以缓存静态部分，只处理动态部分
 - 提升响应速度，降低 token 消耗
@@ -125,15 +126,15 @@ basic_info = `
 ```typescript
 collectAllData(): MainThinkingData {
   const basicInfo = this.collectBasicInfo();
-  
+
   // 手动生成嵌套模板
   const roleDescription = promptManager.generatePrompt('role_description', {
     bot_name: basicInfo.bot_name,
     player_name: basicInfo.player_name,
   });
-  
+
   const basicInfoPrompt = promptManager.generatePrompt('basic_info', basicInfo);
-  
+
   return {
     role_description: roleDescription,
     basic_info: basicInfoPrompt,
@@ -147,7 +148,7 @@ collectAllData(): MainThinkingData {
 ```typescript
 collectAllData(): MainThinkingData {
   const basicInfo = this.collectBasicInfo();
-  
+
   // 嵌套模板自动生成，只需提供基础参数
   return {
     role_description: '', // 自动生成
@@ -168,13 +169,13 @@ collectAllData(): MainThinkingData {
 
 ### 1. 缓存效率
 
-| 提示词部分 | 变化频率 | 字符数（估算） | 是否可缓存 |
-|-----------|---------|--------------|-----------|
-| role_description | 从不变 | ~200 | ✅ |
-| 规划/行为/游戏指南 | 从不变 | ~800 | ✅ |
-| available_actions | 偶尔变（饥饿/战斗） | ~1500 | ✅ 部分 |
-| basic_info | 每次变 | ~1000 | ❌ |
-| thinking_list | 每次变 | ~500 | ❌ |
+| 提示词部分         | 变化频率            | 字符数（估算） | 是否可缓存 |
+| ------------------ | ------------------- | -------------- | ---------- |
+| role_description   | 从不变              | ~200           | ✅         |
+| 规划/行为/游戏指南 | 从不变              | ~800           | ✅         |
+| available_actions  | 偶尔变（饥饿/战斗） | ~1500          | ✅ 部分    |
+| basic_info         | 每次变              | ~1000          | ❌         |
+| thinking_list      | 每次变              | ~500           | ❌         |
 
 **优化前**：~0% 可缓存（动态内容在开头）  
 **优化后**：~65% 可缓存（约 2500/4000 字符）
@@ -233,7 +234,7 @@ function generatePrompt(templateName, params, visited) {
   if (visited.has(templateName)) {
     throw Error('检测到循环引用');
   }
-  
+
   visited.add(templateName);
   // ... 递归生成子模板 ...
 }
@@ -241,14 +242,14 @@ function generatePrompt(templateName, params, visited) {
 
 ## 相关文件
 
-| 文件 | 修改内容 |
-|------|---------|
-| `prompt_manager.ts` | 实现嵌套模板引用功能 |
-| `basic_info.ts` | 拆分为 `role_description` + `basic_info` |
-| `main_thinking.ts` | 调整提示词顺序，静态内容在前 |
-| `PromptDataCollector.ts` | 简化数据收集逻辑 |
-| `jest.config.js` | 添加路径映射支持测试 |
-| `nested_template.test.ts` | 完整的测试套件 |
+| 文件                      | 修改内容                                 |
+| ------------------------- | ---------------------------------------- |
+| `prompt_manager.ts`       | 实现嵌套模板引用功能                     |
+| `basic_info.ts`           | 拆分为 `role_description` + `basic_info` |
+| `main_thinking.ts`        | 调整提示词顺序，静态内容在前             |
+| `PromptDataCollector.ts`  | 简化数据收集逻辑                         |
+| `jest.config.js`          | 添加路径映射支持测试                     |
+| `nested_template.test.ts` | 完整的测试套件                           |
 
 ## 后续计划
 

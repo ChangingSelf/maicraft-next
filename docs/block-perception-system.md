@@ -66,21 +66,25 @@ getPlaceablePositions(position: BlockPosition, distance: number = 5): string
 #### 修改点
 
 1. **导入 NearbyBlockManager**
+
 ```typescript
 import { NearbyBlockManager } from '@/core/cache/NearbyBlockManager';
 ```
 
 2. **添加实例属性**
+
 ```typescript
 nearbyBlockManager: NearbyBlockManager | null = null;
 ```
 
 3. **初始化方法**
+
 ```typescript
 this.nearbyBlockManager = new NearbyBlockManager(this.blockCache);
 ```
 
 4. **添加访问方法**
+
 ```typescript
 getNearbyBlockManager(): NearbyBlockManager | null {
   return this.nearbyBlockManager;
@@ -90,6 +94,7 @@ getNearbyBlockManager(): NearbyBlockManager | null {
 #### scanNearbyBlocks 更新
 
 **之前**：
+
 ```typescript
 if (block && block.type !== 0) {
   // 不是空气方块
@@ -98,6 +103,7 @@ if (block && block.type !== 0) {
 ```
 
 **现在**：
+
 ```typescript
 if (block) {
   // 缓存所有方块，包括空气方块
@@ -115,7 +121,7 @@ if (block) {
 const importantPatterns = [
   'chest', 'furnace', 'ore', 'log', ...
 ];
-const importantBlocks = nearbyBlocks.filter(block => 
+const importantBlocks = nearbyBlocks.filter(block =>
   importantPatterns.some(pattern => block.name.includes(pattern))
 );
 ```
@@ -126,10 +132,7 @@ const importantBlocks = nearbyBlocks.filter(block =>
 // 优先使用 NearbyBlockManager
 const nearbyBlockManager = gameState.getNearbyBlockManager?.();
 if (nearbyBlockManager) {
-  return nearbyBlockManager.getVisibleBlocksInfo(
-    { x: blockPosition.x, y: blockPosition.y, z: blockPosition.z },
-    16
-  );
+  return nearbyBlockManager.getVisibleBlocksInfo({ x: blockPosition.x, y: blockPosition.y, z: blockPosition.z }, 16);
 }
 
 // 降级方案：不过滤方块，显示所有方块（除了普通空气）
@@ -168,6 +171,7 @@ const validBlocks = nearbyBlocks.filter(block => block.name !== 'air');
 - **大量方块（>6个）**：显示最近3个 + 范围表示
 
 示例：
+
 ```
 water (156个): 最近(100,65,200), (101,65,200), (100,66,200), 范围[x=92~108, y=62~68, z=192~208]
 ```
@@ -257,13 +261,13 @@ AI 能够清楚地知道自己在水中，并采取行动离开。
 
 ### 差异点
 
-| 特性 | maicraft (Python) | maicraft-next (TypeScript) |
-|------|-------------------|----------------------------|
-| 实现语言 | Python | TypeScript |
-| 架构 | MCP协议 | 单体架构 |
-| 可见方块检测 | 使用 `can_see` 字段 | 暂未实现（可扩展） |
-| 坐标压缩 | 多种策略（高度/层/列） | 简化版压缩算法 |
-| 方块范围 | 全范围16格 + 可见32格 | 统一16格范围 |
+| 特性         | maicraft (Python)      | maicraft-next (TypeScript) |
+| ------------ | ---------------------- | -------------------------- |
+| 实现语言     | Python                 | TypeScript                 |
+| 架构         | MCP协议                | 单体架构                   |
+| 可见方块检测 | 使用 `can_see` 字段    | 暂未实现（可扩展）         |
+| 坐标压缩     | 多种策略（高度/层/列） | 简化版压缩算法             |
+| 方块范围     | 全范围16格 + 可见32格  | 统一16格范围               |
 
 ### 未来扩展
 
@@ -282,6 +286,7 @@ AI 能够清楚地知道自己在水中，并采取行动离开。
 ```
 
 期望输出：
+
 - ✅ 警告提示在水中
 - ✅ 显示大量水方块
 - ✅ 脚下方块信息正确
@@ -294,6 +299,7 @@ AI 能够清楚地知道自己在水中，并采取行动离开。
 ```
 
 期望输出：
+
 - ✅ 危险警告
 - ✅ 岩浆方块位置
 - ✅ 建议远离
@@ -306,6 +312,7 @@ AI 能够清楚地知道自己在水中，并采取行动离开。
 ```
 
 期望输出：
+
 - ✅ 警告脚下没有方块
 - ✅ 提示可能在下坠
 - ✅ 周围都是空气
@@ -313,6 +320,7 @@ AI 能够清楚地知道自己在水中，并采取行动离开。
 ### 4. 正常陆地测试
 
 期望输出：
+
 - ✅ 显示脚下的 dirt/stone/grass 等方块
 - ✅ 附近的树木、矿石等资源
 - ✅ 统计信息准确
@@ -328,4 +336,3 @@ AI 能够清楚地知道自己在水中，并采取行动离开。
 5. ✅ **保持了性能**：智能扫描和缓存策略
 
 这是一个参考 maicraft 项目、适配 TypeScript 架构的完整方块感知解决方案！
-

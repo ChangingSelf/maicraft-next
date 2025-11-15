@@ -12,15 +12,16 @@
 {
   "type": "subscribe",
   "dataTypes": ["logs"],
-  "updateInterval": 0,  // 0表示事件驱动
+  "updateInterval": 0, // 0表示事件驱动
   "filters": {
-    "levels": ["INFO", "WARN", "ERROR"],       // 可选：过滤日志级别
-    "modules": ["Agent", "ActionExecutor"]     // 可选：过滤模块名称
+    "levels": ["INFO", "WARN", "ERROR"], // 可选：过滤日志级别
+    "modules": ["Agent", "ActionExecutor"] // 可选：过滤模块名称
   }
 }
 ```
 
 **参数说明：**
+
 - `dataTypes`: 必须包含 `"logs"`
 - `updateInterval`: 日志建议使用 0（事件驱动）
 - `filters`:
@@ -48,10 +49,10 @@
 
 ```typescript
 interface LogEntry {
-  timestamp: number;     // 时间戳（毫秒）
-  level: string;         // 日志级别 ("ERROR", "WARN", "INFO", "DEBUG")
-  message: string;       // 日志消息
-  module?: string;       // 模块名称
+  timestamp: number; // 时间戳（毫秒）
+  level: string; // 日志级别 ("ERROR", "WARN", "INFO", "DEBUG")
+  message: string; // 日志消息
+  module?: string; // 模块名称
 }
 ```
 
@@ -85,11 +86,11 @@ interface LogEntry {
 
 ## 日志级别说明
 
-| 级别 | 说明 |
-|------|------|
+| 级别    | 说明     |
+| ------- | -------- |
 | `ERROR` | 错误信息 |
-| `WARN` | 警告信息 |
-| `INFO` | 一般信息 |
+| `WARN`  | 警告信息 |
+| `INFO`  | 一般信息 |
 | `DEBUG` | 调试信息 |
 
 ## 常见模块名称

@@ -22,14 +22,16 @@ const ws = new WebSocket('ws://localhost:25114/ws');
 
 ```javascript
 // 订阅日志
-ws.send(JSON.stringify({
-  type: 'subscribe',
-  dataTypes: ['logs'],
-  updateInterval: 0,
-  filters: {
-    levels: ['INFO', 'ERROR']
-  }
-}));
+ws.send(
+  JSON.stringify({
+    type: 'subscribe',
+    dataTypes: ['logs'],
+    updateInterval: 0,
+    filters: {
+      levels: ['INFO', 'ERROR'],
+    },
+  }),
+);
 ```
 
 ## 可用数据类型
@@ -47,9 +49,9 @@ ws.send(JSON.stringify({
 
 ```typescript
 interface WSMessage {
-  type: string;        // 消息类型
-  timestamp?: number;  // 时间戳（可选）
-  data?: any;         // 消息数据（可选）
+  type: string; // 消息类型
+  timestamp?: number; // 时间戳（可选）
+  data?: any; // 消息数据（可选）
   [key: string]: any; // 其他字段
 }
 ```

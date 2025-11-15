@@ -50,12 +50,12 @@ if (block && block.type !== 0) {
 if (block) {
   // 缓存所有方块（包括空气），这对环境感知至关重要
   const blockName = block.name || 'unknown';
-  
+
   // 统计重要方块（仅用于日志）
   if (this.isImportantBlock(block)) {
     importantBlocks++;
   }
-  
+
   blocks.push({...});
 }
 ```
@@ -78,7 +78,8 @@ const maxBlocks = 500; // 从 maxImportantBlocks=100 改为 maxBlocks=500
 
 ```typescript
 // CacheManager.ts
-if (!isFirstScan && distance < 3) {  // 从 5 改为 3
+if (!isFirstScan && distance < 3) {
+  // 从 5 改为 3
   return;
 }
 ```
@@ -124,6 +125,7 @@ this.logger.info(`✅ 扫描完成: 总检查 ${totalBlocks}, 重要方块 ${imp
 ## 预期效果
 
 ### Before
+
 ```
 **周围方块的信息**
 玩家位置: x=140, y=61, z=10
@@ -131,6 +133,7 @@ this.logger.info(`✅ 扫描完成: 总检查 ${totalBlocks}, 重要方块 ${imp
 ```
 
 ### After
+
 ```
 **周围方块的信息**
 
@@ -195,6 +198,7 @@ this.logger.info(`✅ 扫描完成: 总检查 ${totalBlocks}, 重要方块 ${imp
 ```
 
 如果看到：
+
 - ⚠️ 扫描完成但未缓存任何方块 → 说明有问题
 - ✅ 已缓存 XXX 个方块 → 正常工作
 
@@ -209,4 +213,3 @@ this.logger.info(`✅ 扫描完成: 总检查 ${totalBlocks}, 重要方块 ${imp
 5. ✅ 改进日志输出，方便调试和监控
 
 AI 现在能够准确感知周围环境，不会再"在海洋中游泳而不自知"！
-

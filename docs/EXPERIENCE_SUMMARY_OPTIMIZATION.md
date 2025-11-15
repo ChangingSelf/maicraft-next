@@ -7,6 +7,7 @@
 ## 主要改进
 
 ### 1. 批量经验总结
+
 **之前**：一次只总结一条经验
 **现在**：一次总结 3-10 条经验
 
@@ -37,11 +38,13 @@
 ### 2. 统一结构化输出
 
 **之前**：使用 `【经验】` 标签手动解析
+
 ```typescript
 const experienceMatch = response.content.match(/【经验】([\s\S]*?)【/);
 ```
 
 **现在**：使用项目统一的 JSON Schema + StructuredOutputManager
+
 ```typescript
 // 定义 Schema
 export const EXPERIENCE_SUMMARY_SCHEMA = {
@@ -55,11 +58,11 @@ export const EXPERIENCE_SUMMARY_SCHEMA = {
         properties: {
           lesson: { type: 'string' },
           context: { type: 'string' },
-          confidence: { type: 'number', minimum: 0, maximum: 1 }
-        }
-      }
-    }
-  }
+          confidence: { type: 'number', minimum: 0, maximum: 1 },
+        },
+      },
+    },
+  },
 };
 
 // 使用 StructuredOutputManager 请求
@@ -69,6 +72,7 @@ const summaryResponse = await this.structuredOutputManager.requestExperienceSumm
 ### 3. 优化的提示词
 
 **关键改进点**：
+
 - 明确要求总结多条经验（3-10条）
 - 每条经验不超过100字
 - 重点关注：
@@ -80,6 +84,7 @@ const summaryResponse = await this.structuredOutputManager.requestExperienceSumm
 - 提供高质量和低质量经验的示例
 
 **示例**：
+
 ```
 ✅ "钻石镐的游戏名称是diamond_pickaxe"
 ✅ "工作台需要4块木板（planks）合成"
@@ -135,6 +140,7 @@ ExperienceSummaryResponse
 ## 使用场景示例
 
 ### 场景1：物品名称学习
+
 ```json
 {
   "lesson": "石镐的游戏名称是stone_pickaxe",
@@ -144,6 +150,7 @@ ExperienceSummaryResponse
 ```
 
 ### 场景2：合成配方记忆
+
 ```json
 {
   "lesson": "石镐需要3个圆石和2根木棍合成",
@@ -153,6 +160,7 @@ ExperienceSummaryResponse
 ```
 
 ### 场景3：操作顺序
+
 ```json
 {
   "lesson": "使用箱子前必须先移动到箱子附近（距离小于4格）",
@@ -172,6 +180,7 @@ ExperienceSummaryResponse
 ## 配置
 
 经验总结默认每10次决策循环执行一次：
+
 ```typescript
 // MainDecisionLoop.ts
 if (this.evaluationCounter % 10 === 0) {
@@ -195,4 +204,3 @@ if (this.evaluationCounter % 10 === 0) {
 2. 观察经验总结是否能正确提取物品名称
 3. 检查经验记录的置信度是否合理
 4. 验证经验内容是否简短实用（<100字）
-

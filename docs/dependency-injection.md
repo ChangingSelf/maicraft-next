@@ -53,12 +53,13 @@ const container = new Container();
 import { ServiceKeys } from '@/core/di';
 
 // 这些是预定义的"条形码"
-ServiceKeys.Logger      // 日志工具的编码
-ServiceKeys.Bot         // Minecraft机器人的编码
-ServiceKeys.Agent       // AI代理的编码
+ServiceKeys.Logger; // 日志工具的编码
+ServiceKeys.Bot; // Minecraft机器人的编码
+ServiceKeys.Agent; // AI代理的编码
 ```
 
 **为什么用Symbol不用字符串？**
+
 - Symbol就像身份证号，全球唯一
 - 字符串可能重复（如两个组件都叫"service"）
 - 类型安全：TypeScript知道你在要什么
@@ -80,7 +81,7 @@ import { Container, ServiceKeys, configureServices } from '@/core/di';
 const container = new Container();
 
 // 第2步：告诉管理员所有商品怎么制作
-configureServices(container);  // 一行代码配置所有组件
+configureServices(container); // 一行代码配置所有组件
 
 // 第3步：要什么拿什么
 const agent = await container.resolveAsync<Agent>(ServiceKeys.Agent);
@@ -95,7 +96,7 @@ const agent = await container.resolveAsync<Agent>(ServiceKeys.Agent);
 ```typescript
 // 注册一个日志工具（单例）
 container.registerSingleton(ServiceKeys.Logger, () => {
-  return createLogger();  // 直接创建，不需要其他东西
+  return createLogger(); // 直接创建，不需要其他东西
 });
 ```
 
@@ -103,10 +104,10 @@ container.registerSingleton(ServiceKeys.Logger, () => {
 
 ```typescript
 // 注册一个CacheManager（需要多种材料）
-container.registerSingleton(ServiceKeys.CacheManager, (c) => {
+container.registerSingleton(ServiceKeys.CacheManager, c => {
   // 自动获取所有需要的材料
-  const bot = c.resolve<Bot>(ServiceKeys.Bot);              // 🤖 机器人
-  const blockCache = c.resolve(ServiceKeys.BlockCache);     // 💾 方块缓存
+  const bot = c.resolve<Bot>(ServiceKeys.Bot); // 🤖 机器人
+  const blockCache = c.resolve(ServiceKeys.BlockCache); // 💾 方块缓存
   const containerCache = c.resolve(ServiceKeys.ContainerCache); // 📦 容器缓存
 
   // 用这些材料制作最终产品
@@ -184,7 +185,8 @@ const agent = await container.resolveAsync(ServiceKeys.Agent);
 
 // 销毁容器时会自动调用所有 disposer
 await container.dispose();
-```
+
+````
 
 ## 🔄 架构改进对比
 
@@ -204,7 +206,7 @@ await agent.start();
 await agent.stop();
 llmManager.close();
 contextManager.cleanup();
-```
+````
 
 ### 现在的方式
 
@@ -345,10 +347,10 @@ container.registerInstance(ServiceKeys.Config, config);
 // 注册AI代理（需要很多零件）
 container.registerSingleton(ServiceKeys.Agent, c => {
   // 自动获取所有需要的零件
-  const bot = c.resolve<Bot>(ServiceKeys.Bot);              // 🤖 机器人
-  const executor = c.resolve(ServiceKeys.ActionExecutor);   // ⚡ 执行器
-  const llmManager = c.resolve(ServiceKeys.LLMManager);     // 🧠 AI大脑
-  const config = c.resolve<AppConfig>(ServiceKeys.Config);  // ⚙️ 配置
+  const bot = c.resolve<Bot>(ServiceKeys.Bot); // 🤖 机器人
+  const executor = c.resolve(ServiceKeys.ActionExecutor); // ⚡ 执行器
+  const llmManager = c.resolve(ServiceKeys.LLMManager); // 🧠 AI大脑
+  const config = c.resolve<AppConfig>(ServiceKeys.Config); // ⚙️ 配置
 
   // 用这些零件组装最终产品
   return new Agent(bot, executor, llmManager, config);
@@ -375,6 +377,7 @@ container
 ```
 
 **什么时候执行？**
+
 - 单例服务：只在第一次创建后执行
 - 瞬态服务：每次创建后都执行
 
@@ -393,6 +396,7 @@ container
 ```
 
 **特点：**
+
 - 只对单例服务有效
 - 在 `container.dispose()` 时自动执行
 - 按注册相反的顺序执行（后注册的先销毁）
@@ -446,6 +450,7 @@ const agent = await container.resolveAsync<Agent>(ServiceKeys.Agent);
 ```
 
 **什么时候用async？**
+
 - 当工厂函数返回Promise时
 - 当withInitializer是async函数时
 - 当组件需要异步初始化时
@@ -453,6 +458,7 @@ const agent = await container.resolveAsync<Agent>(ServiceKeys.Agent);
 ## ⚠️ 死循环问题（循环依赖）- 避免"鸡生蛋，蛋生鸡"
 
 想象一下：
+
 - A需要B来工作
 - B需要C来工作
 - C需要A来工作
@@ -483,15 +489,16 @@ container.registerSingleton('C', c => {
 
 ```typescript
 // ✅ 正确做法：C不立即要A，而是等A创建好后再设置
-container.registerSingleton('C', c => {
-  // 先只创建C，不依赖A
-  return new ServiceC();
-})
-.withInitializer('C', async c => {
-  // 在初始化时再获取A
-  const a = await c.resolveAsync('A');
-  c.setDependency(a); // 延迟设置依赖
-});
+container
+  .registerSingleton('C', c => {
+    // 先只创建C，不依赖A
+    return new ServiceC();
+  })
+  .withInitializer('C', async c => {
+    // 在初始化时再获取A
+    const a = await c.resolveAsync('A');
+    c.setDependency(a); // 延迟设置依赖
+  });
 ```
 
 #### 方法2：重构依赖关系
@@ -537,8 +544,8 @@ DI系统最大的好处就是**测试超级方便**！你可以轻松替换任�
 const testContainer = new Container();
 
 // 替换真实组件为"假货"（mock对象）
-testContainer.registerInstance(ServiceKeys.Bot, mockBot);         // 用假机器人
-testContainer.registerInstance(ServiceKeys.Logger, mockLogger);   // 用假日志工具
+testContainer.registerInstance(ServiceKeys.Bot, mockBot); // 用假机器人
+testContainer.registerInstance(ServiceKeys.Logger, mockLogger); // 用假日志工具
 
 // 其他组件保持真实（因为我们只想测Agent）
 testContainer.registerSingleton(ServiceKeys.MemoryManager, c => realMemoryManager);
@@ -554,10 +561,11 @@ expect(mockBot.chat).toHaveBeenCalledWith('Hello World!');
 ### 为什么测试这么方便？
 
 **传统方式测试Agent：**
+
 ```typescript
 // 噩梦般的测试准备
-const realBot = createBot();          // 需要真的Minecraft服务器
-const realLogger = createLogger();    // 需要真的文件系统
+const realBot = createBot(); // 需要真的Minecraft服务器
+const realLogger = createLogger(); // 需要真的文件系统
 const realMemory = new MemoryManager();
 const realPlanning = new GoalPlanningManager();
 
@@ -566,6 +574,7 @@ const agent = new Agent(realBot, realLogger, realMemory, realPlanning);
 ```
 
 **DI方式测试Agent：**
+
 ```typescript
 // 轻松的测试准备
 const agent = await testContainer.resolveAsync<Agent>(ServiceKeys.Agent);
@@ -573,6 +582,7 @@ const agent = await testContainer.resolveAsync<Agent>(ServiceKeys.Agent);
 ```
 
 **测试的好处：**
+
 - 🚀 **快**：不需要启动真实的服务
 - 🛡️ **安全**：不会影响真实数据
 - 🎯 **专注**：只测试当前组件的逻辑
@@ -588,7 +598,7 @@ class Agent {
   constructor(
     private memory: MemoryManager,
     private planning: GoalPlanningManager,
-    private modeManager: ModeManager
+    private modeManager: ModeManager,
   ) {
     // 直接使用依赖
     this.memory.initialize();
@@ -597,22 +607,15 @@ class Agent {
 
 // bootstrap.ts - 容器负责组装
 container.registerSingleton(ServiceKeys.Agent, c => {
-  return new Agent(
-    c.resolve(ServiceKeys.MemoryManager),
-    c.resolve(ServiceKeys.GoalPlanningManager),
-    c.resolve(ServiceKeys.ModeManager)
-  );
+  return new Agent(c.resolve(ServiceKeys.MemoryManager), c.resolve(ServiceKeys.GoalPlanningManager), c.resolve(ServiceKeys.ModeManager));
 });
 
 // 测试中 - 简单直接
-const agent = new Agent(
-  mockMemory,
-  mockPlanning,
-  mockModeManager
-);
+const agent = new Agent(mockMemory, mockPlanning, mockModeManager);
 ```
 
 **优点**：
+
 - ✅ **依赖透明**：构造函数签名就是依赖列表
 - ✅ **完全解耦**：Agent 不依赖容器，可独立使用
 - ✅ **易于测试**：直接传入 mock，无需 mock 容器
@@ -633,6 +636,7 @@ class Agent {
 ```
 
 **缺点**：
+
 - ❌ **隐藏依赖**：从构造函数看不出需要什么
 - ❌ **容器耦合**：组件必须知道容器和 ServiceKeys
 - ❌ **难以测试**：需要 mock 整个容器
@@ -688,4 +692,4 @@ const service = container.resolve<NewService>(ServiceKeys.NewService);
 
 ---
 
-*这个文档基于项目的实际实现，展示了完整的依赖注入架构和使用方式。*
+_这个文档基于项目的实际实现，展示了完整的依赖注入架构和使用方式。_
