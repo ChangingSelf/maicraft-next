@@ -23,6 +23,9 @@ export * from './TossItemAction';
 export * from './KillMobAction';
 
 // 移动和探索
+export * from './MoveToLocationAction';
+export * from './MoveToEntityAction';
+export * from './MoveToBlockAction';
 export * from './SwimToLandAction';
 
 // 地标管理

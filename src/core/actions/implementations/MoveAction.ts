@@ -15,7 +15,7 @@ export class MoveAction extends BaseAction<MoveParams> {
   readonly description = '移动到指定坐标';
 
   async execute(context: RuntimeContext, params: MoveParams): Promise<ActionResult> {
-    const { x, y, z, timeout = 60000 } = params;
+    const { x, y, z } = params;
 
     try {
       // 验证参数
@@ -73,11 +73,6 @@ export class MoveAction extends BaseAction<MoveParams> {
       z: {
         type: 'number',
         description: 'Z 坐标',
-      },
-      timeout: {
-        type: 'number',
-        description: '超时时间（毫秒），默认 60000',
-        optional: true,
       },
     };
   }

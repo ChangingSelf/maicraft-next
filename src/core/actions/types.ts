@@ -29,7 +29,6 @@ export interface MoveParams {
   x: number;
   y: number;
   z: number;
-  timeout?: number;
 }
 
 /**
@@ -154,10 +153,43 @@ export interface SwimToLandParams {
 }
 
 /**
+ * MoveToLocation 动作参数
+ */
+export interface MoveToLocationParams {
+  locationName: string;
+  reachDistance?: number;
+  allowPartial?: boolean;
+}
+
+/**
+ * MoveToEntity 动作参数
+ */
+export interface MoveToEntityParams {
+  entityName: string;
+  entityType: 'player' | 'mob' | 'animal' | 'hostile' | 'passive' | 'any';
+  followDistance?: number;
+  maxDistance?: number;
+  continuous?: boolean;
+}
+
+/**
+ * MoveToBlock 动作参数
+ */
+export interface MoveToBlockParams {
+  blockType: string;
+  reachDistance?: number;
+  searchRadius?: number;
+  allowPartial?: boolean;
+}
+
+/**
  * 动作参数类型映射
  */
 export interface ActionParamsMap {
   [ActionIds.MOVE]: MoveParams;
+  [ActionIds.MOVE_TO_LOCATION]: MoveToLocationParams;
+  [ActionIds.MOVE_TO_ENTITY]: MoveToEntityParams;
+  [ActionIds.MOVE_TO_BLOCK]: MoveToBlockParams;
   [ActionIds.FIND_BLOCK]: FindBlockParams;
   [ActionIds.MINE_BLOCK]: MineBlockParams;
   [ActionIds.MINE_BLOCK_BY_POSITION]: MineBlockByPositionParams;

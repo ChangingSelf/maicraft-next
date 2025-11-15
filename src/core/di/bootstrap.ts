@@ -372,6 +372,9 @@ function registerActions(executor: any, logger: Logger): void {
   const {
     ChatAction,
     MoveAction,
+    MoveToLocationAction,
+    MoveToEntityAction,
+    MoveToBlockAction,
     FindBlockAction,
     MineBlockAction,
     MineBlockByPositionAction,
@@ -391,6 +394,9 @@ function registerActions(executor: any, logger: Logger): void {
     // P0 核心动作
     new ChatAction(),
     new MoveAction(),
+    new MoveToLocationAction(),
+    new MoveToEntityAction(),
+    new MoveToBlockAction(),
     new FindBlockAction(),
     new MineBlockAction(),
     new MineBlockByPositionAction(),

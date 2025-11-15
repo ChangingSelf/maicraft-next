@@ -11,6 +11,9 @@
 export const ActionIds = {
   // 移动和探索
   MOVE: 'move',
+  MOVE_TO_LOCATION: 'move_to_location',
+  MOVE_TO_ENTITY: 'move_to_entity',
+  MOVE_TO_BLOCK: 'move_to_block',
   FIND_BLOCK: 'find_block',
 
   // 挖掘
