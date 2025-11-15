@@ -81,7 +81,7 @@ export interface PlaceBlockParams {
 export interface CraftParams {
   item: string;                    // 物品名称（必需）
   count?: number;                  // 合成数量（默认1，可选）
-  requiredMaterials?: string[];    // 指定使用的材料（可选）
+  requiredMaterials?: string[];    // 指定优先使用的材料类型（可选，会自动去重）。例如：["oak_planks"] 而非 ["oak_planks", "oak_planks", "oak_planks", "oak_planks"]
   maxComplexity?: number;          // 最大合成复杂度（默认10，可选）
 }
 

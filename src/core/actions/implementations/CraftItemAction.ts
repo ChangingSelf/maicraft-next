@@ -29,15 +29,20 @@ export class CraftItemAction extends BaseAction<CraftParams> {
 
       context.logger.info(
         `开始合成: ${item} x${count}` +
-        `${requiredMaterials ? ` (指定材料: ${requiredMaterials.join(', ')})` : ''}` +
-        `${maxComplexity ? ` (最大复杂度: ${maxComplexity})` : ''}`
+          `${requiredMaterials ? ` (指定材料: ${requiredMaterials.join(', ')})` : ''}` +
+          `${maxComplexity ? ` (最大复杂度: ${maxComplexity})` : ''}`,
       );
 
       // 2. 使用context中的CraftManager执行合成（遵循DI模式）
-      const result = await context.craftManager.craftItem(item, count, {
-        requiredMaterials,
-        maxComplexity: maxComplexity || 10
-      }, context.logger);
+      const result = await context.craftManager.craftItem(
+        item,
+        count,
+        {
+          requiredMaterials,
+          maxComplexity: maxComplexity || 10,
+        },
+        context.logger,
+      );
 
       if (result.success) {
         context.logger.info(`合成成功: ${item} x${count}`);
@@ -52,13 +57,12 @@ export class CraftItemAction extends BaseAction<CraftParams> {
           item,
           count,
           requiredMaterials,
-          maxComplexity
+          maxComplexity,
         };
         (enhancedError as any).originalError = result.error;
         (enhancedError as any).timestamp = Date.now();
         return this.failure(result.message, enhancedError);
       }
-
     } catch (error) {
       const err = error as Error;
       context.logger.error('合成过程中发生错误:', err);
@@ -84,11 +88,11 @@ export class CraftItemAction extends BaseAction<CraftParams> {
       },
       requiredMaterials: {
         type: 'array',
-        description: '指定必须使用的材料，如["oak_planks", "cobblestone"]',
+        description: '指定优先使用的材料类型（不是材料个数！），如["oak_planks"]而非["oak_planks","oak_planks"]。系统会自动去重',
         optional: true,
         items: {
-          type: 'string'
-        }
+          type: 'string',
+        },
       },
       maxComplexity: {
         type: 'number',

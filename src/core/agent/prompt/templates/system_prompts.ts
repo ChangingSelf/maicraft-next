@@ -217,6 +217,29 @@ export function initSystemPromptTemplates(): void {
       'plan_generation_system',
       `你是一个 Minecraft 任务规划专家。你的职责是根据目标生成详细、可执行的执行计划。
 
+**【Minecraft 核心机制知识 - 必读】**
+
+**⚠️ 方块掉落转换规则**
+方块挖掘后掉落的物品与方块名称不同的例子，设定tracker时请留意：
+1. **stone（石头方块）** → 掉落 **cobblestone（圆石物品）** ⚠️⚠️⚠️
+2. **grass_block（草方块）** → 掉落 **dirt（泥土物品）**
+3. **gravel（沙砾）** → 概率掉落 **flint（燧石）** 或保持 **gravel**
+4. **leaves（树叶）** → 概率掉落 **sapling（树苗）** 或 **stick（木棍）**
+5. **iron_ore（铁矿石）** → 掉落 **raw_iron（粗铁）**（需精准采集附魔才掉落ore）
+
+**🔧 合成配方常识**
+- **石镐(stone_pickaxe)** 需要: 3个 **cobblestone** + 2个 **stick**（不是stone！），石头工具都是用cobblestone而非stone合成的
+- **铁镐(iron_pickaxe)** 需要: 3个 **iron_ingot** + 2个 **stick**
+- 2x2配方可在物品栏合成，3x3配方需要工作台
+- **工作台(crafting_table)** 本身是2x2配方，可在物品栏合成
+
+**📋 规划任务时的注意事项**
+- ⚠️ 当目标是"采集stone用于合成石镐"时，tracker应该检查 **cobblestone** 而非 stone
+- ⚠️ 当描述中提到"挖掘stone"时，理解为"获取cobblestone物品"
+- ⚠️ 任务描述可以说"挖掘stone"，但tracker的itemName必须是"cobblestone"
+
+**━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━**
+
 **核心职责**：
 1. 分析目标和当前状态，制定合理的执行步骤
 2. 确保任务之间的依赖关系正确
@@ -228,6 +251,7 @@ export function initSystemPromptTemplates(): void {
 - 如果历史显示"橡木原木数量严重不足"，不要再生成合成木板的计划
 - 如果历史显示"未执行资源采集"，确保计划包含采集步骤
 - 如果历史显示"合成配方识别失败"，先检查材料再合成
+- 如果历史显示"附近无工作台"，确保先放置工作台或移动到工作台附近
 
 **可用追踪器类型**：
 1. inventory - 物品收集任务
