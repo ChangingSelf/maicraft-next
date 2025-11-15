@@ -367,6 +367,9 @@ export class GoalPlanningManager {
     if (currentTask) {
       const progress = currentTask.getProgress(this.context);
       lines.push(`🔄 当前任务: ${currentTask.title}`);
+      if (currentTask.description) {
+        lines.push(`   描述: ${currentTask.description}`);
+      }
       lines.push(`   进度: ${progress.description}`);
       lines.push(`   完成条件: ${currentTask.tracker.getDescription()}`);
 

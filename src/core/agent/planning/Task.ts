@@ -133,13 +133,21 @@ export class Task {
 
   /**
    * 转换为字符串
+   * @param context 游戏上下文
+   * @param includeDescription 是否包含描述信息
    */
-  toString(context?: GameContext): string {
+  toString(context?: GameContext, includeDescription: boolean = false): string {
     const statusIcon = this.getStatusIcon();
     const progress = context ? this.getProgress(context) : null;
     const progressStr = progress ? ` (${progress.percentage.toFixed(0)}%)` : '';
 
-    return `${statusIcon} ${this.title}${progressStr}`;
+    let result = `${statusIcon} ${this.title}${progressStr}`;
+
+    if (includeDescription && this.description) {
+      result += `\n     描述: ${this.description}`;
+    }
+
+    return result;
   }
 
   private getStatusIcon(): string {

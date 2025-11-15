@@ -112,9 +112,15 @@ export class Plan {
     const progress = context ? this.getProgress(context) : null;
     const progressStr = progress ? ` (${progress.completed}/${progress.total})` : '';
 
-    const taskList = this.tasks.map((t, i) => `  ${i + 1}. ${t.toString(context)}`).join('\n');
+    let result = `📋 ${this.title}${progressStr}`;
+    if (this.description) {
+      result += `\n   描述: ${this.description}`;
+    }
 
-    return `📋 ${this.title}${progressStr}\n${taskList}`;
+    const taskList = this.tasks.map((t, i) => `  ${i + 1}. ${t.toString(context)}`).join('\n');
+    result += `\n${taskList}`;
+
+    return result;
   }
 
   private generateId(): string {
