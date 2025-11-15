@@ -29,6 +29,15 @@ export function initPlanGenerationTemplate(): void {
 【已有经验】
 {experiences}
 
+【该目标的历史计划】
+{plan_history}
+
+⚠️ **重要提醒**：
+- 仔细分析历史失败，避免重复错误
+- 如果历史显示"橡木原木数量严重不足"，不要再生成合成木板的计划
+- 如果历史显示"未执行资源采集"，确保计划包含采集步骤
+- 如果历史显示"合成配方识别失败"，先检查材料再合成
+
 【可用追踪器类型】
 1. inventory - 物品收集任务
    - 参数: itemName (物品名称), targetCount (目标数量), exact (是否精确，可选)
@@ -95,7 +104,7 @@ export function initPlanGenerationTemplate(): void {
 - itemName 必须使用 Minecraft 内部名称（如 oak_log, stone, iron_ore）
 `,
       '规划生成',
-      ['goal', 'position', 'health', 'food', 'inventory', 'environment', 'experiences'],
+      ['goal', 'position', 'health', 'food', 'inventory', 'environment', 'experiences', 'plan_history'],
     ),
   );
 }

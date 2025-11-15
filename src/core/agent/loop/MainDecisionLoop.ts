@@ -15,12 +15,15 @@ import { BaseLoop } from './BaseLoop';
 import { promptManager, initAllTemplates } from '@/core/agent/prompt';
 import { ModeManager } from '@/core/agent/mode/ModeManager';
 import { StructuredOutputManager } from '@/core/agent/structured';
+import { PromptDataCollector } from '@/core/agent/prompt/PromptDataCollector';
+import { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
 
 export class MainDecisionLoop extends BaseLoop<AgentState> {
   private llmManager: LLMManager;
   private structuredOutputManager: StructuredOutputManager;
   private evaluationCounter: number = 0;
   private promptsInitialized: boolean = false;
+  private dataCollector: PromptDataCollector;
 
   constructor(state: AgentState, llmManager: LLMManager) {
     super(state, 'MainDecisionLoop');
@@ -32,6 +35,10 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
     this.structuredOutputManager = new StructuredOutputManager(llmManager, {
       useStructuredOutput: true,
     });
+
+    // 初始化数据收集器（复用主模式的数据收集逻辑）
+    const actionPromptGenerator = new ActionPromptGenerator(state.context);
+    this.dataCollector = new PromptDataCollector(state, actionPromptGenerator);
 
     // 初始化提示词模板（只初始化一次）
     if (!this.promptsInitialized) {
@@ -200,25 +207,59 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
   /**
    * 评估任务
    *
-   * 对应 maicraft 的 judge_task()
+   * 使用结构化输出，返回可操作的评估结果
+   * 根据评估结果触发相应的行动（重新规划、跳过任务等）
    */
   private async evaluateTask(): Promise<void> {
     try {
-      const { gameState } = this.state.context;
-      const { memory, planningManager } = this.state;
+      const { planningManager } = this.state;
 
-      // 构建评估数据
+      // 获取当前任务
+      const currentTask = planningManager?.getCurrentTask();
+      if (!currentTask) {
+        this.logger.debug('没有当前任务，跳过评估');
+        return;
+      }
+
+      // 复用主模式的数据收集器，获取基础信息
+      const basicInfo = this.dataCollector.collectBasicInfo();
+
+      // 获取记忆数据
+      const memoryData = this.dataCollector.collectMemoryData();
+
+      // 获取任务历史统计
+      const taskStats = planningManager.getTaskHistoryStats(currentTask.title);
+      const taskStatsText =
+        taskStats.totalExecuted > 0
+          ? `执行次数: ${taskStats.totalExecuted}, 成功: ${taskStats.successCount}, 失败: ${taskStats.failureCount}, 平均时长: ${taskStats.averageDuration}秒`
+          : '首次执行';
+
+      // 构建评估数据（使用完整的 basicInfo，与主提示词保持一致）
       const evaluationData = {
-        goal: this.state.goal,
-        current_task: planningManager?.getCurrentTask()?.title || '暂无任务',
-        position: `位置: (${gameState.blockPosition.x}, ${gameState.blockPosition.y}, ${gameState.blockPosition.z})`,
-        inventory: gameState.getInventoryDescription?.() || '空',
-        recent_decisions: memory.buildContextSummary({
-          includeDecisions: 10,
-        }),
-        recent_thoughts: memory.buildContextSummary({
-          includeThoughts: 5,
-        }),
+        // 任务相关
+        goal: basicInfo.goal,
+        current_task: currentTask.title,
+        task_description: currentTask.description || '无描述',
+        to_do_list: basicInfo.to_do_list, // 当前的计划和任务列表
+        task_stats: taskStatsText,
+        
+        // 状态信息（与主提示词完全一致）
+        position: basicInfo.position,
+        inventory: basicInfo.inventory_info,
+        health: basicInfo.self_status_info,
+        
+        // 环境信息（对任务评估很重要）
+        nearby_block_info: basicInfo.nearby_block_info, // 周围方块，对采集任务很重要
+        nearby_entities_info: basicInfo.nearby_entities_info, // 周围实体，对安全评估很重要
+        container_cache_info: basicInfo.container_cache_info, // 容器信息，对存储任务很重要
+        
+        // 交互信息
+        chat_str: basicInfo.chat_str, // 玩家指令和交流
+        
+        // 记忆和历史
+        recent_decisions: memoryData.thinking_list,
+        recent_thoughts: memoryData.thinking_list,
+        failed_hint: memoryData.failed_hint, // 失败提示，帮助评估避免重复错误
       };
 
       // 生成评估提示词
@@ -226,18 +267,35 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
 
       // 使用系统提示词模板
       const systemPrompt = promptManager.generatePrompt('task_evaluation_system', {
-        bot_name: this.state.context.gameState.playerName || 'Bot',
-        player_name: this.state.context.gameState.playerName || 'Player',
+        bot_name: basicInfo.bot_name,
+        player_name: basicInfo.player_name,
       });
-      const userPrompt = prompt;
 
-      const response = await this.llmManager.chatCompletion(userPrompt, systemPrompt);
-      const evaluation = response.success ? response.content : null;
+      // 使用结构化输出管理器请求任务评估
+      const evaluation = await this.structuredOutputManager.requestTaskEvaluation(prompt, systemPrompt);
 
       if (evaluation) {
-        // 记录评估结果
-        this.state.memory.recordThought(`[任务评估] ${evaluation}`);
-        this.logger.info(`📊 任务评估完成`);
+        // 记录评估结果到思维记忆
+        const evaluationSummary = `[任务评估] 状态: ${evaluation.task_status}, 进度: ${evaluation.progress_assessment}`;
+        this.state.memory.recordThought(evaluationSummary, {
+          issues: evaluation.issues,
+          suggestions: evaluation.suggestions,
+        });
+
+        // 记录问题和建议
+        if (evaluation.issues.length > 0) {
+          this.logger.warn(`⚠️ 发现问题: ${evaluation.issues.join('; ')}`);
+        }
+        if (evaluation.suggestions.length > 0) {
+          this.logger.info(`💡 改进建议: ${evaluation.suggestions.join('; ')}`);
+        }
+
+        // 处理评估结果，触发相应行动
+        await planningManager.handleTaskEvaluation(evaluation);
+
+        this.logger.info(`📊 任务评估完成: ${evaluation.task_status} (置信度: ${(evaluation.confidence * 100).toFixed(0)}%)`);
+      } else {
+        this.logger.warn('⚠️ 任务评估未返回有效结果');
       }
     } catch (error) {
       this.logger.error('❌ 任务评估异常', undefined, error as Error);

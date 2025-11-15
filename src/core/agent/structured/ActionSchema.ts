@@ -22,6 +22,9 @@ export interface StructuredLLMResponse {
   actions: StructuredAction[]; // 动作列表
 }
 
+// ===== 导出所有结构化响应类型 =====
+export type { ExperienceSummaryResponse, ExperienceLesson, PlanGenerationResponse, PlanTaskDefinition, TaskEvaluationResponse };
+
 /**
  * 完整的动作 JSON Schema
  * 用于 OpenAI Function Calling / Structured Output
@@ -505,4 +508,76 @@ export const PLAN_GENERATION_SCHEMA = {
     },
   },
   required: ['title', 'description', 'tasks'],
+};
+
+/**
+ * 任务评估响应结构
+ */
+export interface TaskEvaluationResponse {
+  task_status: 'on_track' | 'struggling' | 'blocked' | 'needs_adjustment'; // 任务状态
+  progress_assessment: string; // 进度评估，简短描述当前进展
+  issues: string[]; // 遇到的问题列表
+  suggestions: string[]; // 改进建议列表
+  should_replan: boolean; // 是否需要重新规划
+  should_skip_task: boolean; // 是否应该跳过当前任务
+  estimated_completion_time?: number; // 预计完成时间（分钟）
+  confidence: number; // 评估的置信度 0-1
+}
+
+/**
+ * 任务评估的 JSON Schema
+ */
+export const TASK_EVALUATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    task_status: {
+      type: 'string',
+      enum: ['on_track', 'struggling', 'blocked', 'needs_adjustment'],
+      description: '任务状态：on_track(进展顺利)、struggling(遇到困难)、blocked(完全阻塞)、needs_adjustment(需要调整)',
+    },
+    progress_assessment: {
+      type: 'string',
+      description: '对当前进度的简短评估，说明任务完成到什么程度',
+    },
+    issues: {
+      type: 'array',
+      description: '遇到的具体问题列表',
+      items: {
+        type: 'string',
+        description: '具体问题描述，例如"缺少铁镐"、"找不到石头"、"物品栏已满"',
+      },
+      default: [],
+    },
+    suggestions: {
+      type: 'array',
+      description: '改进建议列表，说明如何解决问题或改进策略',
+      items: {
+        type: 'string',
+        description: '具体建议，例如"先合成铁镐"、"向北探索寻找石山"、"清理物品栏"',
+      },
+      default: [],
+    },
+    should_replan: {
+      type: 'boolean',
+      description: '是否需要重新生成计划。如果当前计划明显不可行或存在严重问题，应该设为true',
+      default: false,
+    },
+    should_skip_task: {
+      type: 'boolean',
+      description: '是否应该跳过当前任务。如果任务不可能完成或不再必要，应该设为true',
+      default: false,
+    },
+    estimated_completion_time: {
+      type: 'number',
+      description: '预计任务完成时间（分钟），如果无法估计可以不提供',
+      minimum: 0,
+    },
+    confidence: {
+      type: 'number',
+      description: '对这次评估的置信度，范围0.0-1.0',
+      minimum: 0,
+      maximum: 1,
+    },
+  },
+  required: ['task_status', 'progress_assessment', 'confidence'],
 };

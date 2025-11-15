@@ -93,13 +93,24 @@ export class Task {
   /**
    * 检查是否可以开始
    */
-  canStart(completedTaskIds: Set<string>): boolean {
+  canStart(completedTaskIds: Set<string>, allTasks?: Task[]): boolean {
     if (this.status !== 'pending') {
       return false;
     }
 
     // 检查依赖是否都完成
-    return this.dependencies.every(depId => completedTaskIds.has(depId));
+    // 依赖可以是索引（数字）或任务ID（字符串）
+    return this.dependencies.every(dep => {
+      // 如果是数字或数字字符串，视为索引
+      const depIndex = parseInt(dep as string, 10);
+      if (!isNaN(depIndex) && allTasks) {
+        // 索引依赖：将索引转换为任务ID
+        const depTask = allTasks[depIndex];
+        return depTask ? completedTaskIds.has(depTask.id) : false;
+      }
+      // 直接是任务ID
+      return completedTaskIds.has(dep);
+    });
   }
 
   /**

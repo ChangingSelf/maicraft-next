@@ -444,6 +444,275 @@ export class GoalPlanningManager {
   }
 
   /**
+   * 处理任务评估结果
+   * 根据评估结果采取相应行动
+   */
+  async handleTaskEvaluation(evaluation: {
+    task_status: string;
+    progress_assessment: string;
+    issues: string[];
+    suggestions: string[];
+    should_replan: boolean;
+    should_skip_task: boolean;
+    confidence: number;
+  }): Promise<void> {
+    const currentTask = this.getCurrentTask();
+    if (!currentTask) {
+      this.logger.warn('没有当前任务，跳过评估处理');
+      return;
+    }
+
+    const currentPlan = this.getCurrentPlan();
+    if (!currentPlan) {
+      this.logger.warn('没有当前计划，跳过评估处理');
+      return;
+    }
+
+    this.logger.info(`📊 处理任务评估: ${evaluation.task_status}`, {
+      progress: evaluation.progress_assessment,
+      issues: evaluation.issues.length,
+      suggestions: evaluation.suggestions.length,
+    });
+
+    // 记录评估结果到任务元数据（供后续分析使用）
+    if (!currentTask.metadata) {
+      currentTask.metadata = {};
+    }
+    if (!currentTask.metadata.evaluations) {
+      currentTask.metadata.evaluations = [];
+    }
+    currentTask.metadata.evaluations.push({
+      timestamp: Date.now(),
+      status: evaluation.task_status,
+      assessment: evaluation.progress_assessment,
+      issues: evaluation.issues,
+      suggestions: evaluation.suggestions,
+      should_replan: evaluation.should_replan,
+      should_skip_task: evaluation.should_skip_task,
+      confidence: evaluation.confidence,
+    });
+
+    // 根据评估结果采取行动
+    if (evaluation.should_skip_task) {
+      this.logger.warn(`⏭️ 评估建议跳过任务: ${currentTask.title}`);
+      await this.skipCurrentTask('评估建议跳过');
+      return;
+    }
+
+    if (evaluation.should_replan && evaluation.confidence > 0.7) {
+      this.logger.warn(`🔄 评估建议重新规划（置信度: ${(evaluation.confidence * 100).toFixed(0)}%）`);
+      await this.replanForCurrentGoal(`任务评估发现问题需要重新规划: ${evaluation.issues.join(', ')}`);
+      return;
+    }
+
+    // 如果任务完全阻塞，标记为失败
+    if (evaluation.task_status === 'blocked' && evaluation.confidence > 0.8) {
+      this.logger.error(`🚫 任务被评估为完全阻塞: ${currentTask.title}`);
+      await this.failCurrentTask('任务阻塞，无法继续');
+      return;
+    }
+
+    // 如果任务需要调整，记录建议
+    if (evaluation.task_status === 'needs_adjustment' && evaluation.suggestions.length > 0) {
+      this.logger.info(`💡 任务需要调整，建议: ${evaluation.suggestions.join('; ')}`);
+      this.context.gameState.context?.memory?.thinking?.add({
+        timestamp: Date.now(),
+        content: `任务需要调整，建议: ${evaluation.suggestions.join('; ')}`,
+        confidence: evaluation.confidence,
+      });
+    }
+
+    // 如果任务进展顺利，记录鼓励信息
+    if (evaluation.task_status === 'on_track') {
+      this.logger.info(`✅ 任务进展顺利: ${evaluation.progress_assessment}`);
+      this.context.gameState.context?.memory?.thinking?.add({
+        timestamp: Date.now(),
+        content: `任务进展顺利，评估: ${evaluation.progress_assessment}`,
+        confidence: evaluation.confidence,
+      });
+    }
+  }
+
+  /**
+   * 跳过当前任务
+   */
+  async skipCurrentTask(reason: string): Promise<void> {
+    const currentTask = this.getCurrentTask();
+    if (!currentTask) return;
+
+    this.logger.info(`⏭️ 跳过任务: ${currentTask.title} (原因: ${reason})`);
+
+    // 结束任务历史记录
+    this.endTaskHistory(currentTask.id, 'abandoned');
+
+    // 标记任务为失败（跳过）
+    currentTask.fail();
+
+    // 清空当前任务ID，让系统获取下一个任务
+    this.currentTaskId = null;
+
+    this.save();
+  }
+
+  /**
+   * 标记当前任务为失败
+   */
+  async failCurrentTask(reason: string): Promise<void> {
+    const currentTask = this.getCurrentTask();
+    if (!currentTask) return;
+
+    this.logger.error(`❌ 任务失败: ${currentTask.title} (原因: ${reason})`);
+
+    // 结束任务历史记录
+    this.endTaskHistory(currentTask.id, 'failed');
+
+    // 标记任务为失败
+    currentTask.fail();
+
+    // 清空当前任务ID，让系统获取下一个任务
+    this.currentTaskId = null;
+
+    this.save();
+  }
+
+  /**
+   * 为当前目标重新生成计划
+   */
+  async replanForCurrentGoal(reason: string): Promise<Plan | null> {
+    const goal = this.getCurrentGoal();
+    if (!goal) {
+      this.logger.warn('没有当前目标，无法重新规划');
+      return null;
+    }
+
+    this.logger.info(`🔄 重新规划: ${reason}`);
+
+    // 记录当前计划失败
+    const currentPlan = this.getCurrentPlan();
+    if (currentPlan) {
+      this.logger.info(`📋 标记旧计划为失败: ${currentPlan.title}`);
+      // 不标记为完成，保留失败状态供以后分析
+    }
+
+    // 结束当前任务的历史记录
+    if (this.currentTaskId) {
+      this.endTaskHistory(this.currentTaskId, 'abandoned');
+    }
+
+    // 清空当前计划和任务
+    this.currentPlanId = null;
+    this.currentTaskId = null;
+
+    // 生成新计划
+    const newPlan = await this.generatePlanForCurrentGoal();
+
+    if (newPlan) {
+      this.logger.info(`✅ 成功生成新计划: ${newPlan.title}`);
+      this.setCurrentPlan(newPlan.id);
+    } else {
+      this.logger.error('❌ 重新规划失败');
+    }
+
+    return newPlan;
+  }
+
+  /**
+   * 收集该目标的历史计划信息（包括失败原因）
+   * 用于生成新计划时避免重复错误
+   */
+  private collectPlanHistory(goal: Goal): string {
+    if (goal.planIds.length === 0) {
+      return '这是首次为该目标生成计划。';
+    }
+
+    const historyLines: string[] = [];
+    let attemptCount = 0;
+
+    for (const planId of goal.planIds) {
+      const plan = this.plans.get(planId);
+      if (!plan) continue;
+
+      attemptCount++;
+
+      // 只关注非当前计划（历史计划）
+      if (planId === this.currentPlanId) continue;
+
+      const status = plan.status === 'completed' ? '✅ 成功' : '❌ 失败';
+      historyLines.push(`\n计划 ${attemptCount}: ${plan.title} (${status})`);
+      historyLines.push(`  描述: ${plan.description}`);
+
+      // 收集任务的失败信息
+      const failedTasks: string[] = [];
+      const blockedTasks: string[] = [];
+
+      for (const task of plan.tasks) {
+        // 检查任务评估中的问题和决策
+        if (task.metadata?.evaluations && Array.isArray(task.metadata.evaluations)) {
+          const lastEvaluation = task.metadata.evaluations[task.metadata.evaluations.length - 1];
+
+          if (lastEvaluation) {
+            // 分析评估状态和决策结果
+            if (lastEvaluation.status === 'blocked') {
+              blockedTasks.push(`    - 任务"${task.title}"被评估为完全阻塞`);
+              if (lastEvaluation.issues && lastEvaluation.issues.length > 0) {
+                blockedTasks.push(`      问题: ${lastEvaluation.issues.join('; ')}`);
+              }
+              if (lastEvaluation.should_replan) {
+                blockedTasks.push(`      评估决策: 需要重新规划 (置信度: ${(lastEvaluation.confidence * 100).toFixed(0)}%)`);
+              }
+            } else if (lastEvaluation.status === 'needs_adjustment' || lastEvaluation.status === 'struggling') {
+              failedTasks.push(`    - 任务"${task.title}"需要调整`);
+              if (lastEvaluation.issues && lastEvaluation.issues.length > 0) {
+                failedTasks.push(`      问题: ${lastEvaluation.issues.join('; ')}`);
+              }
+              if (lastEvaluation.should_replan) {
+                failedTasks.push(`      评估决策: 建议重新规划 (置信度: ${(lastEvaluation.confidence * 100).toFixed(0)}%)`);
+              }
+              if (lastEvaluation.suggestions && lastEvaluation.suggestions.length > 0) {
+                failedTasks.push(`      改进建议: ${lastEvaluation.suggestions.join('; ')}`);
+              }
+            }
+
+            // 记录评估的决策结果，即使状态不是 blocked 或 needs_adjustment
+            if (lastEvaluation.should_skip_task) {
+              failedTasks.push(`    - 任务"${task.title}"被评估为应该跳过`);
+            }
+          }
+        }
+
+        // 检查任务状态
+        if (
+          task.status === 'failed' &&
+          !blockedTasks.some(line => line.includes(task.title)) &&
+          !failedTasks.some(line => line.includes(task.title))
+        ) {
+          failedTasks.push(`    - 任务"${task.title}"失败`);
+        }
+      }
+
+      if (blockedTasks.length > 0) {
+        historyLines.push(`  阻塞的任务:`);
+        historyLines.push(...blockedTasks);
+      }
+
+      if (failedTasks.length > 0) {
+        historyLines.push(`  失败的任务:`);
+        historyLines.push(...failedTasks);
+      }
+
+      if (blockedTasks.length === 0 && failedTasks.length === 0 && plan.status !== 'completed') {
+        historyLines.push(`  状态: 未完成，原因未知`);
+      }
+    }
+
+    if (historyLines.length === 0) {
+      return '这是首次为该目标生成计划。';
+    }
+
+    return `已尝试 ${attemptCount} 次规划，历史如下:\n${historyLines.join('\n')}\n\n⚠️ 请分析以上失败原因，生成不同的计划以避免重复错误！`;
+  }
+
+  /**
    * 为当前目标生成计划（使用 LLM）
    */
   async generatePlanForCurrentGoal(): Promise<Plan | null> {
@@ -487,6 +756,9 @@ export class GoalPlanningManager {
           ? experiences.map((e: any) => `- ${e.content} (置信度: ${(e.confidence * 100).toFixed(0)}%)`).join('\n')
           : '暂无相关经验';
 
+      // 获取该目标的历史计划（包括失败原因）
+      const planHistory = this.collectPlanHistory(goal);
+
       // 生成提示词
       const prompt = promptManager.generatePrompt('plan_generation', {
         goal: goal.description,
@@ -496,6 +768,7 @@ export class GoalPlanningManager {
         inventory,
         environment: `附近方块: ${nearbyBlocks}\n附近实体: ${nearbyEntities}`,
         experiences: experiencesText,
+        plan_history: planHistory,
       });
 
       // 请求 LLM 生成计划

@@ -52,7 +52,8 @@ export class Plan {
     const completedTaskIds = new Set(this.tasks.filter(t => t.status === 'completed').map(t => t.id));
 
     // 找到第一个可以开始的任务
-    return this.tasks.find(t => t.canStart(completedTaskIds)) || null;
+    // 注意：dependencies 可能是索引或 ID，需要转换
+    return this.tasks.find(t => t.canStart(completedTaskIds, this.tasks)) || null;
   }
 
   /**

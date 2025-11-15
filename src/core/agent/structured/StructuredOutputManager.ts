@@ -13,10 +13,12 @@ import {
   CHEST_OPERATION_SCHEMA,
   FURNACE_OPERATION_SCHEMA,
   PLAN_GENERATION_SCHEMA,
+  TASK_EVALUATION_SCHEMA,
   StructuredLLMResponse,
   StructuredAction,
   ExperienceSummaryResponse,
   PlanGenerationResponse,
+  TaskEvaluationResponse,
 } from './ActionSchema';
 
 const logger = getLogger('StructuredOutputManager');
@@ -144,6 +146,28 @@ export class StructuredOutputManager {
       }
     } catch (error) {
       logger.error('请求规划生成失败', undefined, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * 请求任务评估（结构化输出）
+   */
+  async requestTaskEvaluation(prompt: string, systemPrompt?: string): Promise<TaskEvaluationResponse | null> {
+    try {
+      logger.debug('开始请求任务评估', {
+        useStructuredOutput: this.useStructuredOutput,
+        promptLength: prompt.length,
+        systemPromptLength: systemPrompt?.length || 0,
+      });
+
+      if (this.useStructuredOutput) {
+        return await this.requestTaskEvaluationWithStructuredOutput(prompt, systemPrompt);
+      } else {
+        return await this.requestTaskEvaluationWithManualParsing(prompt, systemPrompt);
+      }
+    } catch (error) {
+      logger.error('请求任务评估失败', undefined, error as Error);
       return null;
     }
   }
@@ -832,5 +856,214 @@ export class StructuredOutputManager {
     }
 
     return response as StructuredLLMResponse;
+  }
+
+  /**
+   * 使用结构化输出请求任务评估
+   */
+  private async requestTaskEvaluationWithStructuredOutput(prompt: string, systemPrompt: string | undefined): Promise<TaskEvaluationResponse | null> {
+    try {
+      const fullSystemPrompt = systemPrompt
+        ? `${systemPrompt}\n\n你必须返回一个有效的JSON对象，包含task_status、progress_assessment和confidence字段。`
+        : '你必须返回一个有效的JSON对象，包含task_status、progress_assessment和confidence字段。';
+
+      logger.debug('调用LLM进行结构化任务评估');
+
+      const response = await this.llmManager.chatCompletion(prompt, fullSystemPrompt, {
+        response_format: {
+          type: 'json_object',
+        },
+      });
+
+      if (!response.success || !response.content) {
+        logger.error('任务评估LLM调用失败', { error: response.error });
+        return null;
+      }
+
+      logger.debug('LLM返回内容预览', {
+        contentLength: response.content.length,
+        contentPreview: response.content.substring(0, 200),
+      });
+
+      try {
+        const parsed = JSON.parse(response.content);
+        logger.debug('JSON解析成功，开始验证响应格式');
+        const validated = this.validateTaskEvaluationResponse(parsed);
+        if (validated) {
+          logger.debug('任务评估响应验证通过', { status: validated.task_status });
+        } else {
+          logger.warn('任务评估响应验证失败');
+        }
+        return validated;
+      } catch (parseError) {
+        logger.error('任务评估JSON解析失败', {
+          error: parseError.message,
+          contentPreview: response.content.substring(0, 200),
+        });
+        return await this.extractTaskEvaluationResponse(response.content);
+      }
+    } catch (error) {
+      logger.error('结构化任务评估请求失败', undefined, error as Error);
+      return await this.requestTaskEvaluationWithManualParsing(prompt, systemPrompt);
+    }
+  }
+
+  /**
+   * 手动解析任务评估
+   */
+  private async requestTaskEvaluationWithManualParsing(prompt: string, systemPrompt: string | undefined): Promise<TaskEvaluationResponse | null> {
+    try {
+      const manualPrompt = `${prompt}\n\n请返回一个JSON对象，格式严格如下：
+{
+  "task_status": "on_track/struggling/blocked/needs_adjustment",
+  "progress_assessment": "当前进度评估",
+  "issues": ["问题1", "问题2"],
+  "suggestions": ["建议1", "建议2"],
+  "should_replan": false,
+  "should_skip_task": false,
+  "confidence": 0.0到1.0之间的数字
+}
+
+只返回JSON对象，不要有任何其他内容！`;
+
+      logger.debug('使用手动解析模式调用LLM');
+
+      const response = await this.llmManager.chatCompletion(manualPrompt, systemPrompt);
+
+      if (!response.success || !response.content) {
+        logger.error('任务评估手动解析LLM调用失败', { error: response.error });
+        return null;
+      }
+
+      const parsed = this.extractTaskEvaluationResponse(response.content);
+
+      if (!parsed) {
+        logger.warn('无法从响应中提取任务评估', { content: response.content.substring(0, 200) });
+        return null;
+      }
+
+      const validated = this.validateTaskEvaluationResponse(parsed);
+      if (validated) {
+        logger.debug('手动解析模式验证通过', { status: validated.task_status });
+      } else {
+        logger.warn('手动解析模式验证失败');
+      }
+
+      return validated;
+    } catch (error) {
+      logger.error('手动解析任务评估失败', undefined, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * 从文本中提取任务评估响应
+   */
+  private extractTaskEvaluationResponse(text: string): TaskEvaluationResponse | null {
+    logger.debug('开始手动提取任务评估响应');
+
+    // 首先尝试直接解析整个文本
+    try {
+      const parsed = JSON.parse(text);
+      if (this.isValidTaskEvaluationResponse(parsed)) {
+        logger.debug('直接解析整个文本成功');
+        return parsed;
+      }
+    } catch (error) {
+      logger.debug('直接解析整个文本失败');
+    }
+
+    // 尝试找到被 ```json 包裹的内容
+    const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonBlockMatch) {
+      try {
+        const parsed = JSON.parse(jsonBlockMatch[1]);
+        if (this.isValidTaskEvaluationResponse(parsed)) {
+          logger.debug('解析```json代码块成功');
+          return parsed;
+        }
+      } catch (error) {
+        logger.debug('解析```json代码块失败');
+      }
+    }
+
+    // 使用栈方法查找第一个完整的JSON对象
+    const jsonObj = this.findFirstCompleteJson(text);
+    if (jsonObj) {
+      try {
+        const parsed = JSON.parse(jsonObj);
+        if (this.isValidTaskEvaluationResponse(parsed)) {
+          logger.debug('使用栈方法找到并解析JSON成功');
+          return parsed;
+        }
+      } catch (error) {
+        logger.debug('栈方法找到的JSON解析失败');
+      }
+    }
+
+    logger.warn('所有手动解析方法都失败了');
+    return null;
+  }
+
+  /**
+   * 检查是否是有效的任务评估响应
+   */
+  private isValidTaskEvaluationResponse(data: any): boolean {
+    return this.validateTaskEvaluationResponse(data) !== null;
+  }
+
+  /**
+   * 验证任务评估响应格式
+   */
+  private validateTaskEvaluationResponse(data: any): TaskEvaluationResponse | null {
+    if (!data || typeof data !== 'object') {
+      logger.warn('任务评估响应不是对象');
+      return null;
+    }
+
+    // 验证必需字段
+    if (!data.task_status || typeof data.task_status !== 'string') {
+      logger.warn('任务评估响应缺少有效的task_status字段');
+      return null;
+    }
+
+    const validStatuses = ['on_track', 'struggling', 'blocked', 'needs_adjustment'];
+    if (!validStatuses.includes(data.task_status)) {
+      logger.warn('任务评估响应的task_status值无效', { task_status: data.task_status });
+      return null;
+    }
+
+    if (!data.progress_assessment || typeof data.progress_assessment !== 'string') {
+      logger.warn('任务评估响应缺少有效的progress_assessment字段');
+      return null;
+    }
+
+    if (typeof data.confidence !== 'number' || data.confidence < 0 || data.confidence > 1) {
+      logger.warn('任务评估响应的confidence字段无效');
+      return null;
+    }
+
+    // 确保可选字段是正确的类型
+    if (!data.issues) {
+      data.issues = [];
+    } else if (!Array.isArray(data.issues)) {
+      data.issues = [];
+    }
+
+    if (!data.suggestions) {
+      data.suggestions = [];
+    } else if (!Array.isArray(data.suggestions)) {
+      data.suggestions = [];
+    }
+
+    if (typeof data.should_replan !== 'boolean') {
+      data.should_replan = false;
+    }
+
+    if (typeof data.should_skip_task !== 'boolean') {
+      data.should_skip_task = false;
+    }
+
+    return data as TaskEvaluationResponse;
   }
 }
