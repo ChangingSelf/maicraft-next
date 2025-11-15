@@ -754,8 +754,8 @@ export class GoalPlanningManager {
       // 获取该目标的历史计划（包括失败原因）
       const planHistory = this.collectPlanHistory(goal);
 
-      // 生成提示词
-      const prompt = promptManager.generatePrompt('plan_generation', {
+      // 生成用户提示词
+      const userPrompt = promptManager.generatePrompt('plan_generation', {
         goal: goal.description,
         position: `(${position.x}, ${position.y}, ${position.z})`,
         health: health.toString(),
@@ -766,8 +766,11 @@ export class GoalPlanningManager {
         plan_history: planHistory,
       });
 
+      // 生成系统提示词
+      const systemPrompt = promptManager.generatePrompt('plan_generation_system', {});
+
       // 请求 LLM 生成计划
-      const planResponse = await this.structuredOutputManager.requestPlanGeneration(prompt);
+      const planResponse = await this.structuredOutputManager.requestPlanGeneration(userPrompt, systemPrompt);
 
       if (!planResponse) {
         this.logger.error('LLM 未能生成有效的计划');

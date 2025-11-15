@@ -155,10 +155,18 @@ export class MainMode extends BaseMode {
     // 生成提示词
     const prompt = promptManager.generatePrompt('main_thinking', promptData);
 
-    // 生成系统提示词
+    // 生成系统提示词，包含动作信息
+    const actionPromptGenerator = new ActionPromptGenerator(this.state!.context.executor);
+    const availableActions = actionPromptGenerator.generatePrompt();
+    const eatAction = actionPromptGenerator.generateActionPrompt('eat' as any);
+    const killMobAction = actionPromptGenerator.generateActionPrompt('kill_mob' as any);
+
     const systemPrompt = promptManager.generatePrompt('main_thinking_system', {
       bot_name: this.state!.context.gameState.playerName || 'Bot',
       player_name: this.state!.context.gameState.playerName || 'Player',
+      available_actions: availableActions,
+      eat_action: eatAction,
+      kill_mob_action: killMobAction,
     });
 
     this.logger.debug('💭 生成提示词完成');

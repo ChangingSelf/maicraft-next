@@ -37,7 +37,7 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
     });
 
     // 初始化数据收集器（复用主模式的数据收集逻辑）
-    const actionPromptGenerator = new ActionPromptGenerator(state.context);
+    const actionPromptGenerator = new ActionPromptGenerator(state.context.executor);
     this.dataCollector = new PromptDataCollector(state, actionPromptGenerator);
 
     // 初始化提示词模板（只初始化一次）
@@ -231,7 +231,7 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
       const taskStats = planningManager.getTaskHistoryStats(currentTask.title);
       const taskStatsText =
         taskStats.totalExecuted > 0
-          ? `执行次数: ${taskStats.totalExecuted}, 成功: ${taskStats.successCount}, 失败: ${taskStats.failureCount}, 平均时长: ${taskStats.averageDuration}秒`
+          ? `执行次数: ${taskStats.totalExecuted}, 成功: ${taskStats.totalCompleted}, 失败: ${taskStats.totalFailed}, 平均时长: ${taskStats.averageDuration}秒`
           : '首次执行';
 
       // 构建评估数据（使用完整的 basicInfo，与主提示词保持一致）
