@@ -4,8 +4,8 @@
  * 提供简洁的LLM调用接口，正确使用system/user角色
  */
 
-import { Logger as RuntimeLogger } from '../core/context/RuntimeContext';
-import { Logger, getLogger } from '../utils/Logger.js';
+import { Logger as RuntimeLogger } from '@/core/context/RuntimeContext';
+import { Logger, getLogger } from '@/utils/Logger.js';
 import {
   LLMConfig,
   LLMResponse,

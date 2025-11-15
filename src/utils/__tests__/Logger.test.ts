@@ -1,4 +1,4 @@
-import { Logger, LogLevel, createLogger, createModuleLogger, logger } from '../Logger';
+import { Logger, LogLevel, createLogger, createModuleLogger, logger } from '@/utils/Logger';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { rimraf } from 'rimraf';

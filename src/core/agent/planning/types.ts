@@ -2,7 +2,7 @@
  * Goal-Planning 系统的类型定义
  */
 
-import type { GameContext } from '../types';
+import type { GameContext } from '@/core/agent/types';
 
 /**
  * 任务进度

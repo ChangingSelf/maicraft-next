@@ -6,15 +6,15 @@
  * 需要LLM决策的主动模式
  */
 
-import { BaseMode } from '../BaseMode';
-import { ModeManager } from '../ModeManager';
+import { BaseMode } from '@/core/agent/mode/BaseMode';
+import { ModeManager } from '@/core/agent/mode/ModeManager';
 import type { RuntimeContext } from '@/core/context/RuntimeContext';
-import type { AgentState } from '../../types';
-import type { BlockPosition } from '@/core/state/types';
+import type { AgentState } from '@/core/agent/types';
+import type { BlockPosition } from '@/core/cache/NearbyBlockManager';
 import { ActionIds } from '@/core/actions/ActionIds';
 import { getLogger } from '@/utils/Logger';
-import { promptManager } from '../../prompt';
-import { StructuredOutputManager } from '../../structured/StructuredOutputManager';
+import { promptManager } from '@/core/agent/prompt';
+import { StructuredOutputManager } from '@/core/agent/structured/StructuredOutputManager';
 
 interface FurnaceSlot {
   [itemName: string]: number;

@@ -3,8 +3,8 @@
  * 检查是否制作了指定物品（通过背包增量检测）
  */
 
-import type { TaskTracker, TaskProgress } from '../types';
-import type { GameContext } from '../../types';
+import type { TaskTracker, TaskProgress } from '@/core/agent/planning/types';
+import type { GameContext } from '@/core/agent/types';
 
 export class CraftTracker implements TaskTracker {
   readonly type = 'craft';

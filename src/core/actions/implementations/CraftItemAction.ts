@@ -5,10 +5,10 @@
  * 支持工作台和背包合成
  */
 
-import { BaseAction } from '../Action';
+import { BaseAction } from '@/core/actions/Action';
 import { RuntimeContext } from '@/core/context/RuntimeContext';
-import { ActionResult, CraftParams } from '../types';
-import { ActionIds } from '../ActionIds';
+import { ActionResult, CraftParams } from '@/core/actions/types';
+import { ActionIds } from '@/core/actions/ActionIds';
 import { MovementUtils } from '@/utils/MovementUtils';
 
 export class CraftItemAction extends BaseAction<CraftParams> {

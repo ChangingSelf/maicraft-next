@@ -4,10 +4,10 @@
  * 使用 MovementUtils 统一的移动功能
  */
 
-import { BaseAction } from '../Action';
+import { BaseAction } from '@/core/actions/Action';
 import { RuntimeContext } from '@/core/context/RuntimeContext';
-import { ActionResult, MoveParams } from '../types';
-import { ActionIds } from '../ActionIds';
+import { ActionResult, MoveParams } from '@/core/actions/types';
+import { ActionIds } from '@/core/actions/ActionIds';
 
 export class MoveAction extends BaseAction<MoveParams> {
   readonly id = ActionIds.MOVE;

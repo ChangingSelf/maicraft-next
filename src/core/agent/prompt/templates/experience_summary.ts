@@ -2,7 +2,7 @@
  * 经验总结提示词模板
  */
 
-import { PromptTemplate, promptManager } from '../prompt_manager';
+import { PromptTemplate, promptManager } from '@/core/agent/prompt/prompt_manager';
 
 /**
  * 初始化经验总结模板

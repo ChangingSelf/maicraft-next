@@ -10,13 +10,13 @@
 
 import { Bot } from 'mineflayer';
 import { Vec3 } from 'vec3';
-import { GameState } from '../state/GameState';
-import { EventManager } from '../events/EventManager';
-import { InterruptSignal } from '../interrupt/InterruptSignal';
-import type { ActionExecutor } from '../actions/ActionExecutor';
-import type { Location } from '../cache/LocationManager';
-import { PlaceBlockUtils } from '../../utils/PlaceBlockUtils';
-import { MovementUtils } from '../../utils/MovementUtils';
+import { GameState } from '@/core/state/GameState';
+import { EventManager } from '@/core/events/EventManager';
+import { InterruptSignal } from '@/core/interrupt/InterruptSignal';
+import type { ActionExecutor } from '@/core/actions/ActionExecutor';
+import type { Location } from '@/core/cache/LocationManager';
+import { PlaceBlockUtils } from '@/utils/PlaceBlockUtils';
+import { MovementUtils } from '@/utils/MovementUtils';
 
 /**
  * Logger 接口

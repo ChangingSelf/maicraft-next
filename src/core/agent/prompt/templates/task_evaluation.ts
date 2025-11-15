@@ -4,7 +4,7 @@
  * 对应 maicraft 的任务评估模板
  */
 
-import { PromptTemplate, promptManager } from '../prompt_manager';
+import { PromptTemplate, promptManager } from '@/core/agent/prompt/prompt_manager';
 
 /**
  * 注册任务评估模板

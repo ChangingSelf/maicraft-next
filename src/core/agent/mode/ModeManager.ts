@@ -8,7 +8,7 @@
 import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
 import type { RuntimeContext } from '@/core/context/RuntimeContext';
-import type { AgentState } from '../types';
+import type { AgentState } from '@/core/agent/types';
 import { BaseMode } from './BaseMode';
 import type { GameStateListener } from './GameStateListener';
 import { MainMode } from './modes/MainMode';

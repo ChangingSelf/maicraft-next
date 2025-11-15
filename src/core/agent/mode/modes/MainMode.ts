@@ -6,17 +6,17 @@
  * 不实现监听器，专注于主动决策
  */
 
-import { BaseMode } from '../BaseMode';
-import { ModeManager } from '../ModeManager';
+import { BaseMode } from '@/core/agent/mode/BaseMode';
+import { ModeManager } from '@/core/agent/mode/ModeManager';
 import type { RuntimeContext } from '@/core/context/RuntimeContext';
-import type { AgentState } from '../../types';
+import type { AgentState } from '@/core/agent/types';
 import { LLMManager } from '@/llm/LLMManager';
-import { promptManager, initAllTemplates } from '../../prompt';
+import { promptManager, initAllTemplates } from '@/core/agent/prompt';
 import { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
-import { PromptDataCollector } from '../../loop/PromptDataCollector';
+import { PromptDataCollector } from '@/core/agent/loop/PromptDataCollector';
 import { getLogger } from '@/utils/Logger';
-import { StructuredOutputManager } from '../../structured/StructuredOutputManager';
-import type { StructuredAction } from '../../structured/ActionSchema';
+import { StructuredOutputManager } from '@/core/agent/structured/StructuredOutputManager';
+import type { StructuredAction } from '@/core/agent/structured/ActionSchema';
 
 export class MainMode extends BaseMode {
   readonly type = ModeManager.MODE_TYPES.MAIN;

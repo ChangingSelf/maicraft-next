@@ -3,8 +3,8 @@
  * 检查背包中的物品数量
  */
 
-import type { TaskTracker, TaskProgress } from '../types';
-import type { GameContext } from '../../types';
+import type { TaskTracker, TaskProgress } from '@/core/agent/planning/types';
+import type { GameContext } from '@/core/agent/types';
 
 export class InventoryTracker implements TaskTracker {
   readonly type = 'inventory';

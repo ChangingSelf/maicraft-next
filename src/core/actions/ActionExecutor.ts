@@ -11,8 +11,8 @@
 import { Action } from './Action';
 import { ActionId } from './ActionIds';
 import { ActionParamsMap, ActionResult, ExecuteOptions } from './types';
-import { Logger } from '../context/RuntimeContext';
-import { ContextManager } from '../context/ContextManager';
+import { Logger } from '@/core/context/RuntimeContext';
+import { ContextManager } from '@/core/context/ContextManager';
 
 /**
  * 动作执行器类

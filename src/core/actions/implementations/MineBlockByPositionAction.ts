@@ -4,10 +4,10 @@
  * 挖掘指定坐标位置的方块
  */
 
-import { BaseAction } from '../Action';
+import { BaseAction } from '@/core/actions/Action';
 import { RuntimeContext } from '@/core/context/RuntimeContext';
-import { ActionResult, MineBlockByPositionParams } from '../types';
-import { ActionIds } from '../ActionIds';
+import { ActionResult, MineBlockByPositionParams } from '@/core/actions/types';
+import { ActionIds } from '@/core/actions/ActionIds';
 import { Vec3 } from 'vec3';
 import { MovementUtils } from '@/utils/MovementUtils';
 

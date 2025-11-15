@@ -4,7 +4,7 @@
  */
 
 import type { PlanStatus } from './types';
-import type { GameContext } from '../types';
+import type { GameContext } from '@/core/agent/types';
 import { Task } from './Task';
 
 export class Plan {

@@ -10,15 +10,15 @@
 
 import { Bot } from 'mineflayer';
 import { RuntimeContext, Logger, Config, createPrefixedLogger } from './RuntimeContext';
-import type { ActionExecutor } from '../actions/ActionExecutor';
-import { BlockCache } from '../cache/BlockCache';
-import { ContainerCache } from '../cache/ContainerCache';
-import { LocationManager } from '../cache/LocationManager';
-import { InterruptSignal } from '../interrupt/InterruptSignal';
-import { EventManager } from '../events/EventManager';
-import { GameState } from '../state/GameState';
-import type { PlaceBlockUtils } from '../../utils/PlaceBlockUtils';
-import type { MovementUtils } from '../../utils/MovementUtils';
+import type { ActionExecutor } from '@/core/actions/ActionExecutor';
+import { BlockCache } from '@/core/cache/BlockCache';
+import { ContainerCache } from '@/core/cache/ContainerCache';
+import { LocationManager } from '@/core/cache/LocationManager';
+import { InterruptSignal } from '@/core/interrupt/InterruptSignal';
+import { EventManager } from '@/core/events/EventManager';
+import { GameState } from '@/core/state/GameState';
+import type { PlaceBlockUtils } from '@/utils/PlaceBlockUtils';
+import type { MovementUtils } from '@/utils/MovementUtils';
 
 /**
  * 上下文管理器

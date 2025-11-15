@@ -4,10 +4,10 @@
  * 使用 PlaceBlockUtils 统一的放置功能
  */
 
-import { BaseAction } from '../Action';
+import { BaseAction } from '@/core/actions/Action';
 import { RuntimeContext } from '@/core/context/RuntimeContext';
-import { ActionResult, PlaceBlockParams } from '../types';
-import { ActionIds } from '../ActionIds';
+import { ActionResult, PlaceBlockParams } from '@/core/actions/types';
+import { ActionIds } from '@/core/actions/ActionIds';
 
 export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
   readonly id = ActionIds.PLACE_BLOCK;

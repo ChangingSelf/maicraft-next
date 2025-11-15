@@ -4,9 +4,9 @@
  */
 
 import { getLogger, type Logger } from '@/utils/Logger';
-import type { AgentState } from '../types';
+import type { AgentState } from '@/core/agent/types';
 import type { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
-import { promptManager } from '../prompt';
+import { promptManager } from '@/core/agent/prompt';
 
 export interface BasicInfoData {
   bot_name: string;

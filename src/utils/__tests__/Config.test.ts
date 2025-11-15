@@ -1,8 +1,8 @@
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { ConfigManager, ConfigError, initializeConfig, getConfig, getSection, updateConfig, DeepPartial } from '../Config';
-import { createConfiguredLogger } from '../Logger';
-import { AppConfig } from '../Config';
+import { ConfigManager, ConfigError, initializeConfig, getConfig, getSection, updateConfig, DeepPartial } from '@/utils/Config';
+import { createConfiguredLogger } from '@/utils/Logger';
+import { AppConfig } from '@/utils/Config';
 
 // 测试用的配置文件路径
 const TEST_CONFIG_PATH = './test-config.toml';

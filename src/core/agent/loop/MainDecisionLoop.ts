@@ -9,12 +9,12 @@
  * - 定期评估任务
  */
 
-import type { AgentState } from '../types';
+import type { AgentState } from '@/core/agent/types';
 import { LLMManager } from '@/llm/LLMManager';
 import { BaseLoop } from './BaseLoop';
-import { promptManager, initAllTemplates } from '../prompt';
-import { ModeManager } from '../mode/ModeManager';
-import { StructuredOutputManager } from '../structured';
+import { promptManager, initAllTemplates } from '@/core/agent/prompt';
+import { ModeManager } from '@/core/agent/mode/ModeManager';
+import { StructuredOutputManager } from '@/core/agent/structured';
 
 export class MainDecisionLoop extends BaseLoop<AgentState> {
   private llmManager: LLMManager;

@@ -3,7 +3,7 @@
  * 用于创建和反序列化追踪器
  */
 
-import type { TaskTracker } from '../types';
+import type { TaskTracker } from '@/core/agent/planning/types';
 import { InventoryTracker } from './InventoryTracker';
 import { LocationTracker } from './LocationTracker';
 import { CraftTracker } from './CraftTracker';

@@ -4,10 +4,10 @@
  * 在指定半径内搜索可见的方块
  */
 
-import { BaseAction } from '../Action';
+import { BaseAction } from '@/core/actions/Action';
 import { RuntimeContext } from '@/core/context/RuntimeContext';
-import { ActionResult, FindBlockParams } from '../types';
-import { ActionIds } from '../ActionIds';
+import { ActionResult, FindBlockParams } from '@/core/actions/types';
+import { ActionIds } from '@/core/actions/ActionIds';
 import { Vec3 } from 'vec3';
 
 export class FindBlockAction extends BaseAction<FindBlockParams> {

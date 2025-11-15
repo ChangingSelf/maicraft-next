@@ -2,10 +2,10 @@
  * 聊天循环
  */
 
-import type { AgentState } from '../types';
-import type { ConversationEntry } from '../memory/types';
+import type { AgentState } from '@/core/agent/types';
+import type { ConversationEntry } from '@/core/agent/memory/types';
 import type { LLMClientResponse } from '@/llm/LLMManager';
-import { promptManager } from '../prompt';
+import { promptManager } from '@/core/agent/prompt';
 import { ActionIds } from '@/core/actions/ActionIds';
 import { BaseLoop } from './BaseLoop';
 

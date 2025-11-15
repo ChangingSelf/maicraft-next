@@ -4,7 +4,7 @@
  * 对应 maicraft 的聊天相关模板
  */
 
-import { PromptTemplate, promptManager } from '../prompt_manager';
+import { PromptTemplate, promptManager } from '@/core/agent/prompt/prompt_manager';
 
 /**
  * 注册聊天响应模板

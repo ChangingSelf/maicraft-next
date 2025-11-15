@@ -2,7 +2,7 @@
  * 嵌套模板引用功能测试
  */
 
-import { PromptManager, PromptTemplate } from '../prompt_manager';
+import { PromptManager, PromptTemplate } from '@/core/agent/prompt/prompt_manager';
 
 describe('嵌套模板引用', () => {
   let manager: PromptManager;

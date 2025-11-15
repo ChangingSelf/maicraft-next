@@ -4,7 +4,7 @@
  * 用于根据目标生成具体的执行计划
  */
 
-import { PromptTemplate, promptManager } from '../prompt_manager';
+import { PromptTemplate, promptManager } from '@/core/agent/prompt/prompt_manager';
 
 /**
  * 注册规划生成模板

@@ -4,7 +4,7 @@
  * 基于原maicraft项目的角色定义，创建标准化的系统提示词
  */
 
-import { PromptTemplate, promptManager } from '../prompt_manager';
+import { PromptTemplate, promptManager } from '@/core/agent/prompt/prompt_manager';
 
 /**
  * 注册系统提示词模板

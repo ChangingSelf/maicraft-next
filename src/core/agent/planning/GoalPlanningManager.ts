@@ -6,15 +6,15 @@
 import * as fs from 'fs/promises';
 import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
-import type { GameContext } from '../types';
+import type { GameContext } from '@/core/agent/types';
 import { Goal } from './Goal';
 import { Plan } from './Plan';
 import { Task } from './Task';
 import { TaskHistory } from './TaskHistory';
 import { TrackerFactory } from './trackers/TrackerFactory';
 import type { LLMManager } from '@/llm/LLMManager';
-import { StructuredOutputManager } from '../structured/StructuredOutputManager';
-import { promptManager } from '../prompt';
+import { StructuredOutputManager } from '@/core/agent/structured/StructuredOutputManager';
+import { promptManager } from '@/core/agent/prompt';
 
 export class GoalPlanningManager {
   private goals: Map<string, Goal> = new Map();

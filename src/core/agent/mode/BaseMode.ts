@@ -7,7 +7,7 @@
 
 import type { RuntimeContext } from '@/core/context/RuntimeContext';
 import type { GameStateListener } from './GameStateListener';
-import type { AgentState } from '../types';
+import type { AgentState } from '@/core/agent/types';
 import { getLogger, type Logger } from '@/utils/Logger';
 
 export abstract class BaseMode implements GameStateListener {

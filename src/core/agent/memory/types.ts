@@ -2,7 +2,7 @@
  * Memory 系统的类型定义
  */
 
-import type { ActionCall } from '../types';
+import type { ActionCall } from '@/core/agent/types';
 
 /**
  * 查询选项

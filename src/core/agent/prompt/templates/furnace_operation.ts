@@ -5,8 +5,7 @@
  * 用于指导LLM进行熔炉的物品存取操作
  */
 
-import type { PromptTemplate } from '../types';
-import { PromptTemplate, promptManager } from '../prompt_manager';
+import { PromptTemplate, promptManager } from '@/core/agent/prompt/prompt_manager';
 
 export const furnaceOperationTemplate: PromptTemplate = {
   name: 'furnace_operation',

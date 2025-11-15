@@ -3,8 +3,8 @@
  * 检查是否到达指定位置
  */
 
-import type { TaskTracker, TaskProgress } from '../types';
-import type { GameContext } from '../../types';
+import type { TaskTracker, TaskProgress } from '@/core/agent/planning/types';
+import type { GameContext } from '@/core/agent/types';
 
 export class LocationTracker implements TaskTracker {
   readonly type = 'location';

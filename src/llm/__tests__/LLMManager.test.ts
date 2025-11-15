@@ -2,8 +2,8 @@
  * LLM管理器测试
  */
 
-import { LLMManager, LLMManagerFactory } from '../LLMManager.js';
-import { LLMConfigSchema, LLMProvider, MessageRole } from '../types.js';
+import { LLMManager, LLMManagerFactory } from '@/llm/LLMManager.js';
+import { LLMConfigSchema, LLMProvider, MessageRole } from '@/llm/types.js';
 import { existsSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { rimraf } from 'rimraf';

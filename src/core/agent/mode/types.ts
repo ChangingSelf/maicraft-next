@@ -2,7 +2,7 @@
  * Mode 系统的类型定义
  */
 
-import type { AgentState } from '../types';
+import type { AgentState } from '@/core/agent/types';
 
 /**
  * 模式类型（使用枚举，避免字符串错误）

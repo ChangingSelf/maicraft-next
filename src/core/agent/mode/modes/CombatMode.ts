@@ -6,8 +6,8 @@
  * 包含完整的战斗逻辑和自动转换机制
  */
 
-import { BaseMode } from '../BaseMode';
-import { ModeManager } from '../ModeManager';
+import { BaseMode } from '@/core/agent/mode/BaseMode';
+import { ModeManager } from '@/core/agent/mode/ModeManager';
 import type { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionIds } from '@/core/actions/ActionIds';
 import { getLogger } from '@/utils/Logger';

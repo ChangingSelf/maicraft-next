@@ -4,7 +4,7 @@
  */
 
 import type { TaskTracker, TaskProgress, TaskStatus } from './types';
-import type { GameContext } from '../types';
+import type { GameContext } from '@/core/agent/types';
 import { TrackerFactory } from './trackers/TrackerFactory';
 
 export class Task {

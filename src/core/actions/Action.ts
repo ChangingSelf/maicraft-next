@@ -2,7 +2,7 @@
  * 动作基类和接口
  */
 
-import { RuntimeContext } from '../context/RuntimeContext';
+import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult, BaseActionParams } from './types';
 
 /**

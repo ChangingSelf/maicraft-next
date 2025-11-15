@@ -3,8 +3,8 @@
  * 支持 AND/OR 逻辑组合多个追踪器
  */
 
-import type { TaskTracker, TaskProgress } from '../types';
-import type { GameContext } from '../../types';
+import type { TaskTracker, TaskProgress } from '@/core/agent/planning/types';
+import type { GameContext } from '@/core/agent/types';
 
 export class CompositeTracker implements TaskTracker {
   readonly type = 'composite';

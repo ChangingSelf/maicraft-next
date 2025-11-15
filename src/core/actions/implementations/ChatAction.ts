@@ -4,10 +4,10 @@
  * 最简单但很重要的动作，用于与玩家交流
  */
 
-import { BaseAction } from '../Action';
+import { BaseAction } from '@/core/actions/Action';
 import { RuntimeContext } from '@/core/context/RuntimeContext';
-import { ActionResult, ChatParams } from '../types';
-import { ActionIds } from '../ActionIds';
+import { ActionResult, ChatParams } from '@/core/actions/types';
+import { ActionIds } from '@/core/actions/ActionIds';
 
 export class ChatAction extends BaseAction<ChatParams> {
   readonly id = ActionIds.CHAT;

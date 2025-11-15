@@ -4,7 +4,7 @@
  * 对应 maicraft 的 main_thinking 模板
  */
 
-import { PromptTemplate, promptManager } from '../prompt_manager';
+import { PromptTemplate, promptManager } from '@/core/agent/prompt/prompt_manager';
 
 /**
  * 注册 main_thinking 模板
