@@ -58,9 +58,17 @@ export class Plan {
 
   /**
    * 检查计划是否完成
+   * 计划完成包括：所有任务都成功完成，或所有任务都处于终止状态（完成或失败）
    */
-  isCompleted(context: GameContext): boolean {
-    return this.tasks.every(t => t.checkCompletion(context));
+  isCompleted(_context: GameContext): boolean {
+    // 如果没有任何任务，计划完成
+    if (this.tasks.length === 0) {
+      return true;
+    }
+
+    // 检查所有任务是否都处于终止状态（完成或失败）
+    // 如果有任务还在进行中（pending 或 active），则计划未完成
+    return this.tasks.every(task => task.status === 'completed' || task.status === 'failed');
   }
 
   /**
