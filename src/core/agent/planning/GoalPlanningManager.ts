@@ -36,6 +36,9 @@ export class GoalPlanningManager {
   private llmManager: LLMManager | null = null;
   private structuredOutputManager: StructuredOutputManager | null = null;
 
+  // 回调函数：在目标完成时调用
+  private onGoalCompleted?: (goal: Goal) => void;
+
   constructor(context: GameContext) {
     this.context = context;
     this.logger = getLogger('GoalPlanningManager');
@@ -53,6 +56,38 @@ export class GoalPlanningManager {
   }
 
   /**
+   * 设置目标完成回调函数
+   */
+  setOnGoalCompleted(callback: (goal: Goal) => void): void {
+    this.onGoalCompleted = callback;
+  }
+
+  /**
+   * 检查加载的数据状态，处理可能遗漏的完成状态
+   */
+  private checkLoadedState(): void {
+    // 检查当前计划是否已经完成但状态未更新
+    const currentPlan = this.getCurrentPlan();
+    if (currentPlan && currentPlan.status !== 'completed') {
+      // 对于已加载的数据，我们直接检查任务状态而不是重新验证追踪器
+      const allTasksCompleted = currentPlan.tasks.every(task => task.status === 'completed');
+      if (allTasksCompleted) {
+        currentPlan.complete();
+        this.logger.info(`✅ 发现已完成的计划: ${currentPlan.title}`);
+
+        // 检查目标是否完成
+        this.checkGoalCompletion();
+      }
+    }
+
+    // 检查当前目标是否已经完成但状态未更新
+    const currentGoal = this.getCurrentGoal();
+    if (currentGoal && currentGoal.status !== 'completed') {
+      this.checkGoalCompletion();
+    }
+  }
+
+  /**
    * 初始化
    */
   async initialize(): Promise<void> {
@@ -60,6 +95,9 @@ export class GoalPlanningManager {
 
     await this.load();
     await this.taskHistory.initialize();
+
+    // 检查加载的数据状态，处理可能遗漏的完成状态
+    this.checkLoadedState();
 
     // 启动自动检查循环
     this.startAutoCheckLoop();
@@ -205,40 +243,36 @@ export class GoalPlanningManager {
     const plan = this.getCurrentPlan();
     if (!plan) return;
 
-    // 检查所有任务的完成状态
+    let hasChanges = false;
+
+    // 1. 实时更新所有任务的完成状态
     for (const task of plan.tasks) {
-      if (task.status !== 'completed') {
-        task.checkCompletion(this.context);
+      if (task.status !== 'completed' && task.checkCompletion(this.context)) {
+        this.logger.info(`✅ 任务完成: ${task.title}`);
+        hasChanges = true;
       }
     }
 
-    // 检查当前任务是否完成
-    const currentTask = plan.tasks.find(t => t.id === this.currentTaskId);
-    if (currentTask && currentTask.status === 'completed') {
-      this.logger.info(`✅ 任务完成: ${currentTask.title}`);
+    // 2. 检查当前计划是否所有任务都已完成
+    if (plan.isCompleted(this.context) && plan.status !== 'completed') {
+      plan.complete();
+      this.logger.info(`✅ 计划完成: ${plan.title}`);
 
-      // 结束任务历史记录
-      this.endTaskHistory(currentTask.id, 'completed');
-
-      // 查找下一个任务
-      const nextTask = plan.getNextTask(this.context);
-      if (nextTask) {
-        this.currentTaskId = nextTask.id;
-        nextTask.activate();
-
-        // 开始记录任务历史
-        this.startTaskHistory(nextTask);
-
-        this.logger.info(`🔄 开始新任务: ${nextTask.title}`);
-      } else if (plan.isCompleted(this.context)) {
-        // 没有更多任务，检查计划是否完成
-        plan.complete();
-        this.logger.info(`✅ 计划完成: ${plan.title}`);
-
-        // 检查目标是否完成
-        this.checkGoalCompletion();
+      // 结束当前任务的历史记录（如果有的话）
+      if (this.currentTaskId) {
+        this.endTaskHistory(this.currentTaskId, 'completed');
       }
 
+      // 清空当前任务（计划已完成）
+      this.currentTaskId = null;
+
+      // 检查目标是否完成
+      this.checkGoalCompletion();
+
+      hasChanges = true;
+    }
+
+    if (hasChanges) {
       this.save();
     }
   }
@@ -259,6 +293,15 @@ export class GoalPlanningManager {
     if (allPlansCompleted && goal.planIds.length > 0) {
       goal.complete();
       this.logger.info(`🎯 目标完成: ${goal.description}`);
+
+      // 调用目标完成回调函数（如果设置了）
+      if (this.onGoalCompleted) {
+        try {
+          this.onGoalCompleted(goal);
+        } catch (error) {
+          this.logger.error('目标完成回调函数执行失败:', {}, error as Error);
+        }
+      }
 
       // 清空当前目标和计划
       this.currentGoalId = null;

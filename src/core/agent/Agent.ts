@@ -8,6 +8,7 @@ import type { Logger } from '@/utils/Logger';
 import type { Bot } from 'mineflayer';
 import type { AppConfig as Config } from '@/utils/Config';
 import type { AgentState, AgentStatus, GameContext } from './types';
+import type { Goal } from './planning/Goal';
 import { InterruptController } from './InterruptController';
 import { MemoryManager } from './memory/MemoryManager';
 import { GoalPlanningManager } from './planning/GoalPlanningManager';
@@ -69,6 +70,9 @@ export class Agent {
 
     // 绑定状态到 ModeManager
     this.state.modeManager.bindState(this.state);
+
+    // 设置规划管理器的目标完成回调
+    this.setupGoalPlanningCallbacks();
 
     // 创建决策循环（依赖 AgentState，在这里创建）
     this.mainLoop = new MainDecisionLoop(this.state, this.llmManager);
@@ -200,6 +204,60 @@ export class Agent {
         this.logger.error('定期保存记忆失败', undefined, error as Error);
       }
     }, 30 * 1000);
+  }
+
+  /**
+   * 设置规划管理器的回调函数
+   */
+  private setupGoalPlanningCallbacks(): void {
+    this.state.planningManager.setOnGoalCompleted((goal: Goal) => {
+      this.handleGoalCompletion(goal);
+    });
+  }
+
+  /**
+   * 处理目标完成事件
+   */
+  private handleGoalCompletion(goal: Goal): void {
+    // 1. 记录目标完成事件到思考记忆
+    this.state.memory.recordThought(`成功完成了目标: ${goal.description}`, {
+      completedGoal: goal.description,
+      duration: Date.now() - goal.createdAt,
+      planCount: goal.planIds.length,
+    });
+
+    // 2. 触发"目标完成"事件通知
+    this.state.context.events.emit('goalCompleted', {
+      goal: {
+        id: goal.id,
+        description: goal.description,
+        completedAt: goal.completedAt,
+        duration: goal.completedAt ? goal.completedAt - goal.createdAt : 0,
+        planCount: goal.planIds.length,
+      },
+    });
+
+    // 3. 自动生成新目标
+    this.generateNewGoalAfterCompletion(goal);
+  }
+
+  /**
+   * 基于完成的目标自动生成新目标
+   */
+  private generateNewGoalAfterCompletion(completedGoal: Goal): void {
+    // 这里可以根据完成的目标类型、环境状态、历史经验等来生成新目标
+    // 暂时实现一个简单的逻辑
+    this.logger.info('🤖 正在分析环境，生成新目标...');
+
+    // 记录思考过程
+    this.state.memory.recordThought('🤖 分析已完成目标，准备生成新目标', {
+      completedGoal: completedGoal.description,
+    });
+
+    // TODO: 实现基于环境分析的智能目标生成
+    // 目前暂时进入等待模式
+    this.logger.info('🎯 自动目标生成功能开发中，暂时等待用户指令');
+    this.state.memory.recordThought('🎯 自动目标生成功能开发中，等待用户指令', {});
   }
 
   /**
