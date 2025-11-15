@@ -5,6 +5,8 @@
  */
 
 import { getLogger, type Logger } from '@/utils/Logger';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * 提示词模板类
@@ -89,9 +91,11 @@ export class PromptTemplate {
 export class PromptManager {
   private templates: Map<string, PromptTemplate> = new Map();
   private logger: Logger;
+  private enablePromptOutput: boolean = true;
 
-  constructor(logger?: Logger) {
+  constructor(logger?: Logger, enablePromptOutput: boolean = true) {
     this.logger = logger || getLogger('PromptManager');
+    this.enablePromptOutput = enablePromptOutput;
   }
 
   /**
@@ -172,6 +176,12 @@ export class PromptManager {
     try {
       const result = this.formatWithNestedTemplates(template, expandedParams, newVisited);
       this.logger.debug(`成功生成提示词，模板: ${templateName}`);
+
+      // 将提示词输出到文件
+      if (this.enablePromptOutput) {
+        this.savePromptToFile(templateName, result);
+      }
+
       return result;
     } catch (error) {
       this.logger.error(`生成提示词失败`, undefined, error as Error);
@@ -251,6 +261,32 @@ export class PromptManager {
   }
 
   /**
+   * 将提示词保存到文件
+   * @param templateName 模板名称
+   * @param promptContent 提示词内容
+   */
+  private savePromptToFile(templateName: string, promptContent: string): void {
+    try {
+      // 创建data/prompts目录（如果不存在）
+      const promptsDir = path.join(process.cwd(), 'data', 'prompts');
+      if (!fs.existsSync(promptsDir)) {
+        fs.mkdirSync(promptsDir, { recursive: true });
+      }
+
+      // 生成文件名，将_替换为-以提高可读性
+      const fileName = `${templateName.replace(/_/g, '-')}.txt`;
+      const filePath = path.join(promptsDir, fileName);
+
+      // 覆盖写入文件（每次都是覆盖而不是追加）
+      fs.writeFileSync(filePath, promptContent, 'utf8');
+
+      this.logger.debug(`💾 提示词已保存到文件: ${filePath}`);
+    } catch (error) {
+      this.logger.error(`❌ 保存提示词文件失败: ${templateName}`, undefined, error as Error);
+    }
+  }
+
+  /**
    * 列出所有模板
    */
   listTemplates(): Array<{ name: string; description: string }> {
@@ -265,7 +301,7 @@ export class PromptManager {
  * 全局单例 prompt_manager
  * 对应 Python 的 prompt_manager = PromptManager()
  */
-export const promptManager = new PromptManager();
+export const promptManager = new PromptManager(undefined, true);
 
 /**
  * 创建提示词管理器的便捷函数
