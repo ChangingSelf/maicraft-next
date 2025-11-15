@@ -77,7 +77,9 @@ export class Agent {
     this.state.modeManager.bindState(this.state);
 
     // 设置规划管理器的目标完成回调
-    this.setupGoalPlanningCallbacks();
+    this.state.planningManager.setOnGoalCompleted((goal: Goal) => {
+      this.handleGoalCompletion(goal);
+    });
 
     // 创建决策循环（依赖 AgentState，在这里创建）
     this.mainLoop = new MainDecisionLoop(this.state, this.llmManager);
@@ -213,15 +215,6 @@ export class Agent {
         this.logger.error('定期保存记忆失败', undefined, error as Error);
       }
     }, 30 * 1000);
-  }
-
-  /**
-   * 设置规划管理器的回调函数
-   */
-  private setupGoalPlanningCallbacks(): void {
-    this.state.planningManager.setOnGoalCompleted((goal: Goal) => {
-      this.handleGoalCompletion(goal);
-    });
   }
 
   /**
