@@ -7,6 +7,7 @@ import * as fs from 'fs/promises';
 import { getLogger } from '@/utils/Logger';
 import type { Logger } from '@/utils/Logger';
 import type { GameContext } from '@/core/agent/types';
+import type { TaskEvaluationRecord } from '@/core/agent/structured/ActionSchema';
 import { Goal } from './Goal';
 import { Plan } from './Plan';
 import { Task } from './Task';
@@ -474,16 +475,9 @@ export class GoalPlanningManager {
       suggestions: evaluation.suggestions.length,
     });
 
-    // 记录评估结果到任务元数据（供后续分析使用）
-    if (!currentTask.metadata) {
-      currentTask.metadata = {};
-    }
-    if (!currentTask.metadata.evaluations) {
-      currentTask.metadata.evaluations = [];
-    }
-    currentTask.metadata.evaluations.push({
-      timestamp: Date.now(),
-      status: evaluation.task_status,
+    // 记录评估结果到任务（供后续分析使用）
+    currentTask.addEvaluation({
+      status: evaluation.task_status as TaskEvaluationRecord['status'],
       assessment: evaluation.progress_assessment,
       issues: evaluation.issues,
       suggestions: evaluation.suggestions,
@@ -647,36 +641,34 @@ export class GoalPlanningManager {
 
       for (const task of plan.tasks) {
         // 检查任务评估中的问题和决策
-        if (task.metadata?.evaluations && Array.isArray(task.metadata.evaluations)) {
-          const lastEvaluation = task.metadata.evaluations[task.metadata.evaluations.length - 1];
+        const lastEvaluation = task.getLastEvaluation();
 
-          if (lastEvaluation) {
-            // 分析评估状态和决策结果
-            if (lastEvaluation.status === 'blocked') {
-              blockedTasks.push(`    - 任务"${task.title}"被评估为完全阻塞`);
-              if (lastEvaluation.issues && lastEvaluation.issues.length > 0) {
-                blockedTasks.push(`      问题: ${lastEvaluation.issues.join('; ')}`);
-              }
-              if (lastEvaluation.should_replan) {
-                blockedTasks.push(`      评估决策: 需要重新规划 (置信度: ${(lastEvaluation.confidence * 100).toFixed(0)}%)`);
-              }
-            } else if (lastEvaluation.status === 'needs_adjustment' || lastEvaluation.status === 'struggling') {
-              failedTasks.push(`    - 任务"${task.title}"需要调整`);
-              if (lastEvaluation.issues && lastEvaluation.issues.length > 0) {
-                failedTasks.push(`      问题: ${lastEvaluation.issues.join('; ')}`);
-              }
-              if (lastEvaluation.should_replan) {
-                failedTasks.push(`      评估决策: 建议重新规划 (置信度: ${(lastEvaluation.confidence * 100).toFixed(0)}%)`);
-              }
-              if (lastEvaluation.suggestions && lastEvaluation.suggestions.length > 0) {
-                failedTasks.push(`      改进建议: ${lastEvaluation.suggestions.join('; ')}`);
-              }
+        if (lastEvaluation) {
+          // 分析评估状态和决策结果
+          if (lastEvaluation.status === 'blocked') {
+            blockedTasks.push(`    - 任务"${task.title}"被评估为完全阻塞`);
+            if (lastEvaluation.issues && lastEvaluation.issues.length > 0) {
+              blockedTasks.push(`      问题: ${lastEvaluation.issues.join('; ')}`);
             }
+            if (lastEvaluation.should_replan) {
+              blockedTasks.push(`      评估决策: 需要重新规划 (置信度: ${(lastEvaluation.confidence * 100).toFixed(0)}%)`);
+            }
+          } else if (lastEvaluation.status === 'needs_adjustment' || lastEvaluation.status === 'struggling') {
+            failedTasks.push(`    - 任务"${task.title}"需要调整`);
+            if (lastEvaluation.issues && lastEvaluation.issues.length > 0) {
+              failedTasks.push(`      问题: ${lastEvaluation.issues.join('; ')}`);
+            }
+            if (lastEvaluation.should_replan) {
+              failedTasks.push(`      评估决策: 建议重新规划 (置信度: ${(lastEvaluation.confidence * 100).toFixed(0)}%)`);
+            }
+            if (lastEvaluation.suggestions && lastEvaluation.suggestions.length > 0) {
+              failedTasks.push(`      改进建议: ${lastEvaluation.suggestions.join('; ')}`);
+            }
+          }
 
-            // 记录评估的决策结果，即使状态不是 blocked 或 needs_adjustment
-            if (lastEvaluation.should_skip_task) {
-              failedTasks.push(`    - 任务"${task.title}"被评估为应该跳过`);
-            }
+          // 记录评估的决策结果，即使状态不是 blocked 或 needs_adjustment
+          if (lastEvaluation.should_skip_task) {
+            failedTasks.push(`    - 任务"${task.title}"被评估为应该跳过`);
           }
         }
 

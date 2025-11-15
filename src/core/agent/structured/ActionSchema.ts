@@ -525,6 +525,20 @@ export interface TaskEvaluationResponse {
 }
 
 /**
+ * 任务评估记录（存储在任务元数据中）
+ */
+export interface TaskEvaluationRecord {
+  timestamp: number; // 评估时间戳
+  status: 'on_track' | 'struggling' | 'blocked' | 'needs_adjustment'; // 评估时任务状态
+  assessment: string; // 进度评估描述
+  issues: string[]; // 发现的问题
+  suggestions: string[]; // 改进建议
+  should_replan: boolean; // 是否需要重新规划
+  should_skip_task: boolean; // 是否应该跳过任务
+  confidence: number; // 评估置信度
+}
+
+/**
  * 任务评估的 JSON Schema
  */
 export const TASK_EVALUATION_SCHEMA = {

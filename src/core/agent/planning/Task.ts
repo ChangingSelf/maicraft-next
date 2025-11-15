@@ -5,6 +5,7 @@
 
 import type { TaskTracker, TaskProgress, TaskStatus } from './types';
 import type { GameContext } from '@/core/agent/types';
+import type { TaskEvaluationRecord } from '@/core/agent/structured/ActionSchema';
 import { TrackerFactory } from './trackers/TrackerFactory';
 
 export class Task {
@@ -26,8 +27,24 @@ export class Task {
   // 依赖关系
   dependencies: string[]; // 依赖的任务 ID
 
+  // 评估记录
+  evaluations: TaskEvaluationRecord[];
+
   // 元数据
   metadata: Record<string, any>;
+
+  // 添加评估记录
+  addEvaluation(evaluation: Omit<TaskEvaluationRecord, 'timestamp'>): void {
+    this.evaluations.push({
+      ...evaluation,
+      timestamp: Date.now(),
+    });
+  }
+
+  // 获取最后一次评估
+  getLastEvaluation(): TaskEvaluationRecord | null {
+    return this.evaluations.length > 0 ? this.evaluations[this.evaluations.length - 1] : null;
+  }
 
   constructor(params: { title: string; description: string; tracker: TaskTracker; dependencies?: string[] }) {
     this.id = this.generateId();
@@ -38,6 +55,7 @@ export class Task {
     this.createdAt = Date.now();
     this.updatedAt = Date.now();
     this.dependencies = params.dependencies || [];
+    this.evaluations = [];
     this.metadata = {};
   }
 
@@ -51,7 +69,7 @@ export class Task {
 
     const completed = this.tracker.checkCompletion(context);
 
-    if (completed && this.status !== 'completed') {
+    if (completed && (this.status as TaskStatus) !== 'completed') {
       this.complete();
     }
 
@@ -155,6 +173,7 @@ export class Task {
       updatedAt: this.updatedAt,
       completedAt: this.completedAt,
       dependencies: this.dependencies,
+      evaluations: this.evaluations,
       metadata: this.metadata,
     };
   }
@@ -178,6 +197,7 @@ export class Task {
     (task as any).createdAt = json.createdAt;
     task.updatedAt = json.updatedAt;
     task.completedAt = json.completedAt;
+    task.evaluations = json.evaluations || [];
     task.metadata = json.metadata;
 
     return task;
