@@ -50,21 +50,21 @@ export enum Lifetime {
  * 服务描述
  */
 interface ServiceDescriptor<T = any> {
-  key: ServiceKey;
-  factory: Factory<T>;
-  lifetime: Lifetime;
-  instance?: T;
-  initializer?: (instance: T) => Promise<void> | void;
-  disposer?: (instance: T) => Promise<void> | void;
+  key: ServiceKey; //服务键：服务的唯一标识
+  factory: Factory<T>; //工厂函数：创建实例的函数
+  lifetime: Lifetime; //生命周期：服务实例的生命周期
+  instance?: T; //实例：已创建的实例
+  initializer?: (instance: T) => Promise<void> | void; //初始化器：在实例创建后调用的函数
+  disposer?: (instance: T) => Promise<void> | void; //销毁器：在实例销毁时调用的函数
 }
 
 /**
  * 依赖注入容器
  */
 export class Container {
-  private services = new Map<ServiceKey, ServiceDescriptor>();
+  private services = new Map<ServiceKey, ServiceDescriptor>(); //服务注册表：存储所有已注册的服务
   private resolving = new Set<ServiceKey>(); // 防止循环依赖
-  private logger: Logger;
+  private logger: Logger; //日志记录器：用于记录容器操作的日志
 
   constructor(logger?: Logger) {
     this.logger = logger || getLogger('Container');
@@ -126,7 +126,7 @@ export class Container {
       throw new Error(`服务 ${String(key)} 未注册`);
     }
 
-    descriptor.initializer = initializer as any;
+    descriptor.initializer = initializer;
     return this;
   }
 
@@ -139,7 +139,7 @@ export class Container {
       throw new Error(`服务 ${String(key)} 未注册`);
     }
 
-    descriptor.disposer = disposer as any;
+    descriptor.disposer = disposer;
     return this;
   }
 
@@ -147,7 +147,7 @@ export class Container {
    * 解析服务
    */
   resolve<T>(key: ServiceKey): T {
-    const descriptor = this.services.get(key);
+    const descriptor = this.services.get(key) as ServiceDescriptor<T>;
     if (!descriptor) {
       throw new Error(`服务 ${String(key)} 未注册`);
     }
