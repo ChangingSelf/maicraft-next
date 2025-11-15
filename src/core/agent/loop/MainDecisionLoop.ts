@@ -242,20 +242,20 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
         task_description: currentTask.description || '无描述',
         to_do_list: basicInfo.to_do_list, // 当前的计划和任务列表
         task_stats: taskStatsText,
-        
+
         // 状态信息（与主提示词完全一致）
         position: basicInfo.position,
         inventory: basicInfo.inventory_info,
         health: basicInfo.self_status_info,
-        
+
         // 环境信息（对任务评估很重要）
         nearby_block_info: basicInfo.nearby_block_info, // 周围方块，对采集任务很重要
         nearby_entities_info: basicInfo.nearby_entities_info, // 周围实体，对安全评估很重要
         container_cache_info: basicInfo.container_cache_info, // 容器信息，对存储任务很重要
-        
+
         // 交互信息
         chat_str: basicInfo.chat_str, // 玩家指令和交流
-        
+
         // 记忆和历史
         recent_decisions: memoryData.thinking_list,
         recent_thoughts: memoryData.thinking_list,
