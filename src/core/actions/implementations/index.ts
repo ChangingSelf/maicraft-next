@@ -14,7 +14,7 @@ export * from './CraftItemAction';
 // 新的挖掘系统
 export * from './MineAtPositionAction';
 export * from './MineByTypeAction';
-export * from './MineTunnelAction';
+export * from './MineInDirectionAction';
 
 // 容器操作
 export * from './UseChestAction';

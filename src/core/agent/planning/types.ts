@@ -58,4 +58,4 @@ export type PlanStatus = 'active' | 'completed' | 'abandoned';
 /**
  * 目标状态
  */
-export type GoalStatus = 'active' | 'completed' | 'abandoned';
+export type GoalStatus = 'active' | 'completed' | 'abandoned' | 'failed';

@@ -52,8 +52,8 @@ export const ACTION_RESPONSE_SCHEMA = {
             enum: [
               ActionIds.MOVE,
               ActionIds.FIND_BLOCK,
-              ActionIds.MINE_BLOCK,
-              ActionIds.MINE_BLOCK_BY_POSITION,
+              ActionIds.MINE_AT_POSITION,
+              ActionIds.MINE_BY_TYPE,
               ActionIds.MINE_IN_DIRECTION,
               ActionIds.PLACE_BLOCK,
               ActionIds.CRAFT,
@@ -92,24 +92,31 @@ export const ACTION_RESPONSE_SCHEMA = {
             },
             required: ['action_type', 'block'],
           },
-          // MineBlock
+          // MineAtPosition
           {
             properties: {
-              action_type: { const: ActionIds.MINE_BLOCK },
-              name: { type: 'string', description: '要挖掘的方块名称' },
+              action_type: { const: ActionIds.MINE_AT_POSITION },
+              x: { type: 'number', description: '目标X坐标' },
+              y: { type: 'number', description: '目标Y坐标' },
+              z: { type: 'number', description: '目标Z坐标' },
               count: { type: 'number', description: '挖掘数量', default: 1 },
-            },
-            required: ['action_type', 'name'],
-          },
-          // MineBlockByPosition
-          {
-            properties: {
-              action_type: { const: ActionIds.MINE_BLOCK_BY_POSITION },
-              x: { type: 'number', description: 'X坐标' },
-              y: { type: 'number', description: 'Y坐标' },
-              z: { type: 'number', description: 'Z坐标' },
+              force: { type: 'boolean', description: '强制挖掘，绕过安全检查', default: false },
+              collect: { type: 'boolean', description: '是否收集掉落物', default: true },
             },
             required: ['action_type', 'x', 'y', 'z'],
+          },
+          // MineByType
+          {
+            properties: {
+              action_type: { const: ActionIds.MINE_BY_TYPE },
+              blockType: { type: 'string', description: '方块类型名称' },
+              count: { type: 'number', description: '挖掘数量', default: 1 },
+              radius: { type: 'number', description: '搜索半径', default: 32 },
+              direction: { type: 'string', description: '挖掘方向', enum: ['+x', '-x', '+y', '-y', '+z', '-z'] },
+              force: { type: 'boolean', description: '强制挖掘，绕过安全检查', default: false },
+              collect: { type: 'boolean', description: '是否收集掉落物', default: true },
+            },
+            required: ['action_type', 'blockType'],
           },
           // MineInDirection
           {
@@ -120,9 +127,11 @@ export const ACTION_RESPONSE_SCHEMA = {
                 enum: ['+x', '-x', '+y', '-y', '+z', '-z'],
                 description: '挖掘方向',
               },
-              timeout: { type: 'number', description: '持续时间（秒）' },
+              count: { type: 'number', description: '挖掘数量', default: 10 },
+              force: { type: 'boolean', description: '强制挖掘，绕过安全检查', default: false },
+              collect: { type: 'boolean', description: '是否收集掉落物', default: true },
             },
-            required: ['action_type', 'direction', 'timeout'],
+            required: ['action_type', 'direction'],
           },
           // PlaceBlock
           {
