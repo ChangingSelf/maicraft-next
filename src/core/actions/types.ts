@@ -3,7 +3,7 @@
  */
 
 import { Vec3 } from 'vec3';
-import { ActionIds, Direction, LocationActionType } from './ActionIds';
+import { ActionIds, LocationActionType } from './ActionIds';
 
 /**
  * 基础动作参数
@@ -40,30 +40,7 @@ export interface FindBlockParams {
   count?: number;
 }
 
-/**
- * MineBlock 动作参数
- */
-export interface MineBlockParams {
-  name?: string;
-  count?: number;
-}
 
-/**
- * MineBlockByPosition 动作参数
- */
-export interface MineBlockByPositionParams {
-  x: number;
-  y: number;
-  z: number;
-}
-
-/**
- * MineInDirection 动作参数
- */
-export interface MineInDirectionParams {
-  direction: Direction;
-  timeout: number;
-}
 
 /**
  * PlaceBlock 动作参数
@@ -154,6 +131,42 @@ export interface SwimToLandParams {
   // 无参数
 }
 
+// ===== 新的挖掘系统参数类型 =====
+
+/**
+ * MineAtPosition 动作参数
+ */
+export interface MineAtPositionParams {
+  x: number;                    // 目标X坐标（必需）
+  y: number;                    // 目标Y坐标（必需）
+  z: number;                    // 目标Z坐标（必需）
+  count?: number;               // 挖掘数量（默认1，可选）
+  force?: boolean;              // 强制挖掘，绕过安全检查（默认false，可选）
+  collect?: boolean;            // 是否收集掉落物（默认true，可选）
+}
+
+/**
+ * MineByType 动作参数
+ */
+export interface MineByTypeParams {
+  blockType: string;            // 方块类型名称（必需）
+  count?: number;               // 挖掘数量（默认1，可选）
+  radius?: number;              // 搜索半径（默认32，可选）
+  direction?: string;           // 挖掘方向（可选，支持"+x","-x","+y","-y","+z","-z"）
+  force?: boolean;              // 强制挖掘，绕过安全检查（默认false，可选）
+  collect?: boolean;            // 是否收集掉落物（默认true，可选）
+}
+
+/**
+ * MineInDirection 动作参数（新版本）
+ */
+export interface MineInDirectionNewParams {
+  direction: string;            // 挖掘方向（必需，支持"+x","-x","+y","-y","+z","-z"）
+  count?: number;               // 挖掘数量（默认10，可选）
+  force?: boolean;              // 强制挖掘，绕过安全检查（默认false，可选）
+  collect?: boolean;            // 是否收集掉落物（默认true，可选）
+}
+
 /**
  * MoveToLocation 动作参数
  */
@@ -193,9 +206,6 @@ export interface ActionParamsMap {
   [ActionIds.MOVE_TO_ENTITY]: MoveToEntityParams;
   [ActionIds.MOVE_TO_BLOCK]: MoveToBlockParams;
   [ActionIds.FIND_BLOCK]: FindBlockParams;
-  [ActionIds.MINE_BLOCK]: MineBlockParams;
-  [ActionIds.MINE_BLOCK_BY_POSITION]: MineBlockByPositionParams;
-  [ActionIds.MINE_IN_DIRECTION]: MineInDirectionParams;
   [ActionIds.PLACE_BLOCK]: PlaceBlockParams;
   [ActionIds.CRAFT]: CraftParams;
   [ActionIds.USE_CHEST]: UseChestParams;
@@ -206,6 +216,10 @@ export interface ActionParamsMap {
   [ActionIds.SET_LOCATION]: SetLocationParams;
   [ActionIds.CHAT]: ChatParams;
   [ActionIds.SWIM_TO_LAND]: SwimToLandParams;
+  // 新的挖掘系统
+  [ActionIds.MINE_AT_POSITION]: MineAtPositionParams;
+  [ActionIds.MINE_BY_TYPE]: MineByTypeParams;
+  [ActionIds.MINE_IN_DIRECTION]: MineInDirectionNewParams;
 }
 
 /**

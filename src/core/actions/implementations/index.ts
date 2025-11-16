@@ -8,10 +8,13 @@
 export * from './ChatAction';
 export * from './MoveAction';
 export * from './FindBlockAction';
-export * from './MineBlockAction';
-export * from './MineBlockByPositionAction';
 export * from './PlaceBlockAction';
 export * from './CraftItemAction';
+
+// 新的挖掘系统
+export * from './MineAtPositionAction';
+export * from './MineByTypeAction';
+export * from './MineTunnelAction';
 
 // 容器操作
 export * from './UseChestAction';
@@ -30,6 +33,3 @@ export * from './SwimToLandAction';
 
 // 地标管理
 export * from './SetLocationAction';
-
-// 挖掘
-export * from './MineInDirectionAction';

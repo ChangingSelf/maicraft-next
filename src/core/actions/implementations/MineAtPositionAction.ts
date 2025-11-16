@@ -1,7 +1,7 @@
 /**
- * MineInDirectionAction - 沿方向连续挖掘
+ * MineAtPositionAction - 在指定位置精准挖掘
  *
- * 专门用于创建隧道、矿井等线性挖掘任务
+ * 基于简化的挖掘设计，支持安全检查和强制模式
  */
 
 import { BaseAction } from '@/core/actions/Action';
@@ -12,54 +12,48 @@ import { Vec3 } from 'vec3';
 import { goals } from 'mineflayer-pathfinder-mai';
 
 // 定义本地参数类型以避免循环依赖
-interface MineInDirectionNewParams {
-  direction: string;
+interface MineAtPositionParams {
+  x: number;
+  y: number;
+  z: number;
   count?: number;
   force?: boolean;
   collect?: boolean;
 }
 
-export class MineInDirectionAction extends BaseAction<MineInDirectionNewParams> {
-  readonly id = ActionIds.MINE_IN_DIRECTION;
-  readonly name = 'MineInDirectionAction';
-  readonly description = '沿指定方向连续挖掘，创建隧道或矿井';
+export class MineAtPositionAction extends BaseAction<MineAtPositionParams> {
+  readonly id = ActionIds.MINE_AT_POSITION;
+  readonly name = 'MineAtPositionAction';
+  readonly description = '在指定位置精准挖掘方块';
 
-  async execute(context: RuntimeContext, params: MineInDirectionNewParams): Promise<ActionResult> {
-    const { direction, count = 10, force = false, collect = true } = params;
+  async execute(context: RuntimeContext, params: MineAtPositionParams): Promise<ActionResult> {
+    const { x, y, z, count = 1, force = false, collect = true } = params;
 
     try {
       // 1. 参数验证
-      if (!direction || typeof direction !== 'string') {
-        return this.failure('方向参数不能为空');
+      if (typeof x !== 'number' || typeof y !== 'number' || typeof z !== 'number') {
+        return this.failure('坐标参数必须是数字');
       }
+
+      const position = new Vec3(x, y, z);
 
       // 强制模式警告
       if (force) {
         context.logger.warn('⚠️  使用强制挖掘模式，已绕过安全检查');
       }
 
-      // 2. 获取方向向量
-      const directionVector = this.getDirectionVector(direction);
-      if (!directionVector) {
-        return this.failure(`无效的方向: ${direction}，支持的方向：+x, -x, +y, -y, +z, -z`);
-      }
+      context.logger.info(`开始挖掘坐标 (${x}, ${y}, ${z}) 的方块，数量: ${count}`);
 
-      context.logger.info(`开始沿 ${direction} 方向挖掘 ${count} 个方块`);
-
-      // 3. 执行方向挖掘
+      // 2. 执行挖掘（支持数量）
       const results = [];
-      const startPos = context.bot.entity.position;
       let consecutiveFailures = 0;
-      const maxFailures = 3;
+      const maxFailures = 3; // 连续失败3次就停止
 
       for (let i = 0; i < count; i++) {
         // 检查中断
         context.interruptSignal.throwIfInterrupted();
 
-        // 计算当前目标位置
-        const targetPos = startPos.plus(directionVector.scaled(i + 1));
-
-        const result = await this.digAtPosition(context, targetPos, force, collect, i + 1, count);
+        const result = await this.digSingleBlock(context, position, force, collect);
         results.push(result);
 
         if (!result.success) {
@@ -71,134 +65,85 @@ export class MineInDirectionAction extends BaseAction<MineInDirectionNewParams> 
             context.logger.warn(`连续失败 ${maxFailures} 次，停止挖掘`);
             break;
           }
-
-          // 如果遇到不可破坏的方块（如基岩），也停止
-          if (result.message?.includes('无法破坏的方块')) {
-            context.logger.warn('遇到不可破坏的方块，停止挖掘');
-            break;
-          }
         } else {
           consecutiveFailures = 0;
-          context.logger.debug(`成功挖掘第 ${i + 1} 个方块`);
         }
 
-        // 短暂延迟
+        // 短暂延迟，避免过快操作
         if (i < count - 1) {
-          await new Promise(resolve => setTimeout(resolve, 400));
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
 
-      // 4. 统计结果
       const successCount = results.filter(r => r.success).length;
-      const message = `方向挖掘完成：成功 ${successCount}/${count} 个方块`;
+      const message = `挖掘完成：成功 ${successCount}/${count} 个方块`;
 
       if (successCount > 0) {
         context.logger.info(`挖掘成功: ${message}`);
         return this.success(message, {
           successCount,
           totalCount: count,
-          direction,
-          startPos: { x: startPos.x, y: startPos.y, z: startPos.z },
           results: results.map(r => ({ success: r.success, message: r.message })),
         });
       } else {
-        context.logger.warn(`挖掘失败: ${results[0]?.message || '无法挖掘任何方块'}`);
-        return this.failure(results[0]?.message || '无法挖掘任何方块');
+        context.logger.warn(`挖掘失败: ${results[0]?.message || '未知错误'}`);
+        return this.failure(results[0]?.message || '挖掘失败');
       }
     } catch (error) {
       const err = error as Error;
-      context.logger.error('方向挖掘过程中发生错误:', err);
-      return this.failure(`方向挖掘失败: ${err.message}`, err);
+      context.logger.error('挖掘过程中发生错误:', err);
+      return this.failure(`挖掘失败: ${err.message}`, err);
     }
   }
 
   /**
-   * 在指定位置挖掘方块
+   * 挖掘单个方块
    */
-  private async digAtPosition(
-    context: RuntimeContext,
-    position: Vec3,
-    force: boolean,
-    collect: boolean,
-    currentIndex: number,
-    totalCount: number,
-  ): Promise<ActionResult> {
+  private async digSingleBlock(context: RuntimeContext, position: Vec3, force: boolean, collect: boolean): Promise<ActionResult> {
     try {
       // 1. 获取目标方块
       const block = context.bot.blockAt(position);
       if (!block || block.name === 'air') {
-        return {
-          success: false,
-          message: `第 ${currentIndex} 个位置没有方块（空气）`,
-        };
+        return this.failure('目标位置没有方块或为空气');
       }
 
-      context.logger.debug(
-        `第 ${currentIndex}/${totalCount} 个目标: ${block.name} at (${block.position.x}, ${block.position.y}, ${block.position.z})`,
-      );
+      context.logger.debug(`目标方块: ${block.name} at (${block.position.x}, ${block.position.y}, ${block.position.z})`);
 
       // 2. 安全检查
       if (!force) {
         const safetyCheck = await this.performSafetyCheck(context, block, position);
         if (!safetyCheck.safe) {
-          const message = `第 ${currentIndex} 个方块安全检查失败: ${safetyCheck.reason}`;
-          return {
-            success: false,
-            message,
-            error: new Error(safetyCheck.reason),
-          };
+          const message = `${safetyCheck.reason}。${safetyCheck.suggestion || ''}`;
+          return this.failure(message);
         }
+      } else {
+        context.logger.debug('跳过安全检查（强制模式）');
       }
 
-      // 3. 工具检查和装备
+      // 3. 工具检查和装备（仅在非强制模式）
       if (!force) {
-        const tool = context.bot.pathfinder.bestHarvestTool(block);
-        if (tool) {
-          await context.bot.equip(tool, 'hand');
-        } else if (block.hardness > 0) {
-          const message = `第 ${currentIndex} 个方块需要合适工具: ${block.name}`;
-          return {
-            success: false,
-            message,
-            error: new Error('缺少合适工具'),
-          };
+        const toolResult = await this.equipBestTool(context, block);
+        if (!toolResult.success) {
+          return this.failure(toolResult.message);
         }
       }
 
-      // 4. 移动到合适位置（如果需要）
-      if (context.bot.entity.position.distanceTo(position) > 4) {
-        try {
-          await context.bot.pathfinder.goto(new goals.GoalBlock(position.x, position.y, position.z));
-        } catch (error) {
-          const err = error as Error;
-          context.logger.warn(`无法移动到挖掘位置: ${err.message}`);
-          // 继续尝试挖掘，可能已经有视野范围
-        }
-      }
-
-      // 5. 执行挖掘
+      // 4. 执行挖掘
+      context.logger.debug(`开始挖掘 ${block.name}`);
       await context.bot.dig(block);
 
-      // 6. 收集掉落物（可选）
+      // 5. 收集掉落物（可选）
       if (collect) {
         await this.collectDrops(context);
       }
 
-      return {
-        success: true,
-        message: `第 ${currentIndex} 个方块挖掘成功: ${block.name}`,
-        data: {
-          blockType: block.name,
-          position: { x: block.position.x, y: block.position.y, z: block.position.z },
-        },
-      };
+      return this.success(`成功挖掘 ${block.name}`, {
+        blockType: block.name,
+        position: { x: block.position.x, y: block.position.y, z: block.position.z },
+      });
     } catch (error) {
       const err = error as Error;
-      return {
-        success: false,
-        message: `第 ${currentIndex} 个方块挖掘失败: ${err.message}`,
-        error: err,
-      };
+      return this.failure(`挖掘失败: ${err.message}`, err);
     }
   }
 
@@ -224,7 +169,7 @@ export class MineInDirectionAction extends BaseAction<MineInDirectionNewParams> 
       return {
         safe: false,
         reason: `无法破坏的方块: ${block.name}`,
-        suggestion: '此方块无法被破坏，挖掘将停止',
+        suggestion: '此方块无法被破坏，请选择其他目标',
       };
     }
 
@@ -257,16 +202,24 @@ export class MineInDirectionAction extends BaseAction<MineInDirectionNewParams> 
       };
     }
 
-    // 特殊情况：位置是否在基岩层或虚空附近
-    if (position.y <= 0) {
-      return {
-        safe: false,
-        reason: `目标位置过低 (${position.y})，可能接近基岩层或虚空`,
-        suggestion: '请选择更安全的位置挖掘，或使用force参数强制挖掘',
-      };
-    }
-
     return { safe: true };
+  }
+
+  /**
+   * 装备最佳工具
+   */
+  private async equipBestTool(context: RuntimeContext, block: any): Promise<ActionResult> {
+    try {
+      const tool = context.bot.pathfinder.bestHarvestTool(block);
+      if (tool) {
+        await context.bot.equip(tool, 'hand');
+        context.logger.debug(`装备工具: ${tool.name}`);
+      }
+      return this.success('工具装备完成');
+    } catch (error) {
+      const err = error as Error;
+      return this.failure(`工具装备失败: ${err.message}`, err);
+    }
   }
 
   /**
@@ -275,7 +228,7 @@ export class MineInDirectionAction extends BaseAction<MineInDirectionNewParams> 
   private async collectDrops(context: RuntimeContext): Promise<void> {
     try {
       const droppedItems = Object.values(context.bot.entities).filter(
-        entity => entity.name === 'item' && entity.position.distanceTo(context.bot.entity.position) <= 6,
+        entity => entity.name === 'item' && entity.position.distanceTo(context.bot.entity.position) <= 5,
       );
 
       if (droppedItems.length > 0) {
@@ -283,33 +236,21 @@ export class MineInDirectionAction extends BaseAction<MineInDirectionNewParams> 
 
         for (const item of droppedItems) {
           try {
+            // 简单的移动到掉落物附近来收集
             const pos = item.position;
             await context.bot.pathfinder.goto(new goals.GoalBlock(pos.x, pos.y, pos.z));
+            // 等待拾取
             await new Promise(resolve => setTimeout(resolve, 500));
           } catch (error) {
-            // 忽略收集失败
+            // 忽略收集失败，继续下一个
             continue;
           }
         }
       }
     } catch (error) {
       context.logger.debug('收集掉落物时出错:', error);
+      // 不让收集失败影响主要功能
     }
-  }
-
-  /**
-   * 获取方向向量
-   */
-  private getDirectionVector(direction: string): Vec3 | null {
-    const vectors: Record<string, Vec3> = {
-      '+x': new Vec3(1, 0, 0),
-      '-x': new Vec3(-1, 0, 0),
-      '+y': new Vec3(0, 1, 0),
-      '-y': new Vec3(0, -1, 0),
-      '+z': new Vec3(0, 0, 1),
-      '-z': new Vec3(0, 0, -1),
-    };
-    return vectors[direction] || null;
   }
 
   /**
@@ -341,19 +282,28 @@ export class MineInDirectionAction extends BaseAction<MineInDirectionNewParams> 
    */
   getParamsSchema(): any {
     return {
-      direction: {
-        type: 'string',
-        description: '挖掘方向（必需，支持：+x, -x, +y, -y, +z, -z）',
+      x: {
+        type: 'number',
+        description: '目标X坐标',
         required: true,
-        enum: ['+x', '-x', '+y', '-y', '+z', '-z'],
+      },
+      y: {
+        type: 'number',
+        description: '目标Y坐标',
+        required: true,
+      },
+      z: {
+        type: 'number',
+        description: '目标Z坐标',
+        required: true,
       },
       count: {
         type: 'number',
-        description: '挖掘数量，默认为10',
+        description: '挖掘数量，默认为1',
         optional: true,
         minimum: 1,
-        maximum: 128,
-        default: 10,
+        maximum: 64,
+        default: 1,
       },
       force: {
         type: 'boolean',

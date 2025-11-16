@@ -19,8 +19,8 @@ import {
   ChatAction,
   MoveAction,
   FindBlockAction,
-  MineBlockAction,
-  MineBlockByPositionAction,
+  MineAtPositionAction,
+  MineByTypeAction,
   MineInDirectionAction,
   PlaceBlockAction,
   CraftItemAction,
@@ -207,8 +207,8 @@ class MaicraftTestBot {
       new ChatAction(),
       new MoveAction(),
       new FindBlockAction(),
-      new MineBlockAction(),
-      new MineBlockByPositionAction(),
+      new MineAtPositionAction(),
+      new MineByTypeAction(),
       new PlaceBlockAction(),
       new CraftItemAction(),
       new MineInDirectionAction(),
@@ -324,8 +324,8 @@ class MaicraftTestBot {
           this.bot.chat('用法: !mine <block> [count]');
           return;
         }
-        await this.executor.execute(ActionIds.MINE_BLOCK, {
-          name: args[0],
+        await this.executor.execute(ActionIds.MINE_BY_TYPE, {
+          blockType: args[0],
           count: args[1] ? parseInt(args[1]) : 1,
         });
         break;

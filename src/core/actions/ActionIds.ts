@@ -16,9 +16,9 @@ export const ActionIds = {
   MOVE_TO_BLOCK: 'move_to_block',
   FIND_BLOCK: 'find_block',
 
-  // 挖掘
-  MINE_BLOCK: 'mine_block',
-  MINE_BLOCK_BY_POSITION: 'mine_block_by_position',
+  // 新的挖掘系统
+  MINE_AT_POSITION: 'mine_at_position',
+  MINE_BY_TYPE: 'mine_by_type',
   MINE_IN_DIRECTION: 'mine_in_direction',
 
   // 建造和合成
