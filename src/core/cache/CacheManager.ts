@@ -154,7 +154,7 @@ export class CacheManager {
           .map(([name, count]) => `${name}:${count}`)
           .join(', ');
 
-        this.logger.info(`✅ 区块加载扫描: chunk(${chunkX},${chunkZ}) 缓存${blocks.length}个方块 [${topTypes}]`);
+        this.logger.debug(`✅ 区块加载扫描: chunk(${chunkX},${chunkZ}) 缓存${blocks.length}个方块 [${topTypes}]`);
 
         // 同步容器
         this.syncContainersFromBlocks(blocks, chunkCorner);
@@ -211,7 +211,7 @@ export class CacheManager {
       }
 
       if (removedCount > 0 || removedContainers > 0) {
-        this.logger.info(`🗑️ 区块卸载清理: chunk(${chunkX},${chunkZ}) 移除${removedCount}个方块, ${removedContainers}个容器`);
+        this.logger.debug(`🗑️ 区块卸载清理: chunk(${chunkX},${chunkZ}) 移除${removedCount}个方块, ${removedContainers}个容器`);
       }
     } catch (error) {
       this.logger.error('区块卸载清理失败', undefined, error as Error);
@@ -357,19 +357,29 @@ export class CacheManager {
 
   /**
    * 清理过期的缓存
+   * 🔧 作为区块卸载的补充，定期清理远距离缓存防止无限增长
    */
   private cleanupExpiredCache(): void {
     if (!this.blockCache || !this.bot.entity) return;
 
-    // 使用与查询相同的坐标系（整数坐标），避免坐标系不一致问题
     const currentPos = this.bot.entity.position.floored();
+    const cacheSize = this.blockCache.size();
 
-    // 扩大清理范围到1000格，避免频繁清理影响缓存效果
-    const removed = this.blockCache.clearOutOfRange(currentPos.x, currentPos.y, currentPos.z, 1000);
-
-    if (removed > 0) {
-      this.logger.info(`🧹 定期清理: 移除 ${removed} 个超出范围(1000格)的方块缓存`);
+    // 只有当缓存过大时才清理（避免频繁清理）
+    if (cacheSize > 500000) {
+      // 超过50万个方块时，清理距离200格以外的
+      const removed = this.blockCache.clearOutOfRange(currentPos.x, currentPos.y, currentPos.z, 200);
+      if (removed > 0) {
+        this.logger.warn(`⚠️ 缓存过大(${cacheSize})，清理200格外方块: 移除${removed}个`);
+      }
+    } else if (cacheSize > 200000) {
+      // 超过20万个方块时，清理距离400格以外的
+      const removed = this.blockCache.clearOutOfRange(currentPos.x, currentPos.y, currentPos.z, 400);
+      if (removed > 0) {
+        this.logger.info(`🧹 定期清理: 缓存${cacheSize}，移除400格外方块${removed}个`);
+      }
     }
+    // 否则不清理，让区块卸载事件自然清理
   }
 
   /**

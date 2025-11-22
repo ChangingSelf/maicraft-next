@@ -39,8 +39,8 @@ export function configureServices(container: Container): void {
     return new BlockCache({
       maxEntries: 0, // 🔧 设为0表示无限制，完全依赖区块卸载事件清理
       expirationTime: 60 * 1000,
-      autoSaveInterval: 5 * 60 * 1000,
-      enabled: true,
+      autoSaveInterval: 0, // 🔧 设为0禁用自动保存
+      enabled: true, // ⚠️ 必须为true，否则整个缓存都不工作
       updateStrategy: 'smart' as const,
     });
   });
@@ -51,8 +51,8 @@ export function configureServices(container: Container): void {
     return new ContainerCache({
       maxEntries: 0, // 🔧 设为0表示无限制，完全依赖区块卸载事件清理
       expirationTime: 60 * 1000,
-      autoSaveInterval: 5 * 60 * 1000,
-      enabled: true,
+      autoSaveInterval: 0, // 🔧 设为0禁用自动保存
+      enabled: true, // ⚠️ 必须为true，否则整个缓存都不工作
       updateStrategy: 'smart' as const,
     });
   });
@@ -76,7 +76,7 @@ export function configureServices(container: Container): void {
       containerUpdateInterval: 10 * 1000, // 10秒
       autoSaveInterval: 60 * 1000, // 1分钟
       enablePeriodicScan: false, // 🔧 关闭定期扫描，完全使用区块事件
-      enableAutoSave: true,
+      enableAutoSave: false, // 🔧 禁用自动保存，缓存已禁用持久化
       performanceMode: 'balanced' as const,
     };
 

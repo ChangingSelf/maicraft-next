@@ -121,7 +121,7 @@ export class LLMManager {
         message_count: messages.length,
         has_system_message: !!systemMessage,
       });
-      this.logger.info(prompt);
+      this.logger.debug('LLM请求提示词', { prompt });
 
       // 发送请求
       const response = await this.activeProvider!.chat(requestConfig);

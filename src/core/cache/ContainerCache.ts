@@ -392,6 +392,12 @@ export class ContainerCache {
    * 保存缓存到文件
    */
   async save(): Promise<void> {
+    // 🔧 如果 autoSaveInterval 为 0，则跳过保存（禁用持久化）
+    if (this.config.autoSaveInterval === 0) {
+      this.logger.debug('持久化已禁用，跳过保存');
+      return;
+    }
+
     try {
       // 清理过期条目
       this.cleanupExpiredEntries();
@@ -416,6 +422,12 @@ export class ContainerCache {
    * 从文件加载缓存
    */
   async load(): Promise<void> {
+    // 🔧 如果 autoSaveInterval 为 0，则跳过加载（禁用持久化）
+    if (this.config.autoSaveInterval === 0) {
+      this.logger.info('持久化已禁用，跳过加载，使用空缓存');
+      return;
+    }
+
     try {
       const content = await fs.readFile(this.persistPath, 'utf-8');
       const saveData = JSON.parse(content);
