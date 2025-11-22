@@ -21,19 +21,19 @@ export function initBasicInfoTemplate(): void {
 # 当前状态
 {self_status_info}
 
-# 物品栏和工具
+# 物品栏
 {inventory_info}
 
 # 位置信息
 {position}
 
-# 周围方块的信息
+# 周围方块
 {nearby_block_info}
 
-# 周围箱子信息
+# 周围箱子
 {container_cache_info}
 
-# 周围实体信息
+# 周围实体
 {nearby_entities_info}
 
 # 玩家聊天记录

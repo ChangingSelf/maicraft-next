@@ -476,9 +476,9 @@ export class NearbyBlockManager {
     const zMax = Math.max(...zValues);
 
     const ranges: string[] = [];
-    if (xMax - xMin > 2) ranges.push(`x${xMin}~${xMax}`);
-    if (yMax - yMin > 2) ranges.push(`y${yMin}~${yMax}`);
-    if (zMax - zMin > 2) ranges.push(`z${zMin}~${zMax}`);
+    if (xMax - xMin > 2) ranges.push(`x:${xMin}~${xMax}`);
+    if (yMax - yMin > 2) ranges.push(`y:${yMin}~${yMax}`);
+    if (zMax - zMin > 2) ranges.push(`z:${zMin}~${zMax}`);
 
     if (ranges.length === 0) {
       return nearestStr;
