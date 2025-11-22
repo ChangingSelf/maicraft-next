@@ -16,6 +16,10 @@ export class QueryContainerAction extends BaseAction<any> {
   readonly name = 'QueryContainerAction';
   readonly description = '查询指定位置容器的物品内容';
 
+  shouldActivate(context: RuntimeContext): boolean {
+    return false;
+  }
+
   async execute(context: RuntimeContext, params: QueryContainerParams): Promise<ActionResult> {
     try {
       const { position } = params;

@@ -32,9 +32,9 @@ export function initSystemPromptTemplates(): void {
 你必须以结构化JSON格式返回你的响应，包含以下字段：
 
 1. **thinking** (可选): 简短的思考过程，说明你的决策理由
-2. **actions** (必需): 动作列表，至少包含一个动作
+2. **action** (必需): 要执行的单个动作
 
-每个动作必须包含：
+action对象必须包含：
 - **intention**: 动作意图，用一句话说明目的
 - **action_type**: 动作类型
 - 其他必需参数根据动作类型而定
@@ -42,30 +42,22 @@ export function initSystemPromptTemplates(): void {
 # 输出示例
 \`\`\`json
 {{
-  "thinking": "当前需要寻找资源并建造工作台，首先移动到附近的森林区域",
-  "actions": [
-    {{
-      "intention": "前往森林区域收集木材",
-      "action_type": "move",
-      "x": 100,
-      "y": 70,
-      "z": 200
-    }},
-    {{
-      "intention": "挖掘橡木获取木材资源",
-      "action_type": "mine_block",
-      "name": "oak_log",
-      "count": 10
-    }}
-  ]
+  "thinking": "当前需要前往森林区域收集木材资源",
+  "action": {{
+    "intention": "前往森林区域收集木材",
+    "action_type": "move",
+    "x": 100,
+    "y": 70,
+    "z": 200
+  }}
 }}
 \`\`\`
 
 # 重要
 - 严格按JSON格式输出
 - thinking字段简洁，不要分点
-- 每个动作必须包含intention字段
-- 可输出多个动作，按顺序执行`,
+- action对象必须包含intention字段
+- 每次只返回一个动作，执行完成后会根据结果反馈决策下一个动作`,
       '主决策系统提示词',
       ['bot_name', 'player_name', 'available_actions', 'eat_action', 'kill_mob_action'],
     ),

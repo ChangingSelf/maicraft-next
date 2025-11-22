@@ -23,15 +23,35 @@ const chestOperationTemplateContent = `你是{bot_name}，游戏名叫{player_na
 请根据上面的思考记录和当前目标，决定存取哪些物品。
 
 # 可执行的操作
-1. **take_items** - 从箱子中取出物品放入物品栏
-   \`\`\`json
-   {{"action_type": "take_items", "item": "物品名称", "count": 数量}
-   \`\`\`
 
-2. **put_items** - 将物品从物品栏放入箱子
-   \`\`\`json
-   {{"action_type": "put_items", "item": "物品名称", "count": 数量}
-   \`\`\`
+你可以返回单个操作或多个操作的序列：
+
+## 单个操作
+\`\`\`json
+{
+  "action_type": "take_items",
+  "item": "iron_ingot",
+  "count": 16
+}
+\`\`\`
+
+## 批量操作（推荐用于复杂整理）
+\`\`\`json
+{
+  "sequence": [
+    {
+      "action_type": "take_items",
+      "item": "iron_ingot",
+      "count": 16
+    },
+    {
+      "action_type": "put_items",
+      "item": "wooden_pickaxe",
+      "count": 2
+    }
+  ]
+}
+\`\`\`
 
 # 重要注意事项
 1. **空间管理**：
@@ -46,7 +66,7 @@ const chestOperationTemplateContent = `你是{bot_name}，游戏名叫{player_na
 
 3. **操作策略**：
    - 可以进行多次存入和取出物品
-   - 可以一次性输出多个操作，系统会依次执行每个动作
+   - 每次只输出一个操作，执行完成后会重新决策
    - 优先整理和分类物品
 
 # 常见整理原则
@@ -64,24 +84,45 @@ const chestOperationTemplateContent = `你是{bot_name}，游戏名叫{player_na
 # 输出格式要求
 你必须以结构化JSON格式返回，包含：
 1. **thinking** (可选): 简短说明你的整理思路
-2. **actions** (必需): 操作列表
+2. **action** (必需): 操作内容
 
 # 输出示例
+
+## 单个操作
 \`\`\`json
 {{
-  "thinking": "将铁锭和煤炭取出用于冶炼",
-  "actions": [
-    {{
-      "action_type": "take_items",
-      "item": "iron_ingot",
-      "count": 16
-    }},
-    {{
-      "action_type": "take_items",
-      "item": "coal",
-      "count": 8
-    }}
-  ]
+  "thinking": "取出铁锭用于制作工具",
+  "action": {{
+    "action_type": "take_items",
+    "item": "iron_ingot",
+    "count": 16
+  }}
+}}
+\`\`\`
+
+## 批量操作（推荐用于复杂整理）
+\`\`\`json
+{{
+  "thinking": "整理库存：取出工具材料，存入多余物品",
+  "action": {{
+    "sequence": [
+      {{
+        "action_type": "take_items",
+        "item": "iron_ingot",
+        "count": 16
+      }},
+      {{
+        "action_type": "take_items",
+        "item": "coal",
+        "count": 8
+      }},
+      {{
+        "action_type": "put_items",
+        "item": "wooden_pickaxe",
+        "count": 2
+      }}
+    ]
+  }}
 }}
 \`\`\`
 

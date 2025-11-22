@@ -109,7 +109,13 @@ export class EatAction extends BaseAction<EatParams> {
    * 激活条件：饥饿度 < 15 且背包中有食物
    */
   shouldActivate(context: RuntimeContext): boolean {
-    const { gameState } = context;
+    const { gameState, bot } = context;
+
+    // 安全检查：确保bot存在
+    if (!bot) {
+      return false;
+    }
+
     if (gameState.food < 15 && this.hasAnyFood(context)) {
       return true;
     }

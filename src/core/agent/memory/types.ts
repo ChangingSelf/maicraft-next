@@ -121,7 +121,7 @@ export interface ConversationEntry {
 export interface DecisionEntry {
   id: string;
   intention: string; // 决策意图
-  actions: ActionCall[]; // 执行的动作
+  action: ActionCall; // 执行的单个动作
   result: 'success' | 'failed' | 'interrupted';
   feedback?: string; // 执行反馈
   timestamp: number;

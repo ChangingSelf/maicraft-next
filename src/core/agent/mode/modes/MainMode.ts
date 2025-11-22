@@ -190,77 +190,75 @@ export class MainMode extends BaseMode {
       });
     }
 
-    // 执行结构化的动作列表
-    await this.executeStructuredActions(structuredResponse.actions);
+    // 执行单个结构化动作
+    if (structuredResponse.action) {
+      await this.executeStructuredAction(structuredResponse.action);
+    } else {
+      this.logger.warn('⚠️ LLM响应中没有action字段');
+    }
   }
 
   /**
-   * 执行结构化的动作列表
+   * 清理动作参数，去除重复的元数据字段
+   */
+  private cleanActionParams(action: StructuredAction): Record<string, any> {
+    const cleaned = { ...action };
+    // 去除元数据字段，只保留动作参数
+    delete (cleaned as any).intention;
+    delete (cleaned as any).action_type;
+    return cleaned;
+  }
+
+  /**
+   * 执行单个结构化动作
    * 不再需要JSON解析，直接获得结构化的动作对象
    */
-  private async executeStructuredActions(actions: StructuredAction[]): Promise<void> {
-    if (!actions || actions.length === 0) {
-      this.logger.warn('⚠️ 动作列表为空');
+  private async executeStructuredAction(action: StructuredAction): Promise<void> {
+    if (!action) {
+      this.logger.warn('⚠️ 动作为空');
       return;
     }
 
-    this.logger.info(`📋 准备执行 ${actions.length} 个动作`);
-    const allActions: any[] = [];
+    const actionName = action.action_type;
+    const actionIntention = action.intention || `执行${actionName}操作`;
 
-    // 执行每个动作
-    for (let i = 0; i < actions.length; i++) {
-      const action = actions[i];
-      const actionName = action.action_type;
-      const actionIntention = action.intention || `执行${actionName}操作`;
+    this.logger.info(`🎬 执行动作: ${actionName} - 意图: ${actionIntention}`);
+    this.logger.debug(`🔍 动作详情: ${JSON.stringify(action, null, 2)}`);
 
-      this.logger.info(`🎬 执行动作 ${i + 1}/${actions.length}: ${actionName} - 意图: ${actionIntention}`);
-      this.logger.debug(`🔍 动作详情: ${JSON.stringify(action, null, 2)}`);
+    // 记录动作信息 - 构建干净的动作记录结构
+    const actionRecord = {
+      actionType: actionName,
+      params: this.cleanActionParams(action),
+    };
 
-      // 记录动作信息
-      allActions.push({
-        action: actionName,
-        intention: actionIntention,
-        params: action,
-        index: i + 1,
-      });
-
-      // 检查是否是GUI操作，需要切换模式
-      if (this.isGUIAction(actionName)) {
-        const modeSwitchResult = await this.handleGUIAction(actionName, action);
-        if (modeSwitchResult) {
-          this.logger.info(`✅ 动作 ${i + 1}/${actions.length}: 切换到${modeSwitchResult}模式`);
-          // 记录成功的决策
-          this.state!.memory.recordDecision(actionIntention, allActions, 'success', `切换到${modeSwitchResult}模式`);
-          // GUI模式切换后，停止后续动作执行
-          break;
-        }
+    // 检查是否是GUI操作，需要切换模式
+    if (this.isGUIAction(actionName)) {
+      const modeSwitchResult = await this.handleGUIAction(actionName, action);
+      if (modeSwitchResult) {
+        this.logger.info(`✅ 动作成功: 切换到${modeSwitchResult}模式`);
+        // 记录成功的决策
+        this.state!.memory.recordDecision(actionIntention, actionRecord, 'success', `切换到${modeSwitchResult}模式`);
       } else {
-        // 执行普通动作
-        try {
-          // 类型安全：将 actionName 断言为 ActionId（动作名称已经过验证）
-          const result = await this.state!.context.executor.execute(actionName as any, action);
-
-          if (result.success) {
-            this.logger.info(`✅ 动作 ${i + 1}/${actions.length}: 成功 - ${result.message}`);
-          } else {
-            this.logger.warn(`⚠️ 动作 ${i + 1}/${actions.length}: 失败 - ${result.message}`);
-            // 原maicraft设计：失败时停止后续动作
-            this.state!.memory.recordDecision(actionIntention, allActions, 'failed', result.message);
-            break;
-          }
-        } catch (executeError) {
-          this.logger.error(`❌ 动作 ${i + 1}/${actions.length} 执行异常:`, undefined, executeError as Error);
-          this.state!.memory.recordDecision(actionIntention, allActions, 'failed', `执行异常: ${(executeError as Error).message}`);
-          break;
-        }
+        this.logger.warn('⚠️ GUI模式切换失败');
+        this.state!.memory.recordDecision(actionIntention, actionRecord, 'failed', 'GUI模式切换失败');
       }
-    }
+    } else {
+      // 执行普通动作
+      try {
+        // 类型安全：将 actionName 断言为 ActionId（动作名称已经过验证）
+        const result = await this.state!.context.executor.execute(actionName as any, action);
 
-    // 如果所有动作都成功执行，记录成功的决策
-    if (allActions.length > 0 && allActions.length === actions.length) {
-      const firstActionIntention = allActions[0]?.intention || '执行动作序列';
-      this.state!.memory.recordDecision(`${firstActionIntention}等操作`, allActions, 'success');
-      this.logger.debug(`✅ 动作序列执行成功: ${allActions.length} 个动作`);
+        if (result.success) {
+          this.logger.info(`✅ 动作成功: ${result.message}`);
+          this.state!.memory.recordDecision(actionIntention, actionRecord, 'success', result.message);
+        } else {
+          this.logger.warn(`⚠️ 动作失败: ${result.message}`);
+          this.state!.memory.recordDecision(actionIntention, actionRecord, 'failed', result.message);
+        }
+      } catch (executeError) {
+        this.logger.error(`❌ 动作执行异常:`, undefined, executeError as Error);
+        this.state!.memory.recordDecision(actionIntention, actionRecord, 'failed', `执行异常: ${(executeError as Error).message}`);
+      }
     }
   }
 

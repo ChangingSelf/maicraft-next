@@ -256,7 +256,7 @@ export class FurnaceMode extends BaseMode {
     }
 
     // 执行结构化的熔炉动作
-    await this.executeStructuredFurnaceActions(structuredResponse.actions);
+    await this.executeStructuredFurnaceAction(structuredResponse.action);
   }
 
   /**
@@ -299,40 +299,64 @@ export class FurnaceMode extends BaseMode {
   }
 
   /**
-   * 执行结构化的熔炉动作列表
+   * 执行结构化的熔炉动作（智能判断单动作或批量操作）
    */
-  private async executeStructuredFurnaceActions(actions: any[]): Promise<void> {
-    if (!actions || actions.length === 0) {
-      this.logger.warn('⚠️ 熔炉动作列表为空');
+  private async executeStructuredFurnaceAction(action: any): Promise<void> {
+    if (!action) {
+      this.logger.warn('⚠️ 熔炉动作为空');
       return;
     }
 
-    this.logger.info(`🔥 准备执行 ${actions.length} 个熔炉动作`);
+    this.logger.debug(`🔥 熔炉动作详情: ${JSON.stringify(action, null, 2)}`);
+
+    // 检查是否有操作序列（批量操作）
+    if (action.sequence && Array.isArray(action.sequence)) {
+      await this.executeFurnaceActionSequence(action.sequence);
+    } else {
+      // 单动作执行
+      await this.executeSingleFurnaceAction(action);
+    }
+
+    // 更新熔炉状态
+    await this.updateFurnaceState();
+  }
+
+  /**
+   * 执行熔炉动作序列（批量操作）
+   */
+  private async executeFurnaceActionSequence(actions: any[]): Promise<void> {
+    if (!actions || actions.length === 0) {
+      this.logger.warn('⚠️ 熔炉动作序列为空');
+      return;
+    }
+
+    this.logger.info(`🔥 准备批量执行 ${actions.length} 个熔炉动作`);
 
     // 执行每个动作
     for (let i = 0; i < actions.length; i++) {
-      const action = actions[i];
+      const furnaceAction = actions[i];
 
-      this.logger.debug(`🔥 熔炉动作详情: ${JSON.stringify(action, null, 2)}`);
+      this.logger.debug(`🔥 熔炉动作 ${i + 1}/${actions.length} 详情: ${JSON.stringify(furnaceAction, null, 2)}`);
 
       // 验证动作格式
-      if (!this.validateFurnaceAction(action)) {
-        this.logger.warn(`⚠️ 熔炉动作 ${i + 1}/${actions.length}: 格式无效`);
+      if (!this.validateFurnaceAction(furnaceAction)) {
+        this.logger.warn(`⚠️ 熔炉动作 ${i + 1}/${actions.length}: 格式无效，跳过`);
         continue;
       }
 
-      this.logger.info(`🔥 执行熔炉动作 ${i + 1}/${actions.length}: ${action.action_type} ${action.item} x${action.count} @ ${action.slot}`);
+      this.logger.info(
+        `🔥 执行熔炉动作 ${i + 1}/${actions.length}: ${furnaceAction.action_type} ${furnaceAction.item} x${furnaceAction.count} @ ${furnaceAction.slot}`,
+      );
 
       // 执行动作
       try {
-        const result = await this.executeFurnaceAction(action as FurnaceAction);
+        const result = await this.executeFurnaceAction(furnaceAction as FurnaceAction);
 
         if (result.success) {
-          this.logger.info(`✅ 熔炉动作 ${i + 1}/${actions.length}: 成功 - ${result.message}`);
+          this.logger.info(`✅ 熔炉动作 ${i + 1}/${actions.length} 成功: ${result.message}`);
         } else {
-          this.logger.warn(`⚠️ 熔炉动作 ${i + 1}/${actions.length}: 失败 - ${result.message}`);
-          // 失败时停止后续动作
-          break;
+          this.logger.warn(`⚠️ 熔炉动作 ${i + 1}/${actions.length} 失败: ${result.message}`);
+          // 批量操作中，单个动作失败不终止整个序列
         }
 
         // 动作间隔（除了最后一个动作）
@@ -341,12 +365,34 @@ export class FurnaceMode extends BaseMode {
         }
       } catch (executeError) {
         this.logger.error(`❌ 熔炉动作 ${i + 1}/${actions.length} 执行异常:`, undefined, executeError as Error);
-        break;
       }
     }
+  }
 
-    // 更新熔炉状态
-    await this.updateFurnaceState();
+  /**
+   * 执行单个熔炉动作
+   */
+  private async executeSingleFurnaceAction(action: any): Promise<void> {
+    // 验证动作格式
+    if (!this.validateFurnaceAction(action)) {
+      this.logger.warn('⚠️ 熔炉动作格式无效');
+      return;
+    }
+
+    this.logger.info(`🔥 执行熔炉动作: ${action.action_type} ${action.item} x${action.count} @ ${action.slot}`);
+
+    // 执行动作
+    try {
+      const result = await this.executeFurnaceAction(action as FurnaceAction);
+
+      if (result.success) {
+        this.logger.info(`✅ 熔炉动作成功: ${result.message}`);
+      } else {
+        this.logger.warn(`⚠️ 熔炉动作失败: ${result.message}`);
+      }
+    } catch (executeError) {
+      this.logger.error('❌ 熔炉动作执行异常:', undefined, executeError as Error);
+    }
   }
 
   /**

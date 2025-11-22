@@ -141,10 +141,83 @@ export class DecisionMemory implements MemoryStore<DecisionEntry> {
     }
   }
 
+  /**
+   * 将旧格式的action转换为新格式
+   */
+  private convertOldActionFormat(oldAction: any): any {
+    if (!oldAction) return null;
+
+    // 如果已经是新格式（有actionType字段），直接返回
+    if (oldAction.actionType) {
+      return oldAction;
+    }
+
+    // 旧格式转换：提取actionType和清理params
+    let actionType = '';
+    let params = {};
+
+    if (oldAction.action) {
+      // 格式1: { action: "craft", intention: "...", params: {...} }
+      actionType = oldAction.action;
+      params = this.cleanOldParams(oldAction.params || {});
+    } else if (oldAction.action_type) {
+      // 格式2: { action_type: "craft", ...其他参数 }
+      actionType = oldAction.action_type;
+      params = this.cleanOldParams(oldAction);
+    }
+
+    return {
+      actionType,
+      params,
+    };
+  }
+
+  /**
+   * 清理旧格式的参数，移除元数据字段
+   */
+  private cleanOldParams(params: any): any {
+    const cleaned = { ...params };
+    delete cleaned.intention;
+    delete cleaned.action_type;
+    delete cleaned.action;
+    return cleaned;
+  }
+
   async load(): Promise<void> {
     try {
       const content = await fs.readFile(this.dataFile, 'utf-8');
-      this.entries = JSON.parse(content);
+      const rawEntries = JSON.parse(content);
+
+      // 向后兼容：将旧格式转换为新的action对象
+      this.entries = rawEntries.map((entry: any) => {
+        if (entry.actions && Array.isArray(entry.actions) && entry.actions.length > 0) {
+          // 旧格式：actions数组转换为action对象
+          const firstAction = entry.actions[0];
+          return {
+            ...entry,
+            action: this.convertOldActionFormat(firstAction),
+            // 保留actions字段以防需要回滚
+            actions: entry.actions,
+          };
+        } else if (entry.action) {
+          // 检查是否是旧的action格式
+          if ((entry.action as any).action || (entry.action as any).intention || (entry.action as any).action_type) {
+            return {
+              ...entry,
+              action: this.convertOldActionFormat(entry.action),
+            };
+          } else {
+            // 新格式：直接使用
+            return entry;
+          }
+        } else {
+          // 无动作数据的情况
+          return {
+            ...entry,
+            action: null,
+          };
+        }
+      });
     } catch (error) {
       // 文件不存在或读取失败，使用空数组
       this.entries = [];

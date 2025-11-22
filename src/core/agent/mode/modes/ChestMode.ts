@@ -205,7 +205,7 @@ export class ChestMode extends BaseMode {
         this.cleanupWindow();
       }
     } catch (error) {
-      this.logger.warn('⚠️ 箱子状态初始化异常，将在执行时重试:', error);
+      this.logger.warn('⚠️ 箱子状态初始化异常，将在执行时重试', { error: error as Error });
       // 初始化失败不应该阻止模式激活，稍后会重试
       this.chestInventory = {};
       this.initialChestInventory = {};
@@ -235,7 +235,7 @@ export class ChestMode extends BaseMode {
         this.logger.warn('⚠️ 箱子状态更新失败，使用缓存状态');
       }
     } catch (error) {
-      this.logger.warn('⚠️ 箱子状态更新异常，使用缓存状态:', error);
+      this.logger.warn('⚠️ 箱子状态更新异常，使用缓存状态', { error: error as Error });
     }
   }
 
@@ -292,7 +292,7 @@ export class ChestMode extends BaseMode {
       return;
     }
 
-    this.logger.info(`📦 [ChestMode] 箱子LLM响应完成，返回 ${structuredResponse.actions?.length || 0} 个动作`);
+    this.logger.info(`📦 [ChestMode] 箱子LLM响应完成`);
 
     // 记录思考过程
     if (structuredResponse.thinking && this.state.memory) {
@@ -300,9 +300,9 @@ export class ChestMode extends BaseMode {
     }
 
     // 执行结构化的箱子动作
-    this.logger.info('📦 [ChestMode] 开始执行箱子动作列表...');
-    await this.executeStructuredChestActions(structuredResponse.actions);
-    this.logger.info('📦 [ChestMode] 箱子动作列表执行完成');
+    this.logger.info('📦 [ChestMode] 开始执行箱子动作...');
+    await this.executeStructuredChestAction(structuredResponse.action);
+    this.logger.info('📦 [ChestMode] 箱子动作执行完成');
 
     // 🔧 不再自动退出模式，由 MainMode.handleGUIAction 负责切换回主模式
     this.logger.info('📦 [ChestMode] 箱子操作完成');
@@ -324,40 +324,62 @@ export class ChestMode extends BaseMode {
   }
 
   /**
-   * 执行结构化的箱子动作列表
+   * 执行结构化的箱子动作（智能判断单动作或批量操作）
    */
-  private async executeStructuredChestActions(actions: any[]): Promise<void> {
-    if (!actions || actions.length === 0) {
-      this.logger.info('📦 箱子动作列表为空，无需执行任何操作');
+  private async executeStructuredChestAction(action: any): Promise<void> {
+    if (!action) {
+      this.logger.info('📦 箱子动作为空，无需执行任何操作');
       return;
     }
 
-    this.logger.info(`📦 准备执行 ${actions.length} 个箱子动作`);
+    this.logger.debug(`📦 箱子动作详情: ${JSON.stringify(action, null, 2)}`);
+
+    // 检查是否有操作序列（批量操作）
+    if (action.sequence && Array.isArray(action.sequence)) {
+      await this.executeChestActionSequence(action.sequence);
+    } else {
+      // 单动作执行
+      await this.executeSingleChestAction(action);
+    }
+
+    // 更新箱子状态
+    await this.updateChestState();
+  }
+
+  /**
+   * 执行箱子动作序列（批量操作）
+   */
+  private async executeChestActionSequence(actions: any[]): Promise<void> {
+    if (!actions || actions.length === 0) {
+      this.logger.info('📦 箱子动作序列为空，无需执行任何操作');
+      return;
+    }
+
+    this.logger.info(`📦 准备批量执行 ${actions.length} 个箱子动作`);
 
     // 执行每个动作
     for (let i = 0; i < actions.length; i++) {
-      const action = actions[i];
+      const chestAction = actions[i];
 
-      this.logger.debug(`📦 箱子动作详情: ${JSON.stringify(action, null, 2)}`);
+      this.logger.debug(`📦 箱子动作 ${i + 1}/${actions.length} 详情: ${JSON.stringify(chestAction, null, 2)}`);
 
       // 验证动作格式
-      if (!this.validateChestAction(action)) {
-        this.logger.warn(`⚠️ 箱子动作 ${i + 1}/${actions.length}: 格式无效`);
+      if (!this.validateChestAction(chestAction)) {
+        this.logger.warn(`⚠️ 箱子动作 ${i + 1}/${actions.length}: 格式无效，跳过`);
         continue;
       }
 
-      this.logger.info(`📦 执行箱子动作 ${i + 1}/${actions.length}: ${action.action_type} ${action.item} x${action.count}`);
+      this.logger.info(`📦 执行箱子动作 ${i + 1}/${actions.length}: ${chestAction.action_type} ${chestAction.item} x${chestAction.count}`);
 
       // 执行动作
       try {
-        const result = await this.executeChestAction(action as ChestAction);
+        const result = await this.executeChestAction(chestAction as ChestAction);
 
         if (result.success) {
-          this.logger.info(`✅ 箱子动作 ${i + 1}/${actions.length}: 成功 - ${result.message}`);
+          this.logger.info(`✅ 箱子动作 ${i + 1}/${actions.length} 成功: ${result.message}`);
         } else {
-          this.logger.warn(`⚠️ 箱子动作 ${i + 1}/${actions.length}: 失败 - ${result.message}`);
-          // 失败时停止后续动作
-          break;
+          this.logger.warn(`⚠️ 箱子动作 ${i + 1}/${actions.length} 失败: ${result.message}`);
+          // 批量操作中，单个动作失败不终止整个序列
         }
 
         // 动作间隔（除了最后一个动作）
@@ -366,12 +388,34 @@ export class ChestMode extends BaseMode {
         }
       } catch (executeError) {
         this.logger.error(`❌ 箱子动作 ${i + 1}/${actions.length} 执行异常:`, undefined, executeError as Error);
-        break;
       }
     }
+  }
 
-    // 更新箱子状态
-    await this.updateChestState();
+  /**
+   * 执行单个箱子动作
+   */
+  private async executeSingleChestAction(action: any): Promise<void> {
+    // 验证动作格式
+    if (!this.validateChestAction(action)) {
+      this.logger.warn('⚠️ 箱子动作格式无效');
+      return;
+    }
+
+    this.logger.info(`📦 执行箱子动作: ${action.action_type} ${action.item} x${action.count}`);
+
+    // 执行动作
+    try {
+      const result = await this.executeChestAction(action as ChestAction);
+
+      if (result.success) {
+        this.logger.info(`✅ 箱子动作成功: ${result.message}`);
+      } else {
+        this.logger.warn(`⚠️ 箱子动作失败: ${result.message}`);
+      }
+    } catch (executeError) {
+      this.logger.error('❌ 箱子动作执行异常:', undefined, executeError as Error);
+    }
   }
 
   /**

@@ -11,19 +11,22 @@ import { ActionIds } from '@/core/actions/ActionIds';
 export interface StructuredAction {
   intention: string; // 动作意图描述
   action_type: string; // 动作类型
+  sequence?: StructuredAction[]; // 操作序列（可选，用于批量操作）
   [key: string]: any; // 其他参数
 }
 
 /**
  * LLM 响应结构
+ *
+ * 统一响应格式，所有模式都使用相同的接口
+ * 执行策略由模式管理器根据当前模式决定
  */
 export interface StructuredLLMResponse {
   thinking?: string; // 思考过程（可选）
-  actions: StructuredAction[]; // 动作列表
+  action: StructuredAction; // 动作内容（可能是单动作或包含序列）
 }
 
-// ===== 导出所有结构化响应类型 =====
-export type { ExperienceSummaryResponse, ExperienceLesson, PlanGenerationResponse, PlanTaskDefinition, TaskEvaluationResponse };
+// ===== 结构化响应类型已在上面定义 =====
 
 /**
  * 完整的动作 JSON Schema
@@ -34,229 +37,225 @@ export const ACTION_RESPONSE_SCHEMA = {
   properties: {
     thinking: {
       type: 'string',
-      description: '你的思考过程和决策理由，简短说明为什么执行这些动作',
+      description: '你的思考过程和决策理由，简短说明为什么执行这个动作',
     },
-    actions: {
-      type: 'array',
-      description: '要执行的动作列表，按顺序执行',
-      items: {
-        type: 'object',
-        properties: {
-          intention: {
-            type: 'string',
-            description: '这个动作的意图，用一句话说明目的，例如"前往村庄寻找村民"',
-          },
-          action_type: {
-            type: 'string',
-            description: '动作类型',
-            enum: [
-              ActionIds.MOVE,
-              ActionIds.FIND_BLOCK,
-              ActionIds.MINE_AT_POSITION,
-              ActionIds.MINE_BY_TYPE,
-              ActionIds.MINE_IN_DIRECTION,
-              ActionIds.PLACE_BLOCK,
-              ActionIds.CRAFT,
-              ActionIds.USE_CHEST,
-              ActionIds.USE_FURNACE,
-              ActionIds.EAT,
-              ActionIds.TOSS_ITEM,
-              ActionIds.KILL_MOB,
-              ActionIds.SET_LOCATION,
-              ActionIds.CHAT,
-              ActionIds.SWIM_TO_LAND,
-            ],
-          },
+    action: {
+      type: 'object',
+      description: '要执行的单个动作',
+      properties: {
+        intention: {
+          type: 'string',
+          description: '这个动作的意图，用一句话说明目的，例如"前往村庄寻找村民"',
         },
-        required: ['intention', 'action_type'],
-        // 使用 oneOf 来定义不同动作类型的具体参数
-        oneOf: [
-          // Move
-          {
-            properties: {
-              action_type: { const: ActionIds.MOVE },
-              x: { type: 'number', description: 'X坐标' },
-              y: { type: 'number', description: 'Y坐标' },
-              z: { type: 'number', description: 'Z坐标' },
-              timeout: { type: 'number', description: '超时时间（秒）', default: 60 },
-            },
-            required: ['action_type', 'x', 'y', 'z'],
-          },
-          // FindBlock
-          {
-            properties: {
-              action_type: { const: ActionIds.FIND_BLOCK },
-              block: { type: 'string', description: '要寻找的方块名称' },
-              radius: { type: 'number', description: '搜索半径', default: 16 },
-              count: { type: 'number', description: '寻找数量', default: 1 },
-            },
-            required: ['action_type', 'block'],
-          },
-          // MineAtPosition
-          {
-            properties: {
-              action_type: { const: ActionIds.MINE_AT_POSITION },
-              x: { type: 'number', description: '目标X坐标' },
-              y: { type: 'number', description: '目标Y坐标' },
-              z: { type: 'number', description: '目标Z坐标' },
-              count: { type: 'number', description: '挖掘数量', default: 1 },
-              force: { type: 'boolean', description: '强制挖掘，绕过安全检查', default: false },
-              collect: { type: 'boolean', description: '是否收集掉落物', default: true },
-            },
-            required: ['action_type', 'x', 'y', 'z'],
-          },
-          // MineByType
-          {
-            properties: {
-              action_type: { const: ActionIds.MINE_BY_TYPE },
-              blockType: { type: 'string', description: '方块类型名称' },
-              count: { type: 'number', description: '挖掘数量', default: 1 },
-              radius: { type: 'number', description: '搜索半径', default: 32 },
-              direction: { type: 'string', description: '挖掘方向', enum: ['+x', '-x', '+y', '-y', '+z', '-z'] },
-              force: { type: 'boolean', description: '强制挖掘，绕过安全检查', default: false },
-              collect: { type: 'boolean', description: '是否收集掉落物', default: true },
-            },
-            required: ['action_type', 'blockType'],
-          },
-          // MineInDirection
-          {
-            properties: {
-              action_type: { const: ActionIds.MINE_IN_DIRECTION },
-              direction: {
-                type: 'string',
-                enum: ['+x', '-x', '+y', '-y', '+z', '-z'],
-                description: '挖掘方向',
-              },
-              count: { type: 'number', description: '挖掘数量', default: 10 },
-              force: { type: 'boolean', description: '强制挖掘，绕过安全检查', default: false },
-              collect: { type: 'boolean', description: '是否收集掉落物', default: true },
-            },
-            required: ['action_type', 'direction'],
-          },
-          // PlaceBlock
-          {
-            properties: {
-              action_type: { const: ActionIds.PLACE_BLOCK },
-              block: { type: 'string', description: '要放置的方块名称' },
-              x: { type: 'number', description: 'X坐标' },
-              y: { type: 'number', description: 'Y坐标' },
-              z: { type: 'number', description: 'Z坐标' },
-            },
-            required: ['action_type', 'block', 'x', 'y', 'z'],
-          },
-          // Craft
-          {
-            properties: {
-              action_type: { const: ActionIds.CRAFT },
-              item: { type: 'string', description: '要合成的物品名称' },
-              count: { type: 'number', description: '合成数量', default: 1 },
-            },
-            required: ['action_type', 'item'],
-          },
-          // UseChest
-          {
-            properties: {
-              action_type: { const: ActionIds.USE_CHEST },
-              position: {
-                type: 'object',
-                properties: {
-                  x: { type: 'number' },
-                  y: { type: 'number' },
-                  z: { type: 'number' },
-                },
-                required: ['x', 'y', 'z'],
-                description: '箱子位置',
-              },
-            },
-            required: ['action_type', 'position'],
-          },
-          // UseFurnace
-          {
-            properties: {
-              action_type: { const: ActionIds.USE_FURNACE },
-              position: {
-                type: 'object',
-                properties: {
-                  x: { type: 'number' },
-                  y: { type: 'number' },
-                  z: { type: 'number' },
-                },
-                required: ['x', 'y', 'z'],
-                description: '熔炉位置',
-              },
-            },
-            required: ['action_type', 'position'],
-          },
-          // Eat
-          {
-            properties: {
-              action_type: { const: ActionIds.EAT },
-              item: { type: 'string', description: '要食用的物品名称' },
-            },
-            required: ['action_type', 'item'],
-          },
-          // TossItem
-          {
-            properties: {
-              action_type: { const: ActionIds.TOSS_ITEM },
-              item: { type: 'string', description: '要丢弃的物品名称' },
-              count: { type: 'number', description: '丢弃数量' },
-            },
-            required: ['action_type', 'item', 'count'],
-          },
-          // KillMob
-          {
-            properties: {
-              action_type: { const: ActionIds.KILL_MOB },
-              entity: { type: 'string', description: '要击杀的实体名称' },
-              timeout: { type: 'number', description: '超时时间（秒）', default: 30 },
-            },
-            required: ['action_type', 'entity'],
-          },
-          // SetLocation
-          {
-            properties: {
-              action_type: { const: ActionIds.SET_LOCATION },
-              type: {
-                type: 'string',
-                enum: ['set', 'delete', 'update'],
-                description: '地标操作类型',
-              },
-              name: { type: 'string', description: '地标名称' },
-              info: { type: 'string', description: '地标描述信息' },
-              position: {
-                type: 'object',
-                properties: {
-                  x: { type: 'number' },
-                  y: { type: 'number' },
-                  z: { type: 'number' },
-                },
-                description: '地标位置',
-              },
-            },
-            required: ['action_type', 'type', 'name'],
-          },
-          // Chat
-          {
-            properties: {
-              action_type: { const: ActionIds.CHAT },
-              message: { type: 'string', description: '要发送的聊天消息' },
-            },
-            required: ['action_type', 'message'],
-          },
-          // SwimToLand
-          {
-            properties: {
-              action_type: { const: ActionIds.SWIM_TO_LAND },
-            },
-            required: ['action_type'],
-          },
-        ],
+        action_type: {
+          type: 'string',
+          description: '动作类型',
+          enum: [
+            ActionIds.MOVE,
+            ActionIds.FIND_BLOCK,
+            ActionIds.MINE_AT_POSITION,
+            ActionIds.MINE_BY_TYPE,
+            ActionIds.MINE_IN_DIRECTION,
+            ActionIds.PLACE_BLOCK,
+            ActionIds.CRAFT,
+            ActionIds.USE_CHEST,
+            ActionIds.USE_FURNACE,
+            ActionIds.EAT,
+            ActionIds.TOSS_ITEM,
+            ActionIds.KILL_MOB,
+            ActionIds.SET_LOCATION,
+            ActionIds.CHAT,
+            ActionIds.SWIM_TO_LAND,
+          ],
+        },
       },
-      minItems: 1,
+      required: ['intention', 'action_type'],
+      // 使用 oneOf 来定义不同动作类型的具体参数
+      oneOf: [
+        // Move
+        {
+          properties: {
+            action_type: { const: ActionIds.MOVE },
+            x: { type: 'number', description: 'X坐标' },
+            y: { type: 'number', description: 'Y坐标' },
+            z: { type: 'number', description: 'Z坐标' },
+            timeout: { type: 'number', description: '超时时间（秒）', default: 60 },
+          },
+          required: ['action_type', 'x', 'y', 'z'],
+        },
+        // FindBlock
+        {
+          properties: {
+            action_type: { const: ActionIds.FIND_BLOCK },
+            block: { type: 'string', description: '要寻找的方块名称' },
+            radius: { type: 'number', description: '搜索半径', default: 16 },
+            count: { type: 'number', description: '寻找数量', default: 1 },
+          },
+          required: ['action_type', 'block'],
+        },
+        // MineAtPosition
+        {
+          properties: {
+            action_type: { const: ActionIds.MINE_AT_POSITION },
+            x: { type: 'number', description: '目标X坐标' },
+            y: { type: 'number', description: '目标Y坐标' },
+            z: { type: 'number', description: '目标Z坐标' },
+            count: { type: 'number', description: '挖掘数量', default: 1 },
+            force: { type: 'boolean', description: '强制挖掘，绕过安全检查', default: false },
+            collect: { type: 'boolean', description: '是否收集掉落物', default: true },
+          },
+          required: ['action_type', 'x', 'y', 'z'],
+        },
+        // MineByType
+        {
+          properties: {
+            action_type: { const: ActionIds.MINE_BY_TYPE },
+            blockType: { type: 'string', description: '方块类型名称' },
+            count: { type: 'number', description: '挖掘数量', default: 1 },
+            radius: { type: 'number', description: '搜索半径', default: 32 },
+            direction: { type: 'string', description: '挖掘方向', enum: ['+x', '-x', '+y', '-y', '+z', '-z'] },
+            force: { type: 'boolean', description: '强制挖掘，绕过安全检查', default: false },
+            collect: { type: 'boolean', description: '是否收集掉落物', default: true },
+          },
+          required: ['action_type', 'blockType'],
+        },
+        // MineInDirection
+        {
+          properties: {
+            action_type: { const: ActionIds.MINE_IN_DIRECTION },
+            direction: {
+              type: 'string',
+              enum: ['+x', '-x', '+y', '-y', '+z', '-z'],
+              description: '挖掘方向',
+            },
+            count: { type: 'number', description: '挖掘数量', default: 10 },
+            force: { type: 'boolean', description: '强制挖掘，绕过安全检查', default: false },
+            collect: { type: 'boolean', description: '是否收集掉落物', default: true },
+          },
+          required: ['action_type', 'direction'],
+        },
+        // PlaceBlock
+        {
+          properties: {
+            action_type: { const: ActionIds.PLACE_BLOCK },
+            block: { type: 'string', description: '要放置的方块名称' },
+            x: { type: 'number', description: 'X坐标' },
+            y: { type: 'number', description: 'Y坐标' },
+            z: { type: 'number', description: 'Z坐标' },
+          },
+          required: ['action_type', 'block', 'x', 'y', 'z'],
+        },
+        // Craft
+        {
+          properties: {
+            action_type: { const: ActionIds.CRAFT },
+            item: { type: 'string', description: '要合成的物品名称' },
+            count: { type: 'number', description: '合成数量', default: 1 },
+          },
+          required: ['action_type', 'item'],
+        },
+        // UseChest
+        {
+          properties: {
+            action_type: { const: ActionIds.USE_CHEST },
+            position: {
+              type: 'object',
+              properties: {
+                x: { type: 'number' },
+                y: { type: 'number' },
+                z: { type: 'number' },
+              },
+              required: ['x', 'y', 'z'],
+              description: '箱子位置',
+            },
+          },
+          required: ['action_type', 'position'],
+        },
+        // UseFurnace
+        {
+          properties: {
+            action_type: { const: ActionIds.USE_FURNACE },
+            position: {
+              type: 'object',
+              properties: {
+                x: { type: 'number' },
+                y: { type: 'number' },
+                z: { type: 'number' },
+              },
+              required: ['x', 'y', 'z'],
+              description: '熔炉位置',
+            },
+          },
+          required: ['action_type', 'position'],
+        },
+        // Eat
+        {
+          properties: {
+            action_type: { const: ActionIds.EAT },
+            item: { type: 'string', description: '要食用的物品名称' },
+          },
+          required: ['action_type', 'item'],
+        },
+        // TossItem
+        {
+          properties: {
+            action_type: { const: ActionIds.TOSS_ITEM },
+            item: { type: 'string', description: '要丢弃的物品名称' },
+            count: { type: 'number', description: '丢弃数量' },
+          },
+          required: ['action_type', 'item', 'count'],
+        },
+        // KillMob
+        {
+          properties: {
+            action_type: { const: ActionIds.KILL_MOB },
+            entity: { type: 'string', description: '要击杀的实体名称' },
+            timeout: { type: 'number', description: '超时时间（秒）', default: 30 },
+          },
+          required: ['action_type', 'entity'],
+        },
+        // SetLocation
+        {
+          properties: {
+            action_type: { const: ActionIds.SET_LOCATION },
+            type: {
+              type: 'string',
+              enum: ['set', 'delete', 'update'],
+              description: '地标操作类型',
+            },
+            name: { type: 'string', description: '地标名称' },
+            info: { type: 'string', description: '地标描述信息' },
+            position: {
+              type: 'object',
+              properties: {
+                x: { type: 'number' },
+                y: { type: 'number' },
+                z: { type: 'number' },
+              },
+              description: '地标位置',
+            },
+          },
+          required: ['action_type', 'type', 'name'],
+        },
+        // Chat
+        {
+          properties: {
+            action_type: { const: ActionIds.CHAT },
+            message: { type: 'string', description: '要发送的聊天消息' },
+          },
+          required: ['action_type', 'message'],
+        },
+        // SwimToLand
+        {
+          properties: {
+            action_type: { const: ActionIds.SWIM_TO_LAND },
+          },
+          required: ['action_type'],
+        },
+      ],
     },
   },
-  required: ['actions'],
+  required: ['action'],
   additionalProperties: false,
 };
 
@@ -270,33 +269,68 @@ export const CHEST_OPERATION_SCHEMA = {
       type: 'string',
       description: '你的思考过程，说明为什么这样操作箱子',
     },
-    actions: {
-      type: 'array',
-      description: '要执行的箱子操作列表',
-      items: {
-        type: 'object',
-        properties: {
-          action_type: {
-            type: 'string',
-            enum: ['take_items', 'put_items'],
-            description: '操作类型：取出或放入',
-          },
-          item: {
-            type: 'string',
-            description: '物品名称',
-          },
-          count: {
-            type: 'number',
-            description: '物品数量',
-            minimum: 1,
+    action: {
+      type: 'object',
+      description: '要执行的箱子操作（支持单个操作或操作序列）',
+      properties: {
+        intention: {
+          type: 'string',
+          description: '操作意图',
+        },
+        action_type: {
+          type: 'string',
+          enum: ['take_items', 'put_items'],
+          description: '操作类型：取出或放入',
+        },
+        item: {
+          type: 'string',
+          description: '物品名称',
+        },
+        count: {
+          type: 'number',
+          description: '物品数量',
+          minimum: 1,
+        },
+        sequence: {
+          type: 'array',
+          description: '操作序列（可选，用于批量操作）',
+          items: {
+            type: 'object',
+            properties: {
+              action_type: {
+                type: 'string',
+                enum: ['take_items', 'put_items'],
+                description: '操作类型：取出或放入',
+              },
+              item: {
+                type: 'string',
+                description: '物品名称',
+              },
+              count: {
+                type: 'number',
+                description: '物品数量',
+                minimum: 1,
+              },
+            },
+            required: ['action_type', 'item', 'count'],
           },
         },
-        required: ['action_type', 'item', 'count'],
       },
-      minItems: 1,
+      required: ['intention'],
+      // 可以有sequence（批量）或单个操作字段
+      oneOf: [
+        {
+          // 单个操作模式
+          required: ['action_type', 'item', 'count'],
+        },
+        {
+          // 批量操作模式
+          required: ['sequence'],
+        },
+      ],
     },
   },
-  required: ['actions'],
+  required: ['action'],
 };
 
 /**
@@ -309,38 +343,78 @@ export const FURNACE_OPERATION_SCHEMA = {
       type: 'string',
       description: '你的思考过程，说明为什么这样操作熔炉',
     },
-    actions: {
-      type: 'array',
-      description: '要执行的熔炉操作列表',
-      items: {
-        type: 'object',
-        properties: {
-          action_type: {
-            type: 'string',
-            enum: ['take_items', 'put_items'],
-            description: '操作类型：取出或放入',
-          },
-          slot: {
-            type: 'string',
-            enum: ['input', 'fuel', 'output'],
-            description: '槽位：input(输入)、fuel(燃料)、output(输出)',
-          },
-          item: {
-            type: 'string',
-            description: '物品名称',
-          },
-          count: {
-            type: 'number',
-            description: '物品数量',
-            minimum: 1,
+    action: {
+      type: 'object',
+      description: '要执行的熔炉操作（支持单个操作或操作序列）',
+      properties: {
+        intention: {
+          type: 'string',
+          description: '操作意图',
+        },
+        action_type: {
+          type: 'string',
+          enum: ['take_items', 'put_items'],
+          description: '操作类型：取出或放入',
+        },
+        slot: {
+          type: 'string',
+          enum: ['input', 'fuel', 'output'],
+          description: '槽位：input(输入)、fuel(燃料)、output(输出)',
+        },
+        item: {
+          type: 'string',
+          description: '物品名称',
+        },
+        count: {
+          type: 'number',
+          description: '物品数量',
+          minimum: 1,
+        },
+        sequence: {
+          type: 'array',
+          description: '操作序列（可选，用于批量操作）',
+          items: {
+            type: 'object',
+            properties: {
+              action_type: {
+                type: 'string',
+                enum: ['take_items', 'put_items'],
+                description: '操作类型：取出或放入',
+              },
+              slot: {
+                type: 'string',
+                enum: ['input', 'fuel', 'output'],
+                description: '槽位：input(输入)、fuel(燃料)、output(输出)',
+              },
+              item: {
+                type: 'string',
+                description: '物品名称',
+              },
+              count: {
+                type: 'number',
+                description: '物品数量',
+                minimum: 1,
+              },
+            },
+            required: ['action_type', 'slot', 'item', 'count'],
           },
         },
-        required: ['action_type', 'slot', 'item', 'count'],
       },
-      minItems: 1,
+      required: ['intention'],
+      // 可以有sequence（批量）或单个操作字段
+      oneOf: [
+        {
+          // 单个操作模式
+          required: ['action_type', 'slot', 'item', 'count'],
+        },
+        {
+          // 批量操作模式
+          required: ['sequence'],
+        },
+      ],
     },
   },
-  required: ['actions'],
+  required: ['action'],
 };
 
 /**

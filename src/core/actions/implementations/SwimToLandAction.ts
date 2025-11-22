@@ -103,6 +103,11 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
   shouldActivate(context: RuntimeContext): boolean {
     const { gameState, bot } = context;
 
+    // 安全检查：确保bot和position存在
+    if (!bot?.entity?.position) {
+      return false;
+    }
+
     // 氧气不足时激活
     if (gameState.oxygenLevel < 20) {
       return true;

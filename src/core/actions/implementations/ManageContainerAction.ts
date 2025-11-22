@@ -16,6 +16,10 @@ export class ManageContainerAction extends BaseAction<any> {
   readonly name = 'ManageContainerAction';
   readonly description = '管理容器内容，执行单个物品的存取操作';
 
+  shouldActivate(context: RuntimeContext): boolean {
+    return false;
+  }
+
   async execute(context: RuntimeContext, params: ManageContainerParams): Promise<ActionResult> {
     try {
       const { position, action, item, count, slot } = params;

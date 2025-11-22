@@ -123,11 +123,11 @@ export class MemoryManager {
   /**
    * 记录决策
    */
-  recordDecision(intention: string, actions: any[], result: 'success' | 'failed' | 'interrupted', feedback?: string): void {
+  recordDecision(intention: string, action: any, result: 'success' | 'failed' | 'interrupted', feedback?: string): void {
     const entry = {
       id: this.generateId(),
       intention,
-      actions,
+      action,
       result,
       feedback,
       timestamp: Date.now(),
@@ -360,7 +360,79 @@ export class MemoryManager {
 
   private formatDecision(d: DecisionEntry): string {
     const icon = d.result === 'success' ? '✅' : d.result === 'failed' ? '❌' : '⚠️';
-    return `${this.formatTime(d.timestamp)} ${icon} ${d.intention}${d.feedback ? `(${d.feedback})` : ''}`;
+
+    // 提取动作信息
+    let actionInfo = '';
+    if (d.action) {
+      const actionType = (d.action as any).actionType;
+      const params = (d.action as any).params;
+
+      if (actionType) {
+        actionInfo = `[${actionType}${this.formatActionParams(actionType, params)}]`;
+      }
+    }
+
+    // 格式：时间 图标 [动作名(参数)] 意图(反馈)
+    const feedback = d.feedback ? `(${d.feedback})` : '';
+    return `${this.formatTime(d.timestamp)} ${icon} ${actionInfo} ${d.intention}${feedback}`;
+  }
+
+  /**
+   * 格式化动作参数，保持简洁可读
+   */
+  private formatActionParams(actionType: string, params: any): string {
+    if (!params) return '';
+
+    switch (actionType) {
+      case 'move':
+        return params.x && params.y && params.z ? `(${params.x.toFixed(0)},${params.y.toFixed(0)},${params.z.toFixed(0)})` : '';
+
+      case 'find_block':
+        return params.block ? `(${params.block})` : '';
+
+      case 'mine_at_position':
+      case 'mine_block':
+        return params.x && params.y && params.z ? `(${params.x.toFixed(0)},${params.y.toFixed(0)},${params.z.toFixed(0)})` : '';
+
+      case 'mine_by_type':
+        return params.blockType ? `(${params.blockType})` : '';
+
+      case 'mine_in_direction':
+        return params.direction ? `(${params.direction})` : '';
+
+      case 'place_block':
+        return params.block && params.x && params.y && params.z
+          ? `(${params.block}→${params.x.toFixed(0)},${params.y.toFixed(0)},${params.z.toFixed(0)})`
+          : '';
+
+      case 'craft':
+        return params.item && params.count ? `(${params.item}×${params.count})` : params.item ? `(${params.item})` : '';
+
+      case 'use_chest':
+      case 'use_furnace':
+        return params.position ? `(x${params.position.x},y${params.position.y},z${params.position.z})` : '';
+
+      case 'eat':
+        return params.item ? `(${params.item})` : '';
+
+      case 'toss_item':
+        return params.item && params.count ? `(${params.item}×${params.count})` : '';
+
+      case 'kill_mob':
+        return params.entity ? `(${params.entity})` : '';
+
+      case 'set_location':
+        return params.name && params.type ? `(${params.type}:${params.name})` : '';
+
+      case 'chat':
+        return params.message ? `("${params.message.substring(0, 20)}${params.message.length > 20 ? '...' : ''}")` : '';
+
+      case 'swim_to_land':
+        return '';
+
+      default:
+        return '';
+    }
   }
 
   private formatExperience(e: ExperienceEntry): string {

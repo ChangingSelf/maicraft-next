@@ -23,15 +23,44 @@ const furnaceOperationTemplateContent = `你是{bot_name}，游戏名叫{player_
 请根据上面的思考记录和当前目标，决定存取哪些物品。
 
 # 可执行的操作
-1. **take_items** - 从槽位中取出物品
-   \`\`\`json
-   {{"action_type": "take_items", "slot": "input/fuel/output", "item": "物品名称", "count": 数量}
-   \`\`\`
 
-2. **put_items** - 将物品放入槽位
-   \`\`\`json
-   {{"action_type": "put_items", "slot": "input/fuel/output", "item": "物品名称", "count": 数量}
-   \`\`\`
+你可以返回单个操作或多个操作的序列：
+
+## 单个操作
+\`\`\`json
+{
+  "action_type": "take_items",
+  "slot": "output",
+  "item": "iron_ingot",
+  "count": 16
+}
+\`\`\`
+
+## 批量操作（推荐用于完整熔炼工作流）
+\`\`\`json
+{
+  "sequence": [
+    {
+      "action_type": "put_items",
+      "slot": "fuel",
+      "item": "coal",
+      "count": 8
+    },
+    {
+      "action_type": "put_items",
+      "slot": "input",
+      "item": "iron_ore",
+      "count": 16
+    },
+    {
+      "action_type": "take_items",
+      "slot": "output",
+      "item": "iron_ingot",
+      "count": 16
+    }
+  ]
+}
+\`\`\`
 
 # 重要注意事项
 1. **input槽**：只能放入可以熔炼的物品（如矿石、原材料等）
@@ -47,37 +76,54 @@ const furnaceOperationTemplateContent = `你是{bot_name}，游戏名叫{player_
 - 优先取出output槽的成品
 - 及时补充input槽的原料
 - 确保fuel槽有足够燃料
-- 可以一次输出多个操作，系统会依次执行
+- 每次只输出一个操作，执行完成后会重新决策
 
 # 输出格式要求
 你必须以结构化JSON格式返回，包含：
 1. **thinking** (可选): 简短说明你的操作思路
-2. **actions** (必需): 操作列表
+2. **action** (必需): 操作内容
 
 # 输出示例
+
+## 单个操作
 \`\`\`json
 {{
-  "thinking": "取出已熔炼的铁锭，补充煤炭和铁矿石继续冶炼",
-  "actions": [
-    {{
-      "action_type": "take_items",
-      "slot": "output",
-      "item": "iron_ingot",
-      "count": 16
-    }},
-    {{
-      "action_type": "put_items",
-      "slot": "fuel",
-      "item": "coal",
-      "count": 8
-    }},
-    {{
-      "action_type": "put_items",
-      "slot": "input",
-      "item": "iron_ore",
-      "count": 16
-    }}
-  ]
+  "thinking": "取出已熔炼的铁锭",
+  "action": {{
+    "action_type": "take_items",
+    "slot": "output",
+    "item": "iron_ingot",
+    "count": 16
+  }}
+}}
+\`\`\`
+
+## 批量操作（推荐用于完整熔炼工作流）
+\`\`\`json
+{{
+  "thinking": "准备并启动铁矿石熔炼：补充燃料、添加原料、取出产物",
+  "action": {{
+    "sequence": [
+      {{
+        "action_type": "put_items",
+        "slot": "fuel",
+        "item": "coal",
+        "count": 8
+      }},
+      {{
+        "action_type": "put_items",
+        "slot": "input",
+        "item": "iron_ore",
+        "count": 16
+      }},
+      {{
+        "action_type": "take_items",
+        "slot": "output",
+        "item": "iron_ingot",
+        "count": 16
+      }}
+    ]
+  }}
 }}
 \`\`\`
 

@@ -750,7 +750,9 @@ export class StructuredOutputManager {
   }
 
   /**
-   * 降级方案：从文本中提取thinking和多个action JSON
+   * 降级方案：从文本中提取thinking和动作
+   *
+   * 智能判断返回单动作还是多动作格式
    */
   private extractThinkingAndActions(text: string): StructuredLLMResponse | null {
     const actions: StructuredAction[] = [];
@@ -781,7 +783,23 @@ export class StructuredOutputManager {
       return null;
     }
 
+    // 根据上下文判断返回格式
+    // 如果只有一个动作且上下文看起来像主决策，则返回单动作格式
+    if (actions.length === 1 && this.looksLikeMainDecision(text)) {
+      return { thinking, action: actions[0] };
+    }
+
+    // 否则返回多动作格式（箱子/熔炉操作）
     return { thinking, actions };
+  }
+
+  /**
+   * 判断文本是否看起来像主决策模式
+   */
+  private looksLikeMainDecision(text: string): boolean {
+    // 主决策通常不包含"箱子"、"熔炉"等关键词
+    const containerKeywords = ['箱子', 'chest', '熔炉', 'furnace', 'container'];
+    return !containerKeywords.some(keyword => text.toLowerCase().includes(keyword.toLowerCase()));
   }
 
   /**
@@ -819,13 +837,17 @@ export class StructuredOutputManager {
 
   /**
    * 检查是否是有效的结构化响应
+   *
+   * 统一单动作模式：检查单个action对象
    */
   private isValidStructuredResponse(obj: any): boolean {
-    return obj && typeof obj === 'object' && Array.isArray(obj.actions) && obj.actions.length > 0;
+    return obj && typeof obj === 'object' && obj.action && typeof obj.action === 'object';
   }
 
   /**
    * 验证响应格式
+   *
+   * 统一单动作模式：验证单个action对象
    */
   private validateResponse(response: any): StructuredLLMResponse | null {
     if (!response || typeof response !== 'object') {
@@ -833,30 +855,18 @@ export class StructuredOutputManager {
       return null;
     }
 
-    if (!Array.isArray(response.actions)) {
-      logger.warn('响应缺少actions数组');
-      return null;
-    }
-
-    // 空的 actions 数组是合法的（例如箱子为空时不需要操作）
-    if (response.actions.length === 0) {
-      logger.info('actions数组为空，这是合法的响应（不需要执行任何动作）');
-      return response as StructuredLLMResponse;
-    }
-
-    // 验证每个动作
-    for (const action of response.actions) {
+    // 验证单个action对象
+    if (response.action && typeof response.action === 'object') {
+      const action = response.action;
       if (!action.action_type) {
         logger.warn('动作缺少action_type字段', { action });
         return null;
       }
-      // intention 字段现在是可选的，但如果提供了更好
-      if (!action.intention) {
-        logger.debug('动作缺少intention字段', { action_type: action.action_type });
-      }
+      return response as StructuredLLMResponse;
     }
 
-    return response as StructuredLLMResponse;
+    logger.warn('响应缺少action对象');
+    return null;
   }
 
   /**

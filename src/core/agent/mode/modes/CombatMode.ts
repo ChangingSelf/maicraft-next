@@ -232,15 +232,13 @@ export class CombatMode extends BaseMode {
       if (this.state?.memory) {
         this.state.memory.recordDecision(
           `战斗行动: 攻击 ${enemy.name}`,
-          [
-            {
-              actionType: 'kill_mob',
-              params: {
-                entity: enemy.name,
-                timeout: 30,
-              },
+          {
+            actionType: 'kill_mob',
+            params: {
+              entity: enemy.name,
+              timeout: 30,
             },
-          ],
+          },
           decisionResult,
           `战斗持续${this.getRunningTime()}秒，敌人血量${enemy.health}，距离${enemy.distance} - ${result.message}`,
         );

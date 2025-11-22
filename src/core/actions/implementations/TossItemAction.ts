@@ -60,6 +60,11 @@ export class TossItemAction extends BaseAction<TossItemParams> {
    * 激活条件：背包使用率 > 85%
    */
   shouldActivate(context: RuntimeContext): boolean {
+    // 安全检查：确保bot和inventory存在
+    if (!context.bot?.inventory) {
+      return false;
+    }
+
     const inventory = context.bot.inventory;
     const totalSlots = inventory.slots.length;
     const usedSlots = inventory.items().length;
