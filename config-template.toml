@@ -175,6 +175,25 @@ allow_credentials = false
 allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 allow_headers = ["*"]
 
+[cache]
+# 缓存系统配置
+# 方块和容器缓存采用基于区块的事件驱动机制，性能优异
+
+# 方块缓存配置
+only_visible_blocks = true   # 是否只缓存可见方块（推荐开启，更拟人且节省内存）
+enable_periodic_scan = false # 是否启用定期扫描（推荐关闭，依赖区块事件更高效）
+enable_auto_save = false     # 是否启用持久化（推荐关闭，避免大缓存序列化问题）
+
+# 缓存容量配置（0表示无限制）
+# 注意：设为0时，缓存完全依赖区块卸载事件清理，无需手动驱逐
+max_block_entries = 0     # 最大方块缓存条目数（0=无限制）
+max_container_entries = 0 # 最大容器缓存条目数（0=无限制）
+
+# 过期时间配置（0表示永不过期）
+# 注意：设为0时，缓存依赖区块卸载清理，无需过期检查
+block_expiration_time = 0     # 方块缓存过期时间（毫秒，0=永不过期）
+container_expiration_time = 0 # 容器缓存过期时间（毫秒，0=永不过期）
+
 [advanced]
 # 高级配置
 hot_reload = true
