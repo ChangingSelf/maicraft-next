@@ -97,6 +97,29 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
   }
 
   /**
+   * 判断是否应该激活此动作
+   * 激活条件：玩家在水中，或者氧气 < 20
+   */
+  shouldActivate(context: RuntimeContext): boolean {
+    const { gameState, bot } = context;
+
+    // 氧气不足时激活
+    if (gameState.oxygenLevel < 20) {
+      return true;
+    }
+
+    // 检查是否在水中
+    const blockAtFeet = bot.blockAt(bot.entity.position);
+    const blockAtHead = bot.blockAt(bot.entity.position.offset(0, 1, 0));
+
+    if (blockAtFeet?.name === 'water' || blockAtHead?.name === 'water') {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * 获取参数 Schema
    */
   getParamsSchema(): any {

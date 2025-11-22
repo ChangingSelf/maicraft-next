@@ -56,6 +56,19 @@ export class TossItemAction extends BaseAction<TossItemParams> {
   }
 
   /**
+   * 判断是否应该激活此动作
+   * 激活条件：背包使用率 > 85%
+   */
+  shouldActivate(context: RuntimeContext): boolean {
+    const inventory = context.bot.inventory;
+    const totalSlots = inventory.slots.length;
+    const usedSlots = inventory.items().length;
+    const usageRate = usedSlots / totalSlots;
+
+    return usageRate > 0.85;
+  }
+
+  /**
    * 获取参数 Schema
    */
   getParamsSchema(): any {

@@ -7,18 +7,20 @@
 
 import { PromptTemplate, promptManager } from '@/core/agent/prompt/prompt_manager';
 
-export const chestOperationTemplate: PromptTemplate = {
-  name: 'chest_operation',
-  description: '箱子操作提示词模板',
-  category: 'gui_operation',
+const chestOperationTemplateContent = `你是{bot_name}，游戏名叫{player_name}，你正在游玩Minecraft，是一名Minecraft玩家。
 
-  template: `你是{bot_name}，游戏名叫{player_name}，你正在游玩Minecraft，是一名Minecraft玩家。
+# 上下文信息
+{context_info}
+
+{current_goal}
+{current_tasks}
 
 # 当前箱子内容
 {chest_gui}
 
 # 你的任务
 你正在操作一个箱子，需要进行物品的存取操作来整理库存或完成任务。
+请根据上面的思考记录和当前目标，决定存取哪些物品。
 
 # 可执行的操作
 1. **take_items** - 从箱子中取出物品放入物品栏
@@ -83,36 +85,9 @@ export const chestOperationTemplate: PromptTemplate = {
 }}
 \`\`\`
 
-请根据当前箱子内容和你的物品栏情况，输出合适的操作序列。`,
+请根据当前箱子内容和你的物品栏情况，输出合适的操作序列。`;
 
-  requiredVariables: ['chest_gui', 'bot_name', 'player_name'],
-
-  examples: [
-    {
-      input: {
-        chest_gui: '**箱子内容**: stone x128, dirt x64, coal x32, iron_ingot x16',
-        bot_name: 'Bot',
-        player_name: 'Player',
-      },
-      output: ['{"action_type": "take_items", "item": "iron_ingot", "count": 16}', '{"action_type": "take_items", "item": "coal", "count": 32}'],
-    },
-    {
-      input: {
-        chest_gui: '**箱子内容**: oak_plank x64, cobblestone x256',
-        bot_name: 'Bot',
-        player_name: 'Player',
-      },
-      output: ['{"action_type": "put_items", "item": "dirt", "count": 128}', '{"action_type": "put_items", "item": "wood", "count": 64}'],
-    },
-  ],
-};
-
-export const chestOperationSystemTemplate: PromptTemplate = {
-  name: 'chest_operation_system',
-  description: '箱箱操作系统提示词',
-  category: 'gui_operation',
-
-  template: `你是{bot_name}，一个专业的Minecraft库存管理助手。
+const chestOperationSystemTemplateContent = `你是{bot_name}，一个专业的Minecraft库存管理助手。
 
 # 你的专长
 - 深入了解Minecraft物品分类和存储策略
@@ -144,17 +119,24 @@ export const chestOperationSystemTemplate: PromptTemplate = {
 3. **按价值分类**：珍贵、普通、基础物品等
 4. **按使用频率**：常用、偶尔、备用物品等
 
-请根据具体情况，提供最优的箱子整理方案。`,
-
-  requiredVariables: ['bot_name', 'player_name'],
-
-  examples: [],
-};
+请根据具体情况，提供最优的箱子整理方案。`;
 
 /**
  * 注册 chest_operation 模板
  */
 export function initChestOperationTemplate(): void {
-  promptManager.registerTemplate(chestOperationTemplate);
-  promptManager.registerTemplate(chestOperationSystemTemplate);
+  promptManager.registerTemplate(
+    new PromptTemplate('chest_operation', chestOperationTemplateContent, '箱子操作提示词模板', [
+      'bot_name',
+      'player_name',
+      'chest_gui',
+      'context_info',
+      'current_goal',
+      'current_tasks',
+    ]),
+  );
+
+  promptManager.registerTemplate(
+    new PromptTemplate('chest_operation_system', chestOperationSystemTemplateContent, '箱子操作系统提示词', ['bot_name', 'player_name']),
+  );
 }

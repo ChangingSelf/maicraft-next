@@ -28,11 +28,6 @@ export function initSystemPromptTemplates(): void {
 # 可用动作
 {available_actions}
 
-# 特殊动作说明
-{eat_action}
-
-{kill_mob_action}
-
 # 输出格式要求
 你必须以结构化JSON格式返回你的响应，包含以下字段：
 

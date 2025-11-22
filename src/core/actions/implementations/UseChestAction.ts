@@ -40,7 +40,7 @@ interface ChestInfo {
 export class UseChestAction extends BaseAction<any> {
   readonly id = ActionIds.USE_CHEST;
   readonly name = 'UseChestAction';
-  readonly description = '与箱子交互，默认存储操作，支持为每种物品指定不同数量。取出操作时，如果未指定特定箱子，会自动从附近多个箱子中取够所需物品';
+  readonly description = '使用指定位置的箱子。此动作会切换到箱子GUI模式，由LLM决策具体的存取操作';
 
   async execute(context: RuntimeContext, params: any): Promise<ActionResult> {
     try {
@@ -477,44 +477,18 @@ export class UseChestAction extends BaseAction<any> {
   }
 
   /**
-   * 获取参数 Schema
+   * 获取参数 Schema（简化版，仅用于主模式触发GUI模式）
    */
   getParamsSchema(): any {
     return {
-      action: {
-        type: 'string',
-        description: '操作类型 (store | withdraw)，默认是 store',
-        optional: true,
-      },
-      items: {
-        type: 'array',
-        description: '物品及其数量的对象数组，格式：[{"name": "物品名", "count": 数量}, ...]',
-        items: {
-          name: {
-            type: 'string',
-            description: '物品名称',
-          },
-          count: {
-            type: 'number',
-            description: '物品数量',
-            optional: true,
-          },
+      position: {
+        type: 'object',
+        description: '箱子位置坐标',
+        properties: {
+          x: { type: 'number', description: 'X坐标' },
+          y: { type: 'number', description: 'Y坐标' },
+          z: { type: 'number', description: 'Z坐标' },
         },
-      },
-      x: {
-        type: 'number',
-        description: '箱子X坐标（可选）',
-        optional: true,
-      },
-      y: {
-        type: 'number',
-        description: '箱子Y坐标（可选）',
-        optional: true,
-      },
-      z: {
-        type: 'number',
-        description: '箱子Z坐标（可选）',
-        optional: true,
       },
     };
   }

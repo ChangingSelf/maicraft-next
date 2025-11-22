@@ -23,7 +23,7 @@ interface FurnaceItem {
 export class UseFurnaceAction extends BaseAction<any> {
   readonly id = ActionIds.USE_FURNACE;
   readonly name = 'UseFurnaceAction';
-  readonly description = '熔炉操作：1.put放入物品（支持input/fuel位置，燃料不能放input）；2.take按槽位取出；3.view查看状态';
+  readonly description = '使用指定位置的熔炉。此动作会切换到熔炉GUI模式，由LLM决策具体的放入、取出操作';
 
   // 常见的燃料物品列表
   private readonly fuelItems = ['coal', 'charcoal', 'coal_block', 'lava_bucket', 'blaze_rod', 'dried_kelp_block', 'bamboo', 'stick'];
@@ -376,56 +376,18 @@ export class UseFurnaceAction extends BaseAction<any> {
   }
 
   /**
-   * 获取参数 Schema
+   * 获取参数 Schema（简化版，仅用于主模式触发GUI模式）
    */
   getParamsSchema(): any {
     return {
-      action: {
-        type: 'string',
-        description: '操作类型：put(放入)、take(取出)或view(查看)，默认为view',
-        optional: true,
-      },
-      items: {
-        type: 'array',
-        description: '物品数组：put操作必需（指定物品），take操作必需（指定槽位），view操作不需要',
-        optional: true,
-        items: {
-          name: {
-            type: 'string',
-            description: '物品名称：put操作必需，take操作不需要',
-            optional: true,
-          },
-          count: {
-            type: 'number',
-            description: '物品数量，默认为1（仅put操作使用）',
-            optional: true,
-          },
-          position: {
-            type: 'string',
-            description: '语义化位置：put操作可选（自动判断），take操作必需（input/fuel/output）',
-            optional: true,
-          },
+      position: {
+        type: 'object',
+        description: '熔炉位置坐标',
+        properties: {
+          x: { type: 'number', description: 'X坐标' },
+          y: { type: 'number', description: 'Y坐标' },
+          z: { type: 'number', description: 'Z坐标' },
         },
-      },
-      container_type: {
-        type: 'string',
-        description: '容器方块名称：furnace、blast_furnace、smoker，默认furnace',
-        optional: true,
-      },
-      x: {
-        type: 'number',
-        description: '容器X坐标（可选）',
-        optional: true,
-      },
-      y: {
-        type: 'number',
-        description: '容器Y坐标（可选）',
-        optional: true,
-      },
-      z: {
-        type: 'number',
-        description: '容器Z坐标（可选）',
-        optional: true,
       },
     };
   }

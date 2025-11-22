@@ -8,6 +8,7 @@
 import { Action } from './Action';
 import { ActionId } from './ActionIds';
 import { ActionExecutor } from './ActionExecutor';
+import { RuntimeContext } from '@/core/context/RuntimeContext';
 
 /**
  * 动作提示词生成器类
@@ -16,10 +17,26 @@ export class ActionPromptGenerator {
   constructor(private executor: ActionExecutor) {}
 
   /**
-   * 生成动作列表提示词
+   * 根据当前上下文过滤应该激活的动作
    */
-  generatePrompt(): string {
-    const actions = this.executor.getRegisteredActions();
+  private filterActiveActions(actions: Action[], context: RuntimeContext): Action[] {
+    return actions.filter(action => {
+      // 调用动作的 shouldActivate 方法，默认返回 true
+      return action.shouldActivate?.(context) ?? true;
+    });
+  }
+
+  /**
+   * 生成动作列表提示词
+   * @param context 运行时上下文，用于判断哪些动作应该激活
+   */
+  generatePrompt(context?: RuntimeContext): string {
+    let actions = this.executor.getRegisteredActions();
+
+    // 如果提供了上下文，则过滤应该激活的动作
+    if (context) {
+      actions = this.filterActiveActions(actions, context);
+    }
 
     if (actions.length === 0) {
       return '# 可用动作\n\n暂无可用动作';
@@ -78,9 +95,15 @@ export class ActionPromptGenerator {
 
   /**
    * 生成动作分类提示词
+   * @param context 运行时上下文，用于判断哪些动作应该激活
    */
-  generateCategorizedPrompt(): string {
-    const actions = this.executor.getRegisteredActions();
+  generateCategorizedPrompt(context?: RuntimeContext): string {
+    let actions = this.executor.getRegisteredActions();
+
+    // 如果提供了上下文，则过滤应该激活的动作
+    if (context) {
+      actions = this.filterActiveActions(actions, context);
+    }
 
     if (actions.length === 0) {
       return '# 可用动作\n\n暂无可用动作';

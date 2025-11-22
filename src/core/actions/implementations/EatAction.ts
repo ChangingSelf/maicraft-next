@@ -105,6 +105,34 @@ export class EatAction extends BaseAction<EatParams> {
   }
 
   /**
+   * 判断是否应该激活此动作
+   * 激活条件：饥饿度 < 15 且背包中有食物
+   */
+  shouldActivate(context: RuntimeContext): boolean {
+    const { gameState } = context;
+    if (gameState.food < 15 && this.hasAnyFood(context)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 检查背包中是否有任何食物
+   */
+  private hasAnyFood(context: RuntimeContext): boolean {
+    const mcData = context.bot.registry;
+    const items = context.bot.inventory.items();
+
+    for (const item of items) {
+      if (this.isFoodItem(item.name, mcData)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * 获取参数 Schema
    */
   getParamsSchema(): any {

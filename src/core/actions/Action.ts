@@ -38,6 +38,12 @@ export interface Action<P extends BaseActionParams = BaseActionParams> {
    * 获取参数 Schema（用于 LLM 工具调用）
    */
   getParamsSchema?(): any;
+
+  /**
+   * 判断动作是否应该激活（是否在提示词中显示）
+   * 默认返回 true（始终激活）
+   */
+  shouldActivate?(context: RuntimeContext): boolean;
 }
 
 /**
@@ -62,6 +68,13 @@ export abstract class BaseAction<P extends BaseActionParams = BaseActionParams> 
    */
   getParamsSchema(): any {
     return {};
+  }
+
+  /**
+   * 判断动作是否应该激活（默认实现：始终激活）
+   */
+  shouldActivate(_context: RuntimeContext): boolean {
+    return true;
   }
 
   /**

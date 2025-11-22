@@ -211,11 +211,25 @@ export class FurnaceMode extends BaseMode {
     // 生成熔炉状态描述
     const furnaceDescription = this.generateFurnaceDescription();
 
+    // 收集上下文信息（参考原maicraft的设计）
+    const contextInfo = this.state.memory.buildContextSummary({
+      includeThoughts: 5, // 最近5条思考记忆
+      includeConversations: 3, // 最近3条对话
+      includeDecisions: 3, // 最近3条决策
+    });
+
+    // 获取目标和任务
+    const currentGoal = this.state.planningManager?.getCurrentGoal();
+    const currentTask = this.state.planningManager?.getCurrentTask();
+
     // 生成提示词
     const prompt = promptManager.generatePrompt('furnace_operation', {
       furnace_gui: furnaceDescription,
       bot_name: this.state.context.gameState.playerName || 'Bot',
       player_name: this.state.context.gameState.playerName || 'Player',
+      context_info: contextInfo,
+      current_goal: currentGoal ? `当前目标: ${currentGoal.description}` : '',
+      current_tasks: currentTask ? `当前任务: ${currentTask.description}` : '',
     });
 
     // 生成系统提示词
@@ -224,7 +238,7 @@ export class FurnaceMode extends BaseMode {
       player_name: this.state.context.gameState.playerName || 'Player',
     });
 
-    this.logger.debug('🔥 生成熔炉操作提示词完成');
+    this.logger.debug('🔥 生成熔炉操作提示词完成（包含上下文）');
 
     // 使用结构化输出请求熔炉操作
     const structuredResponse = await this.structuredOutputManager.requestFurnaceOperations(prompt, systemPrompt);

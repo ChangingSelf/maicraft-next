@@ -7,18 +7,20 @@
 
 import { PromptTemplate, promptManager } from '@/core/agent/prompt/prompt_manager';
 
-export const furnaceOperationTemplate: PromptTemplate = {
-  name: 'furnace_operation',
-  description: '熔炉操作提示词模板',
-  category: 'gui_operation',
+const furnaceOperationTemplateContent = `你是{bot_name}，游戏名叫{player_name}，你正在游玩Minecraft，是一名Minecraft玩家。
 
-  template: `你是{bot_name}，游戏名叫{player_name}，你正在游玩Minecraft，是一名Minecraft玩家。
+# 上下文信息
+{context_info}
+
+{current_goal}
+{current_tasks}
 
 # 当前熔炉信息
 {furnace_gui}
 
 # 你的任务
 你正在操作一个熔炉，需要进行物品的存取操作来完成任务。
+请根据上面的思考记录和当前目标，决定存取哪些物品。
 
 # 可执行的操作
 1. **take_items** - 从槽位中取出物品
@@ -79,42 +81,9 @@ export const furnaceOperationTemplate: PromptTemplate = {
 }}
 \`\`\`
 
-请根据当前熔炉状态，输出合适的操作序列。`,
+请根据当前熔炉状态，输出合适的操作序列。`;
 
-  requiredVariables: ['furnace_gui', 'bot_name', 'player_name'],
-
-  examples: [
-    {
-      input: {
-        furnace_gui: '**输入槽**: 空\n**燃料槽**: 空\n**输出槽**: 空',
-        bot_name: 'Bot',
-        player_name: 'Player',
-      },
-      output: [
-        '{"action_type": "put_items", "slot": "fuel", "item": "coal", "count": 8}',
-        '{"action_type": "put_items", "slot": "input", "item": "iron_ore", "count": 16}',
-      ],
-    },
-    {
-      input: {
-        furnace_gui: '**输入槽**: 空\n**燃料槽**: coal x4\n**输出槽**: iron_ingot x16',
-        bot_name: 'Bot',
-        player_name: 'Player',
-      },
-      output: [
-        '{"action_type": "take_items", "slot": "output", "item": "iron_ingot", "count": 16}',
-        '{"action_type": "put_items", "slot": "input", "item": "iron_ore", "count": 16}',
-      ],
-    },
-  ],
-};
-
-export const furnaceOperationSystemTemplate: PromptTemplate = {
-  name: 'furnace_operation_system',
-  description: '熔炉操作系统提示词',
-  category: 'gui_operation',
-
-  template: `你是{bot_name}，一个专业的Minecraft熔炉操作助手。
+const furnaceOperationSystemTemplateContent = `你是{bot_name}，一个专业的Minecraft熔炉操作助手。
 
 # 你的专长
 - 深入了解Minecraft熔炉机制和物品熔炼配方
@@ -142,17 +111,24 @@ export const furnaceOperationSystemTemplate: PromptTemplate = {
 - 钻石矿：12.5秒
 - 食物：根据不同食物而定
 
-请根据当前情况，提供最优的熔炉操作方案。`,
-
-  requiredVariables: ['bot_name', 'player_name'],
-
-  examples: [],
-};
+请根据当前情况，提供最优的熔炉操作方案。`;
 
 /**
  * 注册 furnace_operation 模板
  */
 export function initFurnaceOperationTemplate(): void {
-  promptManager.registerTemplate(furnaceOperationTemplate);
-  promptManager.registerTemplate(furnaceOperationSystemTemplate);
+  promptManager.registerTemplate(
+    new PromptTemplate('furnace_operation', furnaceOperationTemplateContent, '熔炉操作提示词模板', [
+      'bot_name',
+      'player_name',
+      'furnace_gui',
+      'context_info',
+      'current_goal',
+      'current_tasks',
+    ]),
+  );
+
+  promptManager.registerTemplate(
+    new PromptTemplate('furnace_operation_system', furnaceOperationSystemTemplateContent, '熔炉操作系统提示词', ['bot_name', 'player_name']),
+  );
 }
