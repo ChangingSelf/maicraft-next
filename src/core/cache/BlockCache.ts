@@ -31,6 +31,7 @@ export class BlockCache {
       autoSaveInterval: 5 * 60 * 1000, // 5分钟
       enabled: true,
       updateStrategy: 'smart',
+      onlyVisibleBlocks: true, // 🆕 只缓存可见方块（更拟人化，节省内存）
       ...config,
     };
 
@@ -99,9 +100,15 @@ export class BlockCache {
   /**
    * 设置方块信息
    * 🔧 精简版：只存储必要信息，减少内存占用
+   * 🆕 支持只缓存可见方块（onlyVisibleBlocks配置）
    */
-  setBlock(x: number, y: number, z: number, block: Partial<BlockInfo>): void {
+  setBlock(x: number, y: number, z: number, block: Partial<BlockInfo> & { canSee?: boolean }): void {
     if (!this.config.enabled) return;
+
+    // 🆕 如果启用"只缓存可见方块"且方块不可见，则跳过
+    if (this.config.onlyVisibleBlocks && block.canSee === false) {
+      return;
+    }
 
     const key = this.keyGenerator(x, y, z);
     const now = Date.now();
@@ -111,7 +118,7 @@ export class BlockCache {
       this.evictOldestEntries();
     }
 
-    // 🔧 只存储必要字段，不存储额外的 metadata、state、properties 等
+    // 🔧 只存储必要字段，不存储 canSee（已通过过滤保证都是可见的）
     const blockInfo: BlockInfo = {
       name: block.name || 'unknown',
       type: block.type || 0,
@@ -136,7 +143,7 @@ export class BlockCache {
    * 批量设置方块信息
    * 🔧 精简版：只存储必要信息，减少内存占用
    */
-  setBlocks(blocks: Array<{ x: number; y: number; z: number; block: Partial<BlockInfo> }>): void {
+  setBlocks(blocks: Array<{ x: number; y: number; z: number; block: Partial<BlockInfo> & { canSee?: boolean } }>): void {
     if (!this.config.enabled) return;
 
     const now = Date.now();
@@ -152,6 +159,11 @@ export class BlockCache {
 
     // 批量添加（只存储必要字段）
     for (const { x, y, z, block } of blocks) {
+      // 🆕 如果启用"只缓存可见方块"且方块不可见，则跳过
+      if (this.config.onlyVisibleBlocks && block.canSee === false) {
+        continue;
+      }
+
       const key = this.keyGenerator(x, y, z);
       const blockInfo: BlockInfo = {
         name: block.name || 'unknown',

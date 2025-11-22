@@ -71,6 +71,8 @@ export interface CacheConfig {
   enabled: boolean;
   /** 缓存更新策略 */
   updateStrategy: 'immediate' | 'batch' | 'smart';
+  /** 🆕 是否只缓存可见方块（更拟人化，减少内存占用） */
+  onlyVisibleBlocks?: boolean;
 }
 
 /**

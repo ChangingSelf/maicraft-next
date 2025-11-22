@@ -114,6 +114,11 @@ export class CacheManager {
               const block = this.bot.blockAt(new Vec3(x, y, z));
 
               if (block) {
+                // 🆕 检查方块可视性
+                let canSee: boolean | undefined = undefined;
+                // 使用 mineflayer 的 canSeeBlock 方法检查可视性
+                canSee = this.bot.canSeeBlock(block);
+
                 blocks.push({
                   x,
                   y,
@@ -126,6 +131,7 @@ export class CacheManager {
                     lightLevel: (block as any).lightLevel,
                     transparent: (block as any).transparent,
                     state: this.getBlockState(block),
+                    canSee, // 🆕 添加可视性信息
                   },
                 });
               } else {

@@ -58,7 +58,7 @@ export class NearbyBlockManager {
    */
   getVisibleBlocksInfo(position: BlockPosition, distance: number = 16): string {
     try {
-      // 获取距离范围内的所有方块
+      // 🆕 获取距离范围内的所有方块（如果启用onlyVisibleBlocks，这些方块都是可见的）
       const blocks = this.blockCache.getBlocksInRadius(position.x, position.y, position.z, distance);
 
       // 详细统计

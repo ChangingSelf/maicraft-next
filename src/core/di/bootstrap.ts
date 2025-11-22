@@ -42,6 +42,7 @@ export function configureServices(container: Container): void {
       autoSaveInterval: 0, // 🔧 设为0禁用自动保存
       enabled: true, // ⚠️ 必须为true，否则整个缓存都不工作
       updateStrategy: 'smart' as const,
+      onlyVisibleBlocks: true, // 🆕 只缓存可见方块，更拟人化且优化性能
     });
   });
 
