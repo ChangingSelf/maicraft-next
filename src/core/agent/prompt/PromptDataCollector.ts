@@ -185,7 +185,18 @@ export class PromptDataCollector {
   }
 
   private formatStatusInfo(gameState: GameState): string {
-    let status = `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}, 等级: ${gameState.level}`;
+    let statusParts = [
+      `生命值: ${gameState.health}/${gameState.healthMax}`,
+      `饥饿值: ${gameState.food}/${gameState.foodMax}`,
+      `等级: ${gameState.level} (经验: ${gameState.experience}, 升级进度: ${(gameState.experienceProgress * 100).toFixed(1)}%)`,
+    ];
+
+    // 只有在氧气不足时才显示氧气信息
+    if (gameState.oxygenLevel < 20) {
+      statusParts.push(`氧气: ${gameState.oxygenLevel}/20`);
+    }
+
+    let status = statusParts.join(', ');
 
     // 添加坠落状态信息
     if (!gameState.onGround) {

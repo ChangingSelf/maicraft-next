@@ -68,8 +68,9 @@ export class GameState {
   foodMax: number = 20;
   foodSaturation: number = 5;
   experience: number = 0;
+  experienceProgress: number = 0; // 升级进度 (0-1)
   level: number = 0;
-  oxygen: number = 300;
+  oxygenLevel: number = 20; // 氧气等级 (0-20)
   armor: number = 0;
 
   // 物品栏（实时更新）
@@ -288,6 +289,7 @@ export class GameState {
   private updateHealth(bot: Bot): void {
     this.health = bot.health;
     this.healthMax = 20; // Minecraft 默认最大生命值
+    this.oxygenLevel = bot.oxygenLevel;
   }
 
   /**
@@ -305,6 +307,7 @@ export class GameState {
   private updateExperience(bot: Bot): void {
     this.experience = bot.experience.points;
     this.level = bot.experience.level;
+    this.experienceProgress = bot.experience.progress;
   }
 
   /**
