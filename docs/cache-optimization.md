@@ -8,14 +8,14 @@
 
 ## 🎯 优化概览
 
-| 优化项 | 原 Maicraft (Python) | Maicraft-Next (TypeScript) | 性能提升 |
-|--------|---------------------|---------------------------|---------|
-| **扫描策略** | 定期全量扫描 (固定半径) | 基于区块事件的按需扫描 | **10-50x** |
-| **查询性能** | 线性遍历所有方块 | 区块索引 + 空间查询 | **100-1000x** |
-| **内存占用** | ~200 bytes/方块 | ~50 bytes/方块 | **减少75%** |
-| **缓存容量** | 有限容量 + LRU驱逐 | 无限容量 + 区块卸载清理 | **零驱逐开销** |
-| **可视性** | 记录但未优化 | 可选"仅缓存可见方块" | **更拟人 + 节省内存** |
-| **持久化** | 每30秒保存一次 | 可选禁用持久化 | **零序列化开销** |
+| 优化项       | 原 Maicraft (Python)    | Maicraft-Next (TypeScript) | 性能提升              |
+| ------------ | ----------------------- | -------------------------- | --------------------- |
+| **扫描策略** | 定期全量扫描 (固定半径) | 基于区块事件的按需扫描     | **10-50x**            |
+| **查询性能** | 线性遍历所有方块        | 区块索引 + 空间查询        | **100-1000x**         |
+| **内存占用** | ~200 bytes/方块         | ~50 bytes/方块             | **减少75%**           |
+| **缓存容量** | 有限容量 + LRU驱逐      | 无限容量 + 区块卸载清理    | **零驱逐开销**        |
+| **可视性**   | 记录但未优化            | 可选"仅缓存可见方块"       | **更拟人 + 节省内存** |
+| **持久化**   | 每30秒保存一次          | 可选禁用持久化             | **零序列化开销**      |
 
 ---
 
@@ -36,6 +36,7 @@ async def scan_nearby_blocks(radius=50):
 ```
 
 **问题**：
+
 - ⚠️ 扫描顺序 Y → X → Z，导致扫描到 bot 附近之前就超时
 - ⚠️ 未加载区块返回 `null`，浪费大量迭代
 - ⚠️ 固定半径扫描，无视 Minecraft 区块加载机制
@@ -48,7 +49,7 @@ async def scan_nearby_blocks(radius=50):
 bot.on('chunkColumnLoad', (chunkCorner: Vec3) => {
   const startX = chunkCorner.x;
   const startZ = chunkCorner.z;
-  
+
   // 只扫描已加载的 16x16 区块
   for (let x = startX; x < startX + 16; x++) {
     for (let z = startZ; z < startZ + 16; z++) {
@@ -69,6 +70,7 @@ bot.on('chunkColumnUnload', (chunkCorner: Vec3) => {
 ```
 
 **优势**：
+
 - ✅ **事件驱动**：只在区块加载/卸载时触发，零轮询开销
 - ✅ **精准扫描**：100% 扫描已加载区块，不浪费迭代
 - ✅ **自动清理**：区块卸载时自动删除缓存，无需手动驱逐
@@ -94,6 +96,7 @@ def get_blocks_in_radius(x, y, z, radius):
 ```
 
 **问题**：
+
 - ⚠️ 每次查询遍历所有缓存方块（如 380万 个）
 - ⚠️ 无空间索引，复杂度 O(n)
 - ⚠️ 查询耗时：380万方块 → ~500ms+
@@ -110,13 +113,13 @@ getBlocksInRadius(x: number, y: number, z: number, radius: number): BlockInfo[] 
   const maxChunkZ = Math.floor((z + radius) / 16);
 
   const results: BlockInfo[] = [];
-  
+
   // 2. 只遍历相关区块内的方块
   for (let cx = minChunkX; cx <= maxChunkX; cx++) {
     for (let cz = minChunkZ; cz <= maxChunkZ; cz++) {
       const chunkKey = this.getChunkKey(cx * 16, cz * 16);
       const blockKeys = this.chunkIndex.get(chunkKey);
-      
+
       if (blockKeys) {
         for (const key of blockKeys) {
           const block = this.cache.get(key);
@@ -127,12 +130,13 @@ getBlocksInRadius(x: number, y: number, z: number, radius: number): BlockInfo[] 
       }
     }
   }
-  
+
   return results;
 }
 ```
 
 **优势**：
+
 - ✅ **区块索引**：O(相关区块数) 而非 O(总方块数)
 - ✅ **查询速度**：380万方块 → ~5ms（提升 100-1000x）
 - ✅ **内存高效**：索引仅占用 ~1-2% 额外空间
@@ -187,6 +191,7 @@ export interface BlockInfo {
 **内存占用**：~50 bytes/方块（减少 75%）
 
 **优势**：
+
 - ✅ 只保留必要字段：名称、类型、位置、时间戳
 - ✅ 移除冗余字段：metadata、state、facing、hardness、lightLevel 等
 - ✅ 容器缓存同样优化：移除 `items`、`state` 字段
@@ -210,6 +215,7 @@ def set_block(key, block):
 ```
 
 **问题**：
+
 - ⚠️ 容量限制过小（10k-50k），频繁触发驱逐
 - ⚠️ 驱逐操作 CPU 密集（排序 + 删除）
 - ⚠️ 刚扫描的方块可能立即被驱逐
@@ -235,7 +241,7 @@ bot.on('chunkColumnUnload', (chunkCorner: Vec3) => {
 removeBlocksInChunk(chunkX: number, chunkZ: number): void {
   const chunkKey = this.getChunkKey(chunkX * 16, chunkZ * 16);
   const blockKeys = this.chunkIndex.get(chunkKey);
-  
+
   if (blockKeys) {
     for (const key of blockKeys) {
       this.cache.delete(key);  // ✅ 批量删除，零驱逐开销
@@ -246,6 +252,7 @@ removeBlocksInChunk(chunkX: number, chunkZ: number): void {
 ```
 
 **优势**：
+
 - ✅ **零驱逐开销**：无需 LRU 排序和批量删除
 - ✅ **精准清理**：只删除真正不需要的方块（已卸载区块）
 - ✅ **容量自适应**：根据服务器视距自动调整缓存大小
@@ -268,6 +275,7 @@ block_info = {
 ```
 
 **问题**：
+
 - ⚠️ 缓存所有方块，包括不可见的（墙后、地下）
 - ⚠️ 内存浪费，提示词也会包含不可见方块
 - ⚠️ 不够拟人（人类只能看到可见方块）
@@ -277,13 +285,13 @@ block_info = {
 ```typescript
 // 配置开关：只缓存可见方块
 config = {
-  onlyVisibleBlocks: true,  // ✅ 默认开启
+  onlyVisibleBlocks: true, // ✅ 默认开启
 };
 
 // 扫描时过滤不可见方块
 const canSee = bot.canSeeBlock(block);
 if (config.onlyVisibleBlocks && !canSee) {
-  return;  // ✅ 不可见方块直接跳过，不缓存
+  return; // ✅ 不可见方块直接跳过，不缓存
 }
 
 // BlockInfo 不存储 canSee 字段（已通过过滤保证）
@@ -297,6 +305,7 @@ export interface BlockInfo {
 ```
 
 **优势**：
+
 - ✅ **更拟人**：只缓存"看得见"的方块，模拟人类视觉
 - ✅ **节省内存**：减少 50-70% 缓存方块（取决于环境）
 - ✅ **提示词优化**：LLM 只看到相关的可见方块信息
@@ -318,6 +327,7 @@ async def auto_save():
 ```
 
 **问题**：
+
 - ⚠️ 大缓存（380万方块）序列化失败：`RangeError: Invalid string length`
 - ⚠️ JSON 文件过大（数百 MB），加载慢
 - ⚠️ 频繁 I/O 操作，影响性能
@@ -341,6 +351,7 @@ save(): void {
 ```
 
 **优势**：
+
 - ✅ **零序列化开销**：禁用持久化，避免大文件序列化
 - ✅ **快速启动**：无需加载旧缓存，依赖区块事件实时扫描
 - ✅ **数据新鲜**：缓存始终反映当前游戏状态
@@ -375,6 +386,7 @@ container_expiration_time = 0
 ### 推荐配置
 
 **高性能模式**（默认）：
+
 ```toml
 only_visible_blocks = true
 enable_periodic_scan = false
@@ -384,6 +396,7 @@ block_expiration_time = 0
 ```
 
 **兼容模式**（适用于旧硬件）：
+
 ```toml
 only_visible_blocks = true
 enable_periodic_scan = false
@@ -397,19 +410,20 @@ block_expiration_time = 300000   # 5分钟过期
 ## 📈 性能测试数据
 
 ### 测试环境
+
 - **服务器**：原版 Minecraft 1.20.1
 - **视距**：10 区块
 - **场景**：资源世界，bot 在矿洞中移动
 
 ### 测试结果
 
-| 指标 | 原 Maicraft | Maicraft-Next | 提升 |
-|------|------------|---------------|------|
-| **初始扫描时间** | ~10-15秒 | ~2-3秒 | **5x** |
-| **查询延迟 (50格半径)** | ~500ms | ~5ms | **100x** |
-| **内存占用 (380万方块)** | ~760MB | ~190MB | **4x** |
-| **CPU 占用 (扫描)** | ~15-25% | ~2-5% | **5x** |
-| **缓存驱逐频率** | 每5-10秒 | 从不 | **∞** |
+| 指标                     | 原 Maicraft | Maicraft-Next | 提升     |
+| ------------------------ | ----------- | ------------- | -------- |
+| **初始扫描时间**         | ~10-15秒    | ~2-3秒        | **5x**   |
+| **查询延迟 (50格半径)**  | ~500ms      | ~5ms          | **100x** |
+| **内存占用 (380万方块)** | ~760MB      | ~190MB        | **4x**   |
+| **CPU 占用 (扫描)**      | ~15-25%     | ~2-5%         | **5x**   |
+| **缓存驱逐频率**         | 每5-10秒    | 从不          | **∞**    |
 
 ---
 
@@ -428,11 +442,13 @@ block_expiration_time = 300000   # 5分钟过期
 ```
 
 **空间开销**：
+
 - 每个 `chunkKey`: ~16 bytes
 - 每个 `blockKey` 引用: ~8 bytes
 - 总开销：~1-2% 的缓存大小
 
 **查询优化**：
+
 - 半径 50 格 → 查询 ~25 个区块（而非 380万方块）
 - 复杂度：从 O(n) 降至 O(相关区块数 × 每区块方块数)
 
@@ -455,7 +471,7 @@ const canSee = bot.canSeeBlock(block);
 
 // 过滤逻辑
 if (config.onlyVisibleBlocks && !canSee) {
-  return;  // 不缓存
+  return; // 不缓存
 }
 ```
 
@@ -484,7 +500,7 @@ console.log(blockCache.getStats());
 // }
 
 // 查看区块索引大小
-console.log(blockCache.chunkIndex.size);  // 区块数
+console.log(blockCache.chunkIndex.size); // 区块数
 ```
 
 ### 3. 性能监控
@@ -504,6 +520,7 @@ console.log(`查询耗时: ${duration}ms, 结果数: ${blocks.length}`);
 Maicraft-Next 的缓存系统在 **扫描策略**、**查询性能**、**内存占用**、**容量管理**、**可视性优化** 和 **持久化** 六个方面都实现了重大优化，整体性能相比原 Maicraft 提升 **10-1000 倍**，同时更加拟人化和智能化。
 
 核心设计理念：
+
 1. **事件驱动** - 依赖 Minecraft 区块加载/卸载事件
 2. **空间索引** - 使用区块索引优化查询性能
 3. **精简数据** - 只存储必要字段，减少内存占用
@@ -515,4 +532,3 @@ Maicraft-Next 的缓存系统在 **扫描策略**、**查询性能**、**内存�
 
 _最后更新: 2025-11-22_  
 _版本: 1.0_
-

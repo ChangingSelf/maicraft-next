@@ -121,6 +121,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 缓存系统优化
 
 相比原 Maicraft 项目的重大改进：
+
 - **扫描策略**：从定期全量扫描改为基于区块事件的按需扫描（性能提升 10-50x）
 - **查询性能**：从线性遍历改为区块索引 + 空间查询（性能提升 100-1000x）
 - **内存占用**：精简数据结构，每方块从 ~200 bytes 降至 ~50 bytes（减少 75%）

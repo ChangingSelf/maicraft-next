@@ -327,11 +327,11 @@ context.events.on('actionComplete', (data) => { ... });
 - **规划系统**：Goal-Plan-Task 三层结构，支持进度追踪
 - **模式系统**：灵活的模式切换机制，适应不同场景
 
-#### 6. 高性能缓存系统 ✅ 
+#### 6. 高性能缓存系统 ✅
 
 ```typescript
 // ✅ 基于 Minecraft 区块事件的智能缓存
-bot.on('chunkColumnLoad', () => scanChunk());    // 区块加载时扫描
+bot.on('chunkColumnLoad', () => scanChunk()); // 区块加载时扫描
 bot.on('chunkColumnUnload', () => clearChunk()); // 区块卸载时清理
 
 // ✅ 区块索引 + 空间查询，查询速度提升 100-1000x
