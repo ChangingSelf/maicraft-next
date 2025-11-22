@@ -11,6 +11,7 @@ import type { ContainerInfo, ContainerItem, CacheConfig, CacheStats, ContainerKe
 
 export class ContainerCache {
   private cache: Map<string, ContainerInfo> = new Map();
+  private chunkIndex: Map<string, Set<string>> = new Map(); // 🔧 区块索引：chunkKey -> Set<containerKey>
   private logger: Logger;
   private persistPath: string;
   private config: CacheConfig;
@@ -60,6 +61,15 @@ export class ContainerCache {
   }
 
   /**
+   * 生成区块键
+   */
+  private getChunkKey(x: number, z: number): string {
+    const chunkX = x >> 4; // 除以16
+    const chunkZ = z >> 4;
+    return `${chunkX},${chunkZ}`;
+  }
+
+  /**
    * 获取容器信息
    */
   getContainer(x: number, y: number, z: number, type?: string): ContainerInfo | null {
@@ -104,6 +114,7 @@ export class ContainerCache {
 
   /**
    * 设置容器信息
+   * 🔧 精简版：只存储位置和类型，不存储物品内容，减少内存占用
    */
   setContainer(x: number, y: number, z: number, type: string, container: Partial<ContainerInfo>): void {
     if (!this.config.enabled) return;
@@ -116,16 +127,23 @@ export class ContainerCache {
       this.evictOldestEntries();
     }
 
+    // 🔧 只存储必要字段：type, position, name, lastAccessed
     const containerInfo: ContainerInfo = {
       type: type as ContainerInfo['type'],
       position: new Vec3(x, y, z),
-      items: container.items || [],
+      name: container.name,
       lastAccessed: now,
-      size: container.size || this.getDefaultContainerSize(type),
-      ...container,
     };
 
     this.cache.set(key, containerInfo);
+
+    // 🔧 更新区块索引
+    const chunkKey = this.getChunkKey(x, z);
+    if (!this.chunkIndex.has(chunkKey)) {
+      this.chunkIndex.set(chunkKey, new Set());
+    }
+    this.chunkIndex.get(chunkKey)!.add(key);
+
     this.stats.totalEntries = this.cache.size;
     this.stats.lastUpdate = now;
 
@@ -133,87 +151,28 @@ export class ContainerCache {
   }
 
   /**
-   * 获取默认容器大小
-   */
-  private getDefaultContainerSize(type: string): number {
-    const sizes: Record<string, number> = {
-      chest: 27,
-      furnace: 3,
-      brewing_stand: 5,
-      dispenser: 9,
-      hopper: 5,
-      shulker_box: 27,
-    };
-    return sizes[type] || 9;
-  }
-
-  /**
    * 更新容器物品
    */
   updateContainerItems(x: number, y: number, z: number, type: string, items: ContainerItem[]): void {
-    const existingContainer = this.getContainer(x, y, z, type);
-    if (existingContainer) {
-      existingContainer.items = items;
-      existingContainer.lastAccessed = Date.now();
-      const key = this.keyGenerator(x, y, z, type);
-      this.cache.set(key, existingContainer);
-      this.logger.debug(`容器物品已更新: ${key}`);
-    } else {
-      this.setContainer(x, y, z, type, { items });
-    }
+    this.logger.warn('updateContainerItems 已禁用：容器不再缓存物品信息');
   }
 
   /**
-   * 添加物品到容器
+   * 🔧 已禁用：添加物品到容器
+   * 原因：不再存储物品信息以减少内存占用
    */
   addItemToContainer(x: number, y: number, z: number, type: string, item: ContainerItem): boolean {
-    const container = this.getContainer(x, y, z, type);
-    if (!container) {
-      return false;
-    }
-
-    // 查找是否有相同的物品可以堆叠
-    const existingItem = container.items.find(existing => existing.itemId === item.itemId && existing.name === item.name);
-
-    if (existingItem) {
-      existingItem.count += item.count;
-    } else {
-      container.items.push(item);
-    }
-
-    container.lastAccessed = Date.now();
-    const key = this.keyGenerator(x, y, z, type);
-    this.cache.set(key, container);
-
-    return true;
+    this.logger.warn('addItemToContainer 已禁用：容器不再缓存物品信息');
+    return false;
   }
 
   /**
-   * 从容器移除物品
+   * 🔧 已禁用：从容器移除物品
+   * 原因：不再存储物品信息以减少内存占用
    */
   removeItemFromContainer(x: number, y: number, z: number, type: string, itemId: number, count: number = 1): boolean {
-    const container = this.getContainer(x, y, z, type);
-    if (!container) {
-      return false;
-    }
-
-    const itemIndex = container.items.findIndex(item => item.itemId === itemId);
-    if (itemIndex === -1) {
-      return false;
-    }
-
-    const item = container.items[itemIndex];
-    if (item.count <= count) {
-      container.items.splice(itemIndex, 1);
-    } else {
-      item.count -= count;
-    }
-
-    container.lastAccessed = Date.now();
-    const key = this.keyGenerator(x, y, z, type);
-    this.cache.set(key, container);
-
-    return true;
+    this.logger.warn('removeItemFromContainer 已禁用：容器不再缓存物品信息');
+    return false;
   }
 
   /**
@@ -222,6 +181,16 @@ export class ContainerCache {
   removeContainer(x: number, y: number, z: number, type: string): boolean {
     const key = this.keyGenerator(x, y, z, type);
     const deleted = this.cache.delete(key);
+
+    // 🔧 从区块索引中移除
+    const chunkKey = this.getChunkKey(x, z);
+    const keysInChunk = this.chunkIndex.get(chunkKey);
+    if (keysInChunk) {
+      keysInChunk.delete(key);
+      if (keysInChunk.size === 0) {
+        this.chunkIndex.delete(chunkKey);
+      }
+    }
 
     if (deleted) {
       this.stats.totalEntries = this.cache.size;
@@ -257,6 +226,27 @@ export class ContainerCache {
   }
 
   /**
+   * 🔧 移除指定区块内的所有容器
+   */
+  removeContainersInChunk(chunkX: number, chunkZ: number): number {
+    const chunkKey = `${chunkX},${chunkZ}`;
+    const containerKeysInChunk = this.chunkIndex.get(chunkKey);
+    let removedCount = 0;
+
+    if (containerKeysInChunk) {
+      for (const containerKey of containerKeysInChunk) {
+        if (this.cache.delete(containerKey)) {
+          removedCount++;
+        }
+      }
+      this.chunkIndex.delete(chunkKey);
+    }
+
+    this.stats.totalEntries = this.cache.size;
+    return removedCount;
+  }
+
+  /**
    * 按类型查找容器
    */
   findContainersByType(type: string): ContainerInfo[] {
@@ -276,47 +266,21 @@ export class ContainerCache {
   }
 
   /**
-   * 按物品查找容器
+   * 🔧 已禁用：按物品查找容器
+   * 原因：不再存储物品信息以减少内存占用，请使用 bot.openContainer() 实时查询
    */
   findContainersWithItem(itemId: number, minCount: number = 1): ContainerInfo[] {
-    const containers: ContainerInfo[] = [];
-
-    for (const containerInfo of this.cache.values()) {
-      if (this.isExpired(containerInfo)) {
-        continue;
-      }
-
-      const totalItems = containerInfo.items.filter(item => item.itemId === itemId).reduce((sum, item) => sum + item.count, 0);
-
-      if (totalItems >= minCount) {
-        containers.push(containerInfo);
-      }
-    }
-
-    return containers;
+    this.logger.warn('findContainersWithItem 已禁用：容器不再缓存物品信息，请使用 bot.openContainer() 实时查询');
+    return [];
   }
 
   /**
-   * 按物品名称查找容器
+   * 🔧 已禁用：按物品名称查找容器
+   * 原因：不再存储物品信息以减少内存占用，请使用 bot.openContainer() 实时查询
    */
   findContainersWithItemName(itemName: string, minCount: number = 1): ContainerInfo[] {
-    const containers: ContainerInfo[] = [];
-
-    for (const containerInfo of this.cache.values()) {
-      if (this.isExpired(containerInfo)) {
-        continue;
-      }
-
-      const totalItems = containerInfo.items
-        .filter(item => item.name.toLowerCase().includes(itemName.toLowerCase()))
-        .reduce((sum, item) => sum + item.count, 0);
-
-      if (totalItems >= minCount) {
-        containers.push(containerInfo);
-      }
-    }
-
-    return containers;
+    this.logger.warn('findContainersWithItemName 已禁用：容器不再缓存物品信息，请使用 bot.openContainer() 实时查询');
+    return [];
   }
 
   /**
@@ -448,7 +412,18 @@ export class ContainerCache {
       }
 
       this.stats.totalEntries = this.cache.size;
-      this.logger.info(`ContainerCache 加载完成，已加载 ${this.cache.size} 个容器缓存`);
+
+      // 🔧 重建区块索引
+      this.chunkIndex.clear();
+      for (const [key, containerInfo] of this.cache) {
+        const chunkKey = this.getChunkKey(containerInfo.position.x, containerInfo.position.z);
+        if (!this.chunkIndex.has(chunkKey)) {
+          this.chunkIndex.set(chunkKey, new Set());
+        }
+        this.chunkIndex.get(chunkKey)!.add(key);
+      }
+
+      this.logger.info(`ContainerCache 加载完成，已加载 ${this.cache.size} 个容器缓存，区块索引 ${this.chunkIndex.size} 个区块`);
     } catch (error: any) {
       if (error.code === 'ENOENT') {
         this.logger.info('ContainerCache 文件不存在，跳过加载');

@@ -6,38 +6,22 @@ import type { Vec3 } from 'vec3';
 
 /**
  * 方块信息接口
+ * 🔧 精简版：只保留查询和寻路必需的信息，减少内存占用
  */
 export interface BlockInfo {
   /** 方块名称 */
   name: string;
-  /** 方块类型 */
+  /** 方块类型ID */
   type: number;
   /** 方块位置 */
   position: Vec3;
-  /** 方块元数据/状态 */
-  metadata?: number;
-  /** 方块状态 (如开关门、箱子开关等) */
-  state?: Record<string, any>;
   /** 缓存时间戳 */
   timestamp: number;
-  /** 方块朝向 */
-  facing?: string;
-  /** 是否需要工具挖掘 */
-  requiresTool?: boolean;
-  /** 工具类型 */
-  toolType?: string;
-  /** 硬度 */
-  hardness?: number;
-  /** 发光等级 */
-  lightLevel?: number;
-  /** 是否透明 */
-  transparent?: boolean;
-  /** 特殊属性 (如箱子内容、熔炉状态等) */
-  properties?: Record<string, any>;
 }
 
 /**
  * 容器信息接口
+ * 🔧 精简版：只保留位置和类型信息，不存储物品内容，减少内存占用和查询开销
  */
 export interface ContainerInfo {
   /** 容器类型 */
@@ -46,27 +30,8 @@ export interface ContainerInfo {
   position: Vec3;
   /** 容器名称 (自定义名称) */
   name?: string;
-  /** 容器内容物 */
-  items: ContainerItem[];
   /** 最后访问时间 */
   lastAccessed: number;
-  /** 容器状态 (如熔炉的燃料和进度) */
-  state?: {
-    /** 当前燃料剩余 */
-    fuelRemaining?: number;
-    /** 最大燃料容量 */
-    fuelMax?: number;
-    /** 烧炼进度 */
-    progress?: number;
-    /** 当前烧炼物 */
-    currentItem?: ContainerItem;
-    /** 结果物 */
-    resultItem?: ContainerItem;
-  };
-  /** 容器大小 (格子数量) */
-  size: number;
-  /** 是否已锁定 */
-  locked?: boolean;
 }
 
 /**

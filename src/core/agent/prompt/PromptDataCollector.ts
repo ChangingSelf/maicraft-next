@@ -384,48 +384,14 @@ export class PromptDataCollector {
         const pos = container.position;
         const distance = pos.distanceTo(gameState.blockPosition);
 
-        let line = `  ${container.type}: ${container.name || '未命名容器'}`;
+        let line = `  ${container.type}: ${container.name || '未命名'}`;
         line += ` at (${pos.x}, ${pos.y}, ${pos.z})`;
         line += ` [距离: ${distance.toFixed(1)}格]`;
 
         containerLines.push(line);
 
-        // 显示物品信息
-        if (container.items && container.items.length > 0) {
-          // 显示前几种重要物品
-          const importantItems = container.items
-            .filter(
-              item =>
-                item.name.includes('diamond') ||
-                item.name.includes('iron') ||
-                item.name.includes('gold') ||
-                item.name.includes('emerald') ||
-                item.name.includes('tool') ||
-                item.name.includes('sword') ||
-                item.count >= 16,
-            )
-            .slice(0, 5);
-
-          if (importantItems.length > 0) {
-            const itemDetails = importantItems.map(item => `${item.name}×${item.count}`).join(', ');
-            containerLines.push(`    物品: ${itemDetails}`);
-          } else {
-            containerLines.push(`    物品: ${container.items.length}种 (共${container.items.reduce((sum, item) => sum + item.count, 0)}个)`);
-          }
-        } else {
-          containerLines.push(`    物品: 空`);
-        }
-
-        // 显示容器状态（如熔炉燃料、进度等）
-        if (container.state && Object.keys(container.state).length > 0) {
-          const stateDetails = Object.entries(container.state)
-            .filter(([key, value]) => key !== 'items') // 避免重复显示物品
-            .map(([key, value]) => `${key}:${value}`)
-            .join(', ');
-          if (stateDetails) {
-            containerLines.push(`    状态: ${stateDetails}`);
-          }
-        }
+        // 🔧 不再显示物品信息，减少提示词长度和查询开销
+        // 如需查询容器内容，请使用 use_chest/use_furnace 动作实时查询
       }
 
       return `附近容器 (${nearbyContainers.length}个):\n${containerLines.join('\n')}`;

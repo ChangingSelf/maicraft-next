@@ -98,6 +98,7 @@ export class BlockCache {
 
   /**
    * 设置方块信息
+   * 🔧 精简版：只存储必要信息，减少内存占用
    */
   setBlock(x: number, y: number, z: number, block: Partial<BlockInfo>): void {
     if (!this.config.enabled) return;
@@ -110,21 +111,30 @@ export class BlockCache {
       this.evictOldestEntries();
     }
 
+    // 🔧 只存储必要字段，不存储额外的 metadata、state、properties 等
     const blockInfo: BlockInfo = {
       name: block.name || 'unknown',
       type: block.type || 0,
       position: new Vec3(x, y, z),
       timestamp: now,
-      ...block,
     };
 
     this.cache.set(key, blockInfo);
+
+    // 🔧 更新区块索引
+    const chunkKey = this.getChunkKey(x, z);
+    if (!this.chunkIndex.has(chunkKey)) {
+      this.chunkIndex.set(chunkKey, new Set());
+    }
+    this.chunkIndex.get(chunkKey)!.add(key);
+
     this.stats.totalEntries = this.cache.size;
     this.stats.lastUpdate = now;
   }
 
   /**
    * 批量设置方块信息
+   * 🔧 精简版：只存储必要信息，减少内存占用
    */
   setBlocks(blocks: Array<{ x: number; y: number; z: number; block: Partial<BlockInfo> }>): void {
     if (!this.config.enabled) return;
@@ -140,7 +150,7 @@ export class BlockCache {
       }
     }
 
-    // 批量添加
+    // 批量添加（只存储必要字段）
     for (const { x, y, z, block } of blocks) {
       const key = this.keyGenerator(x, y, z);
       const blockInfo: BlockInfo = {
@@ -148,7 +158,6 @@ export class BlockCache {
         type: block.type || 0,
         position: new Vec3(x, y, z),
         timestamp: now,
-        ...block,
       };
       this.cache.set(key, blockInfo);
 
