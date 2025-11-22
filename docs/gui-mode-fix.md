@@ -1,3 +1,12 @@
+# 容器操作事件循环阻塞问题修复
+
+## 更新日志
+
+- **2025-11-22 22:50** - 新增熔炉和合成超时问题修复
+- **2025-11-22 22:38** - 初始版本：GUI 模式（箱子/熔炉）超时问题修复
+
+---
+
 # GUI 模式事件循环阻塞问题修复
 
 ## 问题描述
@@ -208,12 +217,79 @@ if (this.state.interrupt) {
 
 这个修复不仅解决了箱子模式的问题，也适用于所有需要独占事件循环的操作场景。
 
+## 扩展问题修复
+
+### 问题3：熔炉查询失败
+
+**错误**：
+```
+[ERROR] [QueryContainerAction] 查询容器内容失败: containerToOpen is neither a block nor an entity
+```
+
+**原因**：QueryContainerAction 对所有容器统一使用 `bot.openContainer()`，但**熔炉必须用 `bot.openFurnace()`**。
+
+**修复**：
+```typescript
+// 在 QueryContainerAction.ts 的 queryContainerContents 方法中
+const isFurnace = freshBlock.name === 'furnace' || freshBlock.name === 'blast_furnace' || freshBlock.name === 'smoker';
+const openPromise = isFurnace ? context.bot.openFurnace(freshBlock) : context.bot.openContainer(freshBlock);
+```
+
+### 问题4：合成偶发超时
+
+**错误**：
+```
+[ERROR] [CraftItemAction] 合成执行失败:
+[WARN] [CraftItemAction] 合成失败: Error: Event windowOpen did not fire within timeout of 20000ms
+```
+
+**原因**：
+- `bot.craft()` 内部会打开工作台窗口
+- 合成是在主模式中直接执行的，不是 GUI 模式
+- 如果恰好有方块扫描或其他任务在运行，就会超时
+- **偶发性**：取决于扫描时机
+
+**修复**：
+```typescript
+// 在 CraftManager.ts 的 performCrafting 方法中
+// 从 gameState 获取 cacheManager
+let cacheManager: any = null;
+if ((this.bot as any).cacheManager) {
+    cacheManager = (this.bot as any).cacheManager;
+} else if ((this.bot as any).gameState?.cacheManager) {
+    cacheManager = (this.bot as any).gameState.cacheManager;
+}
+
+// 暂停扫描
+if (cacheManager && typeof cacheManager.pauseScanning === 'function') {
+    cacheManager.pauseScanning();
+}
+
+try {
+    await this.bot.craft(recipe, count, craftingTable);
+} finally {
+    // 恢复扫描
+    if (cacheManager && typeof cacheManager.resumeScanning === 'function') {
+        cacheManager.resumeScanning();
+    }
+}
+```
+
 ## 相关文件
 
 - `src/core/agent/mode/modes/MainMode.ts` - 主模式，处理 GUI 动作切换
 - `src/core/agent/mode/modes/ChestMode.ts` - 箱子模式
 - `src/core/agent/Agent.ts` - Agent 主类，目标生成
 - `src/core/cache/CacheManager.ts` - 缓存管理器，方块扫描
-- `src/core/actions/implementations/QueryContainerAction.ts` - 查询容器动作
+- `src/core/actions/implementations/QueryContainerAction.ts` - 查询容器动作（熔炉修复）
 - `src/core/actions/implementations/ManageContainerAction.ts` - 管理容器动作
+- `src/core/crafting/CraftManager.ts` - 合成管理器（合成超时修复）
+
+## 通用解决方案
+
+**核心原则**：所有需要打开容器窗口的操作，在执行期间都应该：
+1. 暂停方块扫描
+2. 检查并设置中断标志（如果适用）
+3. 使用正确的打开方法（`openContainer` vs `openFurnace`）
+4. 操作完成后恢复扫描
 

@@ -668,7 +668,31 @@ export class CraftManager {
         await new Promise(resolve => setTimeout(resolve, 500)); // 等待窗口关闭
       }
 
-      await this.bot.craft(recipe, count, craftingTable);
+      // 🔧 暂停方块扫描，避免 bot.craft() 打开工作台时事件循环被占用
+      // 尝试从多个可能的位置获取 cacheManager
+      let cacheManager: any = null;
+      if ((this.bot as any).cacheManager) {
+        cacheManager = (this.bot as any).cacheManager;
+      } else if ((this.bot as any).gameState?.cacheManager) {
+        cacheManager = (this.bot as any).gameState.cacheManager;
+      }
+
+      let scanningPaused = false;
+      if (cacheManager && typeof cacheManager.pauseScanning === 'function') {
+        cacheManager.pauseScanning();
+        scanningPaused = true;
+        logger.debug('⏸️ 已暂停方块扫描（合成期间）');
+      }
+
+      try {
+        await this.bot.craft(recipe, count, craftingTable);
+      } finally {
+        // 确保恢复扫描
+        if (scanningPaused && cacheManager && typeof cacheManager.resumeScanning === 'function') {
+          cacheManager.resumeScanning();
+          logger.debug('▶️ 已恢复方块扫描');
+        }
+      }
 
       logger.info(`合成成功: ${originalItemName} x${count}`);
 

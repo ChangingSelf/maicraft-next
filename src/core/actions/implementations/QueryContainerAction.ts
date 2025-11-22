@@ -190,12 +190,15 @@ export class QueryContainerAction extends BaseAction<any> {
 
       context.logger.info(`[QueryContainer] 方块信息: 名称=${freshBlock.name}, 类型=${freshBlock.type}, 位置=(${pos.x}, ${pos.y}, ${pos.z})`);
 
+      // 🔧 判断容器类型，使用对应的打开方法
+      const isFurnace = freshBlock.name === 'furnace' || freshBlock.name === 'blast_furnace' || freshBlock.name === 'smoker';
+
       // 打开容器以获取内容
-      context.logger.info(`[QueryContainer] 🔄 调用 bot.openContainer()...`);
+      context.logger.info(`[QueryContainer] 🔄 调用 bot.${isFurnace ? 'openFurnace' : 'openContainer'}()...`);
       const startTime = Date.now();
 
       // 设置一个更短的自定义超时，便于调试
-      const openPromise = context.bot.openContainer(freshBlock);
+      const openPromise = isFurnace ? context.bot.openFurnace(freshBlock) : context.bot.openContainer(freshBlock);
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
           context.logger.error(`[QueryContainer] ⏰ 自定义超时（5秒），windowOpen监听器=${context.bot.listenerCount('windowOpen')} 个`);
