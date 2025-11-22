@@ -13,13 +13,13 @@ export function initChatResponseTemplate(): void {
   promptManager.registerTemplate(
     new PromptTemplate(
       'chat_response',
-      `【最近对话】
+      `# 最近对话
 {recent_conversations}
 
-【当前活动】
+# 当前活动
 {current_activity}
 
-【当前位置】
+# 当前位置
 {position}
 
 请回复最近的聊天消息。`,

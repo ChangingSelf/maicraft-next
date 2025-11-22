@@ -13,21 +13,21 @@ export function initPlanGenerationTemplate(): void {
   promptManager.registerTemplate(
     new PromptTemplate(
       'plan_generation',
-      `【目标】
+      `# 目标
 {goal}
 
-【当前状态】
+# 当前状态
 位置: {position}
 生命值: {health}/20, 饥饿值: {food}/20
 物品栏: {inventory}
 
-【周边环境】
+# 周边环境
 {environment}
 
-【已有经验】
+# 已有经验
 {experiences}
 
-【该目标的历史计划】
+# 该目标的历史计划
 {plan_history}
 
 请基于以上信息生成详细的执行计划。`,
