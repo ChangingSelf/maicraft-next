@@ -301,6 +301,10 @@ export class BlockCache {
    * 检查方块信息是否过期
    */
   private isExpired(blockInfo: BlockInfo): boolean {
+    // 🔧 如果 expirationTime 为 0，表示永不过期，完全依赖区块卸载清理
+    if (this.config.expirationTime === 0) {
+      return false;
+    }
     return Date.now() - blockInfo.timestamp > this.config.expirationTime;
   }
 

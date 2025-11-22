@@ -38,7 +38,7 @@ export function configureServices(container: Container): void {
     const { BlockCache } = require('@/core/cache/BlockCache');
     return new BlockCache({
       maxEntries: 0, // 🔧 设为0表示无限制，完全依赖区块卸载事件清理
-      expirationTime: 60 * 1000,
+      expirationTime: 0, // 🔧 设为0表示永不过期，完全依赖区块卸载清理
       autoSaveInterval: 0, // 🔧 设为0禁用自动保存
       enabled: true, // ⚠️ 必须为true，否则整个缓存都不工作
       updateStrategy: 'smart' as const,
@@ -50,7 +50,7 @@ export function configureServices(container: Container): void {
     const { ContainerCache } = require('@/core/cache/ContainerCache');
     return new ContainerCache({
       maxEntries: 0, // 🔧 设为0表示无限制，完全依赖区块卸载事件清理
-      expirationTime: 60 * 1000,
+      expirationTime: 0, // 🔧 设为0表示永不过期，完全依赖区块卸载清理
       autoSaveInterval: 0, // 🔧 设为0禁用自动保存
       enabled: true, // ⚠️ 必须为true，否则整个缓存都不工作
       updateStrategy: 'smart' as const,

@@ -323,6 +323,10 @@ export class ContainerCache {
    * 检查容器信息是否过期
    */
   private isExpired(containerInfo: ContainerInfo): boolean {
+    // 🔧 如果 expirationTime 为 0，表示永不过期，完全依赖区块卸载清理
+    if (this.config.expirationTime === 0) {
+      return false;
+    }
     return Date.now() - containerInfo.lastAccessed > this.config.expirationTime;
   }
 
