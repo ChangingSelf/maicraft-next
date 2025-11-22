@@ -185,7 +185,14 @@ export class PromptDataCollector {
   }
 
   private formatStatusInfo(gameState: GameState): string {
-    return `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}, 等级: ${gameState.level}`;
+    let status = `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}, 等级: ${gameState.level}`;
+
+    // 添加坠落状态信息
+    if (!gameState.onGround) {
+      status += ', 状态: 不在地面，可能正在坠落或在水中';
+    }
+
+    return status;
   }
 
   private formatPosition(pos: any): string {

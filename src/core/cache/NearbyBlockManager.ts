@@ -154,33 +154,7 @@ export class NearbyBlockManager {
       environment.push('危险：正在岩浆中！立即离开！');
     }
 
-    // 检查脚下支撑（检查下方1-3格，避免跳跃时误判）
-    let hasSupport = false;
-    let supportInfo = '';
-
-    for (let dy = 1; dy <= 3; dy++) {
-      const blockCheck = this.blockCache.getBlock(position.x, position.y - dy, position.z);
-      if (blockCheck && blockCheck.name !== 'air' && blockCheck.name !== 'cave_air') {
-        hasSupport = true;
-        if (dy === 1) {
-          if (blockCheck.name === 'water') {
-            supportInfo = '脚下是水，正在游泳或水面上';
-          } else {
-            supportInfo = `脚下: ${blockCheck.name}`;
-          }
-        } else {
-          supportInfo = `下方${dy}格有支撑: ${blockCheck.name}`;
-        }
-        break;
-      }
-    }
-
-    if (!hasSupport) {
-      // 只有下方3格都没有固体方块才报告悬空
-      environment.push('警告：下方3格无支撑，正在高空坠落');
-    } else if (supportInfo) {
-      environment.push(supportInfo);
-    }
+    // 坠落检测已移至GameState.onGround，不在此处进行方块检测
 
     // 2. 分析周围水体/岩浆
     const waterBlocks = groupedBlocks['water'] || [];
