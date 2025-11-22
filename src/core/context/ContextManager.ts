@@ -108,8 +108,20 @@ export class ContextManager {
       throw new Error('Context already created. Use getContext() to access existing context.');
     }
 
-    const { bot, executor, config, logger, gameState, blockCache, containerCache, locationManager, interruptSignal, placeBlockUtils, movementUtils, craftManager } =
-      params;
+    const {
+      bot,
+      executor,
+      config,
+      logger,
+      gameState,
+      blockCache,
+      containerCache,
+      locationManager,
+      interruptSignal,
+      placeBlockUtils,
+      movementUtils,
+      craftManager,
+    } = params;
 
     // 初始化 GameState
     gameState.initialize(bot);

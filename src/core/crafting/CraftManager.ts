@@ -69,21 +69,24 @@ export class CraftManager {
       // 2. 查找配方（支持指定材料约束）
       const recipe = await this.findRecipeWithConstraints(normalizedName, options.requiredMaterials);
       if (!recipe) {
-        return this.createErrorResult(
-          `找不到 ${itemName} 的合成配方`,
-          CRAFT_ERRORS.RECIPE_NOT_FOUND
-        );
+        return this.createErrorResult(`找不到 ${itemName} 的合成配方`, CRAFT_ERRORS.RECIPE_NOT_FOUND);
       }
 
       logger.info(`找到配方，需要工作台: ${recipe.requiresTable}`);
 
       // 调试：输出配方详细信息
-      logger.debug(`配方详情: ${JSON.stringify({
-        result: recipe.result,
-        hasIngredients: !!recipe.ingredients,
-        hasInShape: !!recipe.inShape,
-        requiresTable: recipe.requiresTable
-      }, null, 2)}`);
+      logger.debug(
+        `配方详情: ${JSON.stringify(
+          {
+            result: recipe.result,
+            hasIngredients: !!recipe.ingredients,
+            hasInShape: !!recipe.inShape,
+            requiresTable: recipe.requiresTable,
+          },
+          null,
+          2,
+        )}`,
+      );
 
       // 3. 验证材料充足性
       logger.debug('开始验证材料...');
@@ -95,10 +98,15 @@ export class CraftManager {
       logger.debug('材料验证通过');
 
       // 4. 递归合成材料（如果需要且允许）
-      const materialResult = await this.ensureMaterials(recipe, count, {
-        ...options,
-        currentDepth: 0
-      }, logger);
+      const materialResult = await this.ensureMaterials(
+        recipe,
+        count,
+        {
+          ...options,
+          currentDepth: 0,
+        },
+        logger,
+      );
       if (!materialResult.success) {
         return materialResult;
       }
@@ -108,15 +116,10 @@ export class CraftManager {
 
       // 6. 执行合成
       return await this.performCrafting(recipe, count, craftingTable, itemName, logger);
-
     } catch (error) {
       const err = error as Error;
       logger.error('合成过程中发生错误:', err);
-      return this.createErrorResult(
-        `合成失败: ${err.message}`,
-        CRAFT_ERRORS.CRAFT_FAILED,
-        err
-      );
+      return this.createErrorResult(`合成失败: ${err.message}`, CRAFT_ERRORS.CRAFT_FAILED, err);
     }
   }
 
@@ -137,7 +140,7 @@ export class CraftManager {
       // 2. 查找附近的工作台
       const craftingTableBlock = this.bot.findBlock({
         matching: this.mcData.blocksByName.crafting_table.id,
-        maxDistance: 48
+        maxDistance: 48,
       });
 
       // 3. 获取所有可用配方
@@ -154,7 +157,6 @@ export class CraftManager {
 
       // 5. 返回第一个符合条件的配方
       return recipes[0];
-
     } catch (error) {
       // 如果出错，尝试直接从minecraft-data查找
       return this.findRecipesDirectly(itemName)[0] || null;
@@ -176,7 +178,11 @@ export class CraftManager {
 
     // 标准化物品名称
     const normalizeName = (name: string) =>
-      name.trim().toLowerCase().replace(/^minecraft:/, '').replace(/\s+/g, '_');
+      name
+        .trim()
+        .toLowerCase()
+        .replace(/^minecraft:/, '')
+        .replace(/\s+/g, '_');
 
     const requested = normalizeName(itemName);
 
@@ -310,7 +316,7 @@ export class CraftManager {
       inShape: recipe.inShape,
       requiresTable: this.requiresCraftingTable(recipe),
       priority: 1,
-      complexity: this.calculateComplexity(recipe)
+      complexity: this.calculateComplexity(recipe),
     }));
   }
 
@@ -332,7 +338,7 @@ export class CraftManager {
             if (Number.isInteger(ingredient.id) && ingredient.id > 0) {
               ingredients.push({
                 id: ingredient.id,
-                count: ingredient.count || 1
+                count: ingredient.count || 1,
               });
             }
           }
@@ -467,7 +473,7 @@ export class CraftManager {
           name: materialName,
           count: needCount - haveCount,
           have: haveCount,
-          need: needCount
+          need: needCount,
         });
       }
     }
@@ -475,34 +481,20 @@ export class CraftManager {
     if (missingMaterials.length > 0) {
       // 如果有指定材料约束，优先检查这些材料是否不足
       if (requiredMaterials) {
-        const requiredMissing = missingMaterials.filter(m =>
-          requiredMaterials.some(req =>
-            m.name.includes(req) || req.includes(m.name)
-          )
-        );
+        const requiredMissing = missingMaterials.filter(m => requiredMaterials.some(req => m.name.includes(req) || req.includes(m.name)));
 
         if (requiredMissing.length > 0) {
-          const missingList = requiredMissing.map(m =>
-            `${m.name} (需要${m.need}，有${m.have})`
-          ).join('、');
+          const missingList = requiredMissing.map(m => `${m.name} (需要${m.need}，有${m.have})`).join('、');
 
-          return this.createErrorResult(
-            `指定的材料不足：${missingList}。请先获取足够的材料后再尝试合成。`,
-            CRAFT_ERRORS.INSUFFICIENT_MATERIALS,
-            { missingMaterials: requiredMissing }
-          );
+          return this.createErrorResult(`指定的材料不足：${missingList}。请先获取足够的材料后再尝试合成。`, CRAFT_ERRORS.INSUFFICIENT_MATERIALS, {
+            missingMaterials: requiredMissing,
+          });
         }
       }
 
-      const missingList = missingMaterials.map(m =>
-        `${m.name} x${m.count}`
-      ).join('、');
+      const missingList = missingMaterials.map(m => `${m.name} x${m.count}`).join('、');
 
-      return this.createErrorResult(
-        `材料不足：${missingList}`,
-        CRAFT_ERRORS.INSUFFICIENT_MATERIALS,
-        { missingMaterials }
-      );
+      return this.createErrorResult(`材料不足：${missingList}`, CRAFT_ERRORS.INSUFFICIENT_MATERIALS, { missingMaterials });
     }
 
     return this.createSuccessResult('材料验证通过');
@@ -519,10 +511,7 @@ export class CraftManager {
   private async ensureMaterials(recipe: Recipe, count: number, options: MaterialOptions, logger: Logger): Promise<ActionResult> {
     // 检查递归深度
     if (options.currentDepth >= (options.maxComplexity || 10)) {
-      return this.createErrorResult(
-        '合成复杂度过高，请手动合成部分材料',
-        CRAFT_ERRORS.COMPLEXITY_TOO_HIGH
-      );
+      return this.createErrorResult('合成复杂度过高，请手动合成部分材料', CRAFT_ERRORS.COMPLEXITY_TOO_HIGH);
     }
 
     // 获取配方所需的所有材料
@@ -539,19 +528,24 @@ export class CraftManager {
         const materialName = this.getItemNameById(ingredient.id);
         logger.info(`材料不足，尝试合成: ${materialName} x${shortage}`);
 
-        const craftResult = await this.craftItem(materialName, shortage, {
-          ...options,
-          currentDepth: options.currentDepth + 1,
-          // 递归时不继承requiredMaterials，避免过度约束
-          requiredMaterials: undefined
-        }, logger);
+        const craftResult = await this.craftItem(
+          materialName,
+          shortage,
+          {
+            ...options,
+            currentDepth: options.currentDepth + 1,
+            // 递归时不继承requiredMaterials，避免过度约束
+            requiredMaterials: undefined,
+          },
+          logger,
+        );
 
         if (!craftResult.success) {
-          return this.createErrorResult(
-            `无法合成材料 ${materialName}: ${craftResult.message}`,
-            CRAFT_ERRORS.INSUFFICIENT_MATERIALS,
-            { material: materialName, shortage, subResult: craftResult }
-          );
+          return this.createErrorResult(`无法合成材料 ${materialName}: ${craftResult.message}`, CRAFT_ERRORS.INSUFFICIENT_MATERIALS, {
+            material: materialName,
+            shortage,
+            subResult: craftResult,
+          });
         }
 
         logger.info(`成功合成材料: ${materialName} x${shortage}`);
@@ -575,7 +569,7 @@ export class CraftManager {
     // 查找附近工作台
     const craftingTable = this.bot.findBlock({
       matching: this.mcData.blocksByName.crafting_table.id,
-      maxDistance: 32
+      maxDistance: 32,
     });
 
     if (craftingTable) {
@@ -593,9 +587,7 @@ export class CraftManager {
    * @returns 放置的工作台方块
    */
   private async placeCraftingTable(logger: Logger): Promise<any | null> {
-    const craftingTableItem = this.bot.inventory.findInventoryItem(
-      this.mcData.itemsByName.crafting_table.id
-    );
+    const craftingTableItem = this.bot.inventory.findInventoryItem(this.mcData.itemsByName.crafting_table.id);
 
     if (!craftingTableItem) {
       throw new Error('需要工作台但没有找到，请先合成工作台');
@@ -663,7 +655,7 @@ export class CraftManager {
     count: number,
     craftingTable: any | null,
     originalItemName: string,
-    logger: Logger
+    logger: Logger,
   ): Promise<ActionResult> {
     try {
       logger.info(`开始合成: ${originalItemName} x${count}`);
@@ -672,24 +664,16 @@ export class CraftManager {
 
       logger.info(`合成成功: ${originalItemName} x${count}`);
 
-      return this.createSuccessResult(
-        `成功合成 ${originalItemName} x${count}`,
-        {
-          item: originalItemName,
-          count,
-          usedCraftingTable: recipe.requiresTable,
-          recipe: recipe.result.name || originalItemName
-        }
-      );
-
+      return this.createSuccessResult(`成功合成 ${originalItemName} x${count}`, {
+        item: originalItemName,
+        count,
+        usedCraftingTable: recipe.requiresTable,
+        recipe: recipe.result.name || originalItemName,
+      });
     } catch (error) {
       const err = error as Error;
       logger.error('合成执行失败:', err);
-      return this.createErrorResult(
-        `合成执行失败: ${err.message}`,
-        CRAFT_ERRORS.CRAFT_FAILED,
-        err
-      );
+      return this.createErrorResult(`合成执行失败: ${err.message}`, CRAFT_ERRORS.CRAFT_FAILED, err);
     }
   }
 
@@ -719,9 +703,7 @@ export class CraftManager {
    */
   private getItemCount(itemId: number): number {
     const items = this.bot.inventory.items();
-    return items
-      .filter(item => item.type === itemId)
-      .reduce((total, item) => total + item.count, 0);
+    return items.filter(item => item.type === itemId).reduce((total, item) => total + item.count, 0);
   }
 
   /**
@@ -734,7 +716,7 @@ export class CraftManager {
     return {
       success: true,
       message,
-      data
+      data,
     };
   }
 
@@ -745,18 +727,14 @@ export class CraftManager {
    * @param details 详细信息
    * @returns 错误结果
    */
-  private createErrorResult(
-    message: string,
-    errorCode: CraftErrorCode = CRAFT_ERRORS.CRAFT_FAILED,
-    details?: any
-  ): ActionResult {
+  private createErrorResult(message: string, errorCode: CraftErrorCode = CRAFT_ERRORS.CRAFT_FAILED, details?: any): ActionResult {
     return {
       success: false,
       message,
       error: {
         code: errorCode,
-        details
-      }
+        details,
+      },
     };
   }
 }

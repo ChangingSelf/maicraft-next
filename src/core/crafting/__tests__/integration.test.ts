@@ -35,7 +35,7 @@ describe('合成系统集成测试', () => {
         ['苹果', 'apple'],
         ['弓', 'bow'],
         ['箭', 'arrow'],
-        ['盾牌', 'shield']
+        ['盾牌', 'shield'],
       ];
 
       testCases.forEach(([chinese, expectedEnglish]) => {
@@ -55,7 +55,7 @@ describe('合成系统集成测试', () => {
         'crafting_table',
         'furnace',
         'coal',
-        'iron_ingot'
+        'iron_ingot',
       ];
 
       englishItems.forEach(item => {
@@ -73,7 +73,7 @@ describe('合成系统集成测试', () => {
         ['plank', 'planks'],
         ['wood', 'planks'],
         ['pick', 'pickaxe'],
-        ['ore', 'ore']
+        ['ore', 'ore'],
       ];
 
       aliasTestCases.forEach(([alias, expected]) => {
@@ -82,11 +82,7 @@ describe('合成系统集成测试', () => {
     });
 
     test('应该处理不存在的物品名称', () => {
-      const unknownItems = [
-        'unknown_item',
-        '不存在物品',
-        'random_stuff'
-      ];
+      const unknownItems = ['unknown_item', '不存在物品', 'random_stuff'];
 
       unknownItems.forEach(item => {
         const result = normalizeItemName(item);
@@ -147,10 +143,19 @@ describe('合成系统集成测试', () => {
   describe('性能测试', () => {
     test('应该能够快速处理大量物品名称', () => {
       const testItems = [
-        '木镐', '石镐', '铁镐', '钻石镐',
-        'wooden_pickaxe', 'stone_pickaxe', 'iron_pickaxe',
-        '木板', 'stick', 'workbench',
-        'planks', 'crafting_table', 'furnace'
+        '木镐',
+        '石镐',
+        '铁镐',
+        '钻石镐',
+        'wooden_pickaxe',
+        'stone_pickaxe',
+        'iron_pickaxe',
+        '木板',
+        'stick',
+        'workbench',
+        'planks',
+        'crafting_table',
+        'furnace',
       ];
 
       const startTime = Date.now();

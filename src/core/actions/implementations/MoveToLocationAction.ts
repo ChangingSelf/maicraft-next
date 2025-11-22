@@ -38,9 +38,10 @@ export class MoveToLocationAction extends BaseAction<MoveToLocationParams> {
       );
 
       if (moveResult.success) {
-        const message = allowPartial && !moveResult.status.reached
-          ? `部分完成移动到 "${locationName}"，距离 ${moveResult.distance.toFixed(2)} 格`
-          : `成功移动到 "${locationName}"，距离 ${moveResult.distance.toFixed(2)} 格`;
+        const message =
+          allowPartial && !moveResult.status.reached
+            ? `部分完成移动到 "${locationName}"，距离 ${moveResult.distance.toFixed(2)} 格`
+            : `成功移动到 "${locationName}"，距离 ${moveResult.distance.toFixed(2)} 格`;
 
         context.logger.info(message);
         return this.success(message, {

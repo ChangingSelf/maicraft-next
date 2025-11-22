@@ -21,23 +21,27 @@
 **描述**: 自动查找配方并合成指定物品，agent无需关心合成细节，专注于目标达成
 
 **使用场景**:
+
 - 合成任意物品（工具、武器、建材、食物等）
 - 批量合成同一物品
 - 智能处理材料和工作台需求
 
 **参数**:
+
 ```typescript
 interface CraftParams {
-  item: string;                    // 物品名称（必需）
-  count?: number;                  // 合成数量（默认1，可选）
+  item: string; // 物品名称（必需）
+  count?: number; // 合成数量（默认1，可选）
 }
 ```
 
 **参数说明**:
+
 - `item`: 物品名称，支持中文和英文名称（如"木镐"、"wooden_pickaxe"）
 - `count`: 合成数量，默认为1，支持批量合成
 
 **示例**:
+
 ```json
 {
   "action_type": "CRAFT",
@@ -55,6 +59,7 @@ interface CraftParams {
 ```
 
 **实现要点**:
+
 - **智能配方选择**: 自动选择最优配方，优先使用常见材料
 - **递归合成**: 自动合成所需的原材料
 - **工作台处理**: 自动查找附近工作台，必要时自动放置
@@ -71,7 +76,10 @@ interface CraftParams {
 export class CraftManager {
   private itemNames: Map<string, string>; // 中文到英文名称映射
 
-  constructor(private bot: Bot, private logger: Logger) {
+  constructor(
+    private bot: Bot,
+    private logger: Logger,
+  ) {
     this.itemNames = this.loadItemNameMapping();
   }
 
@@ -133,8 +141,12 @@ export class RecipeSelector {
 
     // 材料稀有度权重
     const materialRarity: Record<string, number> = {
-      'oak_planks': 10, 'cobblestone': 10, 'stick': 10,
-      'iron_ingot': 5, 'gold_ingot': 3, 'diamond': 1
+      oak_planks: 10,
+      cobblestone: 10,
+      stick: 10,
+      iron_ingot: 5,
+      gold_ingot: 3,
+      diamond: 1,
     };
 
     for (const ingredient of recipe.ingredients) {
@@ -187,7 +199,7 @@ export class CraftingTableManager {
     // 查找附近工作台
     const nearbyTable = this.bot.findBlock({
       matching: this.mcData.blocksByName.crafting_table.id,
-      maxDistance: 32
+      maxDistance: 32,
     });
 
     if (nearbyTable) {
@@ -199,9 +211,7 @@ export class CraftingTableManager {
   }
 
   private async placeCraftingTable(): Promise<Block | null> {
-    const craftingTable = this.inventory.findInventoryItem(
-      this.mcData.itemsByName.crafting_table.id
-    );
+    const craftingTable = this.inventory.findInventoryItem(this.mcData.itemsByName.crafting_table.id);
 
     if (!craftingTable) {
       throw new Error('需要工作台但没有找到，请先合成工作台');
@@ -299,27 +309,25 @@ function createFriendlyError(errorType: keyof typeof CRAFT_ERRORS, details?: any
 
   switch (errorType) {
     case 'INSUFFICIENT_MATERIALS':
-      const missingList = details?.missing?.map((m: any) =>
-        `${m.name} x${m.count}`
-      ).join('、') || '未知材料';
+      const missingList = details?.missing?.map((m: any) => `${m.name} x${m.count}`).join('、') || '未知材料';
       return {
         success: false,
         message: `${baseMessage}：缺少 ${missingList}`,
-        error: { code: errorType, details }
+        error: { code: errorType, details },
       };
 
     case 'RECIPE_NOT_FOUND':
       return {
         success: false,
         message: `${baseMessage}，请检查物品名称是否正确`,
-        error: { code: errorType, details }
+        error: { code: errorType, details },
       };
 
     default:
       return {
         success: false,
         message: baseMessage,
-        error: { code: errorType, details }
+        error: { code: errorType, details },
       };
   }
 }
@@ -331,42 +339,42 @@ function createFriendlyError(errorType: keyof typeof CRAFT_ERRORS, details?: any
 // 简化的中文物品名称映射
 const ITEM_NAME_MAPPING: Record<string, string> = {
   // 工具
-  '木镐': 'wooden_pickaxe',
-  '石镐': 'stone_pickaxe',
-  '铁镐': 'iron_pickaxe',
-  '钻石镐': 'diamond_pickaxe',
-  '木斧': 'wooden_axe',
-  '石斧': 'stone_axe',
-  '铁斧': 'iron_axe',
-  '钻石斧': 'diamond_axe',
-  '木剑': 'wooden_sword',
-  '石剑': 'stone_sword',
-  '铁剑': 'iron_sword',
-  '钻石剑': 'diamond_sword',
+  木镐: 'wooden_pickaxe',
+  石镐: 'stone_pickaxe',
+  铁镐: 'iron_pickaxe',
+  钻石镐: 'diamond_pickaxe',
+  木斧: 'wooden_axe',
+  石斧: 'stone_axe',
+  铁斧: 'iron_axe',
+  钻石斧: 'diamond_axe',
+  木剑: 'wooden_sword',
+  石剑: 'stone_sword',
+  铁剑: 'iron_sword',
+  钻石剑: 'diamond_sword',
 
   // 基础材料
-  '木板': 'planks',
-  '木棍': 'stick',
-  '工作台': 'crafting_table',
-  '熔炉': 'furnace',
-  '箱子': 'chest',
+  木板: 'planks',
+  木棍: 'stick',
+  工作台: 'crafting_table',
+  熔炉: 'furnace',
+  箱子: 'chest',
 
   // 矿物
-  '煤炭': 'coal',
-  '铁锭': 'iron_ingot',
-  '金锭': 'gold_ingot',
-  '钻石': 'diamond',
+  煤炭: 'coal',
+  铁锭: 'iron_ingot',
+  金锭: 'gold_ingot',
+  钻石: 'diamond',
 
   // 食物
-  '面包': 'bread',
-  '熟牛肉': 'cooked_beef',
-  '熟猪肉': 'cooked_porkchop',
+  面包: 'bread',
+  熟牛肉: 'cooked_beef',
+  熟猪肉: 'cooked_porkchop',
 
   // 方块
-  '圆石': 'cobblestone',
-  '石头': 'stone',
-  '木头': 'log',
-  '玻璃': 'glass',
+  圆石: 'cobblestone',
+  石头: 'stone',
+  木头: 'log',
+  玻璃: 'glass',
 };
 
 function normalizeItemName(name: string): string {
@@ -382,7 +390,7 @@ function normalizeItemName(name: string): string {
 ```typescript
 // 合成单个物品
 const result = await executor.execute(ActionIds.CRAFT, {
-  item: '木镐'
+  item: '木镐',
 });
 ```
 
@@ -390,7 +398,7 @@ const result = await executor.execute(ActionIds.CRAFT, {
 // 合成多个物品
 const result = await executor.execute(ActionIds.CRAFT, {
   item: 'wooden_pickaxe',
-  count: 3
+  count: 3,
 });
 ```
 
@@ -398,7 +406,7 @@ const result = await executor.execute(ActionIds.CRAFT, {
 // 使用中文名称
 const result = await executor.execute(ActionIds.CRAFT, {
   item: '铁镐',
-  count: 1
+  count: 1,
 });
 ```
 
@@ -407,7 +415,7 @@ const result = await executor.execute(ActionIds.CRAFT, {
 ```typescript
 const result = await executor.execute(ActionIds.CRAFT, {
   item: '木镐',
-  count: 5
+  count: 5,
 });
 
 if (!result.success) {
@@ -453,15 +461,15 @@ export interface ActionParamsMap {
 
 ### 简化后的功能对比
 
-| 特性 | Maicraft (Python) | Maicraft-Next (新设计) | 改进说明 |
-|------|------------------|------------------------|----------|
-| **智能合成** | ✓ 高级智能合成 | ✓ 增强智能合成 | 保留智能，优化性能 |
-| **API简洁性** | ✓ 简洁单一接口 | ✓ 极简双参数接口 | 进一步简化 |
-| **中文支持** | ✓ 完整中文支持 | ✓ 完整中文支持 | 保持兼容 |
-| **错误处理** | ✓ 详细分析报告 | ✓ 友好错误信息 | 更直观易懂 |
-| **递归合成** | ✓ 支持递归 | ✓ 支持递归 | 保留核心功能 |
-| **批量合成** | ❌ 不支持 | ✓ 支持count参数 | 简化实现 |
-| **工作台处理** | ✓ 智能处理 | ✓ 智能处理 | 优化性能 |
+| 特性           | Maicraft (Python) | Maicraft-Next (新设计) | 改进说明           |
+| -------------- | ----------------- | ---------------------- | ------------------ |
+| **智能合成**   | ✓ 高级智能合成    | ✓ 增强智能合成         | 保留智能，优化性能 |
+| **API简洁性**  | ✓ 简洁单一接口    | ✓ 极简双参数接口       | 进一步简化         |
+| **中文支持**   | ✓ 完整中文支持    | ✓ 完整中文支持         | 保持兼容           |
+| **错误处理**   | ✓ 详细分析报告    | ✓ 友好错误信息         | 更直观易懂         |
+| **递归合成**   | ✓ 支持递归        | ✓ 支持递归             | 保留核心功能       |
+| **批量合成**   | ❌ 不支持         | ✓ 支持count参数        | 简化实现           |
+| **工作台处理** | ✓ 智能处理        | ✓ 智能处理             | 优化性能           |
 
 ### 关键设计改进
 
@@ -473,11 +481,13 @@ export interface ActionParamsMap {
 ### 与MCP架构的对比
 
 **MCP架构的限制**:
+
 - 跨进程通信开销大
 - 需要先查询配方再合成（两次调用）
 - 状态不透明，难以实现复杂递归逻辑
 
 **一体化架构的优势**:
+
 - 直接函数调用，性能优异
 - 状态完全透明，支持复杂逻辑
 - 简化的API，降低agent的认知负担

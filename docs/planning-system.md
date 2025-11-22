@@ -226,7 +226,7 @@ const planning = new GoalPlanningManager(gameContext);
 await planning.initialize();
 
 // 设置目标完成回调
-planning.setOnGoalCompleted((goal) => {
+planning.setOnGoalCompleted(goal => {
   console.log(`🎯 目标完成: ${goal.description}`);
   // 触发后续逻辑...
 });
@@ -292,7 +292,10 @@ if (taskStats.totalExecuted > 0) {
 
 // 获取最近的任务执行历史
 const recentHistory = planning.getRecentTaskHistory(5);
-console.log('最近任务历史:', recentHistory.map(h => `${h.taskTitle}: ${h.status}`));
+console.log(
+  '最近任务历史:',
+  recentHistory.map(h => `${h.taskTitle}: ${h.status}`),
+);
 ```
 
 ### 管理目标
@@ -356,31 +359,38 @@ console.log(`任务统计:
 
 // 获取任务执行历史
 const history = planning.getTaskExecutionHistory('收集64个橡木', 5);
-console.log('最近5次执行:', history.map(h => ({
-  开始时间: new Date(h.startTime).toLocaleString(),
-  耗时: h.duration ? `${h.duration}ms` : '未完成',
-  状态: h.status,
-  进度快照: h.progressSnapshots.length
-})));
+console.log(
+  '最近5次执行:',
+  history.map(h => ({
+    开始时间: new Date(h.startTime).toLocaleString(),
+    耗时: h.duration ? `${h.duration}ms` : '未完成',
+    状态: h.status,
+    进度快照: h.progressSnapshots.length,
+  })),
+);
 
 // 获取最近的历史记录
 const recent = planning.getRecentTaskHistory(10);
-console.log('最近10个任务:', recent.map(h => `${h.taskTitle}: ${h.status}`));
+console.log(
+  '最近10个任务:',
+  recent.map(h => `${h.taskTitle}: ${h.status}`),
+);
 ```
 
 ### 数据结构
 
 #### TaskHistoryEntry (历史条目)
+
 ```typescript
 interface TaskHistoryEntry {
-  id: string;                    // 唯一标识
-  taskId: string;               // 任务ID
-  taskTitle: string;            // 任务标题
-  planId: string;               // 所属计划ID
-  goalId: string;               // 所属目标ID
-  startTime: number;            // 开始时间戳
-  endTime?: number;             // 结束时间戳
-  duration?: number;            // 执行时长(毫秒)
+  id: string; // 唯一标识
+  taskId: string; // 任务ID
+  taskTitle: string; // 任务标题
+  planId: string; // 所属计划ID
+  goalId: string; // 所属目标ID
+  startTime: number; // 开始时间戳
+  endTime?: number; // 结束时间戳
+  duration?: number; // 执行时长(毫秒)
   status: 'completed' | 'failed' | 'abandoned'; // 最终状态
   progressSnapshots: TaskProgressSnapshot[]; // 进度快照
   context: Record<string, any>; // 执行上下文
@@ -388,25 +398,27 @@ interface TaskHistoryEntry {
 ```
 
 #### TaskProgressSnapshot (进度快照)
+
 ```typescript
 interface TaskProgressSnapshot {
-  timestamp: number;    // 时间戳
-  current: number;      // 当前值
-  target: number;       // 目标值
-  percentage: number;   // 完成百分比
-  description: string;  // 进度描述
+  timestamp: number; // 时间戳
+  current: number; // 当前值
+  target: number; // 目标值
+  percentage: number; // 完成百分比
+  description: string; // 进度描述
 }
 ```
 
 #### TaskStats (统计信息)
+
 ```typescript
 interface TaskStats {
-  totalExecuted: number;        // 总执行次数
-  totalCompleted: number;       // 成功完成次数
-  totalFailed: number;         // 失败次数
-  totalAbandoned: number;      // 放弃次数
-  averageDuration: number;     // 平均执行时长
-  successRate: number;         // 成功率 (0-1)
+  totalExecuted: number; // 总执行次数
+  totalCompleted: number; // 成功完成次数
+  totalFailed: number; // 失败次数
+  totalAbandoned: number; // 放弃次数
+  averageDuration: number; // 平均执行时长
+  successRate: number; // 成功率 (0-1)
   commonFailurePatterns: Record<string, number>; // 常见失败模式
 }
 ```
@@ -501,8 +513,10 @@ const tracker = TrackerFactory.fromJSON({
 // 支持所有追踪器类型
 const locationTracker = TrackerFactory.fromJSON({
   type: 'location',
-  targetX: 100, targetY: 64, targetZ: 200,
-  radius: 5
+  targetX: 100,
+  targetY: 64,
+  targetZ: 200,
+  radius: 5,
 });
 
 const compositeTracker = TrackerFactory.fromJSON({
@@ -510,8 +524,8 @@ const compositeTracker = TrackerFactory.fromJSON({
   logic: 'and',
   trackers: [
     { type: 'inventory', item: 'diamond', targetCount: 3 },
-    { type: 'location', targetX: 0, targetY: 64, targetZ: 0, radius: 10 }
-  ]
+    { type: 'location', targetX: 0, targetY: 64, targetZ: 0, radius: 10 },
+  ],
 });
 ```
 
@@ -550,12 +564,12 @@ graph TD
 ```typescript
 interface TaskEvaluation {
   task_status: 'on_track' | 'struggling' | 'blocked' | 'needs_adjustment';
-  progress_assessment: string;     // 进度评估描述
-  issues: string[];               // 发现的问题
-  suggestions: string[];          // 改进建议
-  should_replan: boolean;         // 是否需要重新规划
-  should_skip_task: boolean;      // 是否跳过任务
-  confidence: number;             // 置信度 (0.0-1.0)
+  progress_assessment: string; // 进度评估描述
+  issues: string[]; // 发现的问题
+  suggestions: string[]; // 改进建议
+  should_replan: boolean; // 是否需要重新规划
+  should_skip_task: boolean; // 是否跳过任务
+  confidence: number; // 置信度 (0.0-1.0)
 }
 ```
 
@@ -568,7 +582,7 @@ await planning.handleTaskEvaluation({
   progress_assessment: '铁矿石采集进度缓慢',
   issues: ['铁镐耐久不足', '找不到铁矿石位置'],
   suggestions: ['先合成铁镐', '向地下探索'],
-  should_replan: true,      // → 触发重新规划
+  should_replan: true, // → 触发重新规划
   should_skip_task: false,
   confidence: 0.85,
 });
@@ -594,20 +608,18 @@ await planning.handleTaskEvaluation({
 
 ### 评估状态说明
 
-| 状态 | 说明 | 自动行为 |
-|------|------|----------|
-| `on_track` | 任务进展顺利 | 记录鼓励信息到记忆 |
-| `struggling` | 遇到困难但可继续 | 记录建议，监控进展 |
-| `blocked` | 任务完全阻塞 | 标记任务失败 |
-| `needs_adjustment` | 需要调整策略 | 记录建议，考虑重新规划 |
+| 状态               | 说明             | 自动行为               |
+| ------------------ | ---------------- | ---------------------- |
+| `on_track`         | 任务进展顺利     | 记录鼓励信息到记忆     |
+| `struggling`       | 遇到困难但可继续 | 记录建议，监控进展     |
+| `blocked`          | 任务完全阻塞     | 标记任务失败           |
+| `needs_adjustment` | 需要调整策略     | 记录建议，考虑重新规划 |
 
 ### 与重新规划的集成
 
 ```typescript
 // 评估发现问题 → 自动重新规划
-const newPlan = await planning.replanForCurrentGoal(
-  '任务评估发现: 缺少铁矿石，铁镐耐久不足'
-);
+const newPlan = await planning.replanForCurrentGoal('任务评估发现: 缺少铁矿石，铁镐耐久不足');
 
 // 重新规划时会：
 // 1. 分析历史计划的失败原因
@@ -665,12 +677,10 @@ const planningContext = {
   nearbyEntities: nearbyEntities.slice(0, 5).join(', '),
 
   // 历史经验
-  experiences: relevantExperiences.map(e =>
-    `- ${e.content} (置信度: ${(e.confidence * 100).toFixed(0)}%)`
-  ).join('\n'),
+  experiences: relevantExperiences.map(e => `- ${e.content} (置信度: ${(e.confidence * 100).toFixed(0)}%)`).join('\n'),
 
   // 历史计划分析
-  planHistory: collectPlanHistory(goal)
+  planHistory: collectPlanHistory(goal),
 };
 ```
 
@@ -853,14 +863,14 @@ async replanForCurrentGoal(reason: string): Promise<Plan | null> {
 
 | 方面         | Maicraft Python  | Maicraft-Next                  |
 | ------------ | ---------------- | ------------------------------ |
-| **结构**     | 扁平的 todo_list | 三层 Goal-Plan-Task + 历史系统  |
+| **结构**     | 扁平的 todo_list | 三层 Goal-Plan-Task + 历史系统 |
 | **层次**     | 无层次关系       | 清晰的层次结构 + 依赖管理      |
 | **进度**     | 无自动追踪       | 自动进度计算 + 实时更新        |
 | **追踪器**   | 手动检查         | 编程式追踪器 + 多种类型        |
-| **依赖**     | 无依赖管理       | 支持索引和ID双重依赖            |
+| **依赖**     | 无依赖管理       | 支持索引和ID双重依赖           |
 | **复杂任务** | 难以管理         | 易于组织 + LLM自动生成         |
 | **历史学习** | 无               | 任务历史统计 + 失败原因分析    |
-| **智能评估** | 无               | LLM任务评估 + 自动重新规划      |
+| **智能评估** | 无               | LLM任务评估 + 自动重新规划     |
 | **持久化**   | 无               | 自动保存 + 状态恢复            |
 
 ---
@@ -901,14 +911,11 @@ export class Agent {
   // 目标完成事件处理
   private handleGoalCompletion(goal: Goal): void {
     // 1. 记录到记忆系统
-    this.state.memory.recordThought(
-      `成功完成了目标: ${goal.description}`,
-      {
-        completedGoal: goal.description,
-        duration: Date.now() - goal.createdAt,
-        planCount: goal.planIds.length,
-      }
-    );
+    this.state.memory.recordThought(`成功完成了目标: ${goal.description}`, {
+      completedGoal: goal.description,
+      duration: Date.now() - goal.createdAt,
+      planCount: goal.planIds.length,
+    });
 
     // 2. 触发事件通知
     this.state.context.events.emit('goalCompleted', { goal });
@@ -1110,6 +1117,7 @@ async stop(): Promise<void> {
 ### 依赖类型
 
 #### 1. 索引依赖 (数字)
+
 使用任务在计划中的索引作为依赖标识符：
 
 ```typescript
@@ -1127,23 +1135,24 @@ const plan = planning.createPlan({
     {
       title: '制作木镐',
       tracker: { type: 'craft', item: 'wooden_pickaxe', targetCount: 1 },
-      dependencies: ["0"], // 依赖第0个任务（收集木头）
+      dependencies: ['0'], // 依赖第0个任务（收集木头）
     },
     {
       title: '收集石头',
       tracker: { type: 'inventory', item: 'stone', targetCount: 10 },
-      dependencies: ["1"], // 依赖第1个任务（制作木镐）
+      dependencies: ['1'], // 依赖第1个任务（制作木镐）
     },
     {
       title: '制作石镐',
       tracker: { type: 'craft', item: 'stone_pickaxe', targetCount: 1 },
-      dependencies: ["2"], // 依赖第2个任务（收集石头）
+      dependencies: ['2'], // 依赖第2个任务（收集石头）
     },
   ],
 });
 ```
 
 #### 2. ID依赖 (字符串)
+
 使用任务的唯一ID作为依赖标识符：
 
 ```typescript
@@ -1209,32 +1218,35 @@ getNextTask(context: GameContext): Task | null {
 ### 复杂依赖关系
 
 #### 1. 顺序依赖 (链式)
+
 ```typescript
 // A -> B -> C 的顺序执行
 const tasks = [
   { title: 'A', dependencies: [] },
-  { title: 'B', dependencies: ['0'] },      // 依赖A
-  { title: 'C', dependencies: ['1'] },      // 依赖B
+  { title: 'B', dependencies: ['0'] }, // 依赖A
+  { title: 'C', dependencies: ['1'] }, // 依赖B
 ];
 ```
 
 #### 2. 并行分支
+
 ```typescript
 // A -> B 和 A -> C 的并行执行
 const tasks = [
   { title: 'A', dependencies: [] },
-  { title: 'B', dependencies: ['0'] },      // 依赖A
-  { title: 'C', dependencies: ['0'] },      // 依赖A
+  { title: 'B', dependencies: ['0'] }, // 依赖A
+  { title: 'C', dependencies: ['0'] }, // 依赖A
 ];
 ```
 
 #### 3. 汇聚依赖
+
 ```typescript
 // B和C都完成后才能执行D
 const tasks = [
   { title: 'A', dependencies: [] },
-  { title: 'B', dependencies: ['0'] },      // 依赖A
-  { title: 'C', dependencies: ['0'] },      // 依赖A
+  { title: 'B', dependencies: ['0'] }, // 依赖A
+  { title: 'C', dependencies: ['0'] }, // 依赖A
   { title: 'D', dependencies: ['1', '2'] }, // 依赖B和C
 ];
 ```
@@ -1326,6 +1338,7 @@ function hasCircularDependency(tasks: Task[]): boolean {
 ### 最佳实践
 
 #### 1. 合理设置依赖
+
 ```typescript
 // ✅ 正确的依赖关系
 {
@@ -1341,6 +1354,7 @@ function hasCircularDependency(tasks: Task[]): boolean {
 ```
 
 #### 2. 避免过度依赖
+
 ```typescript
 // ✅ 保持依赖链清晰
 任务A -> 任务B -> 任务C
@@ -1350,12 +1364,13 @@ function hasCircularDependency(tasks: Task[]): boolean {
 ```
 
 #### 3. 使用合适的依赖类型
+
 ```typescript
 // ✅ 在手动创建时使用索引（更直观）
-dependencies: ["0", "1", "2"]
+dependencies: ['0', '1', '2'];
 
 // ✅ 在LLM生成时使用ID（更精确）
-dependencies: ["task_123", "task_456"]
+dependencies: ['task_123', 'task_456'];
 ```
 
 ---

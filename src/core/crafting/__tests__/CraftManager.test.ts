@@ -20,8 +20,8 @@ const mockBot = {
   craft: jest.fn(),
   recipesFor: jest.fn(),
   entity: {
-    position: { x: 0, y: 64, z: 0 }
-  }
+    position: { x: 0, y: 64, z: 0 },
+  },
 } as any;
 
 // Mock Logger
@@ -29,7 +29,7 @@ const mockLogger = {
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
-  debug: jest.fn()
+  debug: jest.fn(),
 };
 
 // Mock minecraft-data
@@ -38,15 +38,15 @@ jest.mock('minecraft-data', () => ({
   default: jest.fn(() => ({
     items: {},
     blocksByName: {
-      crafting_table: { id: 58 }
+      crafting_table: { id: 58 },
     },
     itemsByName: {
       wooden_pickaxe: { id: 1, name: 'wooden_pickaxe' },
       stick: { id: 2, name: 'stick' },
       oak_planks: { id: 3, name: 'oak_planks' },
-      crafting_table: { id: 4, name: 'crafting_table' }
-    }
-  }))
+      crafting_table: { id: 4, name: 'crafting_table' },
+    },
+  })),
 }));
 
 describe('CraftManager', () => {

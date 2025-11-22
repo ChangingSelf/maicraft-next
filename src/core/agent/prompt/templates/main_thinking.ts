@@ -27,12 +27,7 @@ export function initMainThinkingTemplate(): void {
 
 请基于以上信息分析当前情况并制定下一步行动计划。`,
       '任务-动作选择',
-      [
-        'basic_info',
-        'failed_hint',
-        'judge_guidance',
-        'thinking_list',
-      ],
+      ['basic_info', 'failed_hint', 'judge_guidance', 'thinking_list'],
     ),
   );
 }

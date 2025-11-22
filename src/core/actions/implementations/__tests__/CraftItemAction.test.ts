@@ -9,35 +9,36 @@ import { RuntimeContext } from '@/core/context/RuntimeContext';
 import { ActionResult } from '@/core/actions/types';
 
 // Mock RuntimeContext
-const createMockContext = (): RuntimeContext => ({
-  bot: {
-    version: '1.19.4',
-    inventory: {
-      items: jest.fn(() => []),
-      findInventoryItem: jest.fn(),
+const createMockContext = (): RuntimeContext =>
+  ({
+    bot: {
+      version: '1.19.4',
+      inventory: {
+        items: jest.fn(() => []),
+        findInventoryItem: jest.fn(),
+      },
+      blockAt: jest.fn(),
+      findBlock: jest.fn(),
+      placeBlock: jest.fn(),
+      craft: jest.fn(),
+      recipesFor: jest.fn(),
+      entity: {
+        position: { x: 0, y: 64, z: 0 },
+      },
+    } as any,
+    logger: {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
     },
-    blockAt: jest.fn(),
-    findBlock: jest.fn(),
-    placeBlock: jest.fn(),
-    craft: jest.fn(),
-    recipesFor: jest.fn(),
-    entity: {
-      position: { x: 0, y: 64, z: 0 }
-    }
-  } as any,
-  logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn()
-  },
-  gameState: {} as any,
-  eventManager: {} as any,
-  actionExecutor: {} as any,
-  movementUtils: {
-    moveToCoordinate: jest.fn()
-  }
-}) as RuntimeContext;
+    gameState: {} as any,
+    eventManager: {} as any,
+    actionExecutor: {} as any,
+    movementUtils: {
+      moveToCoordinate: jest.fn(),
+    },
+  }) as RuntimeContext;
 
 // Mock minecraft-data
 jest.mock('minecraft-data', () => ({
@@ -45,15 +46,15 @@ jest.mock('minecraft-data', () => ({
   default: jest.fn(() => ({
     items: {},
     blocksByName: {
-      crafting_table: { id: 58 }
+      crafting_table: { id: 58 },
     },
     itemsByName: {
       wooden_pickaxe: { id: 1, name: 'wooden_pickaxe' },
       stick: { id: 2, name: 'stick' },
       oak_planks: { id: 3, name: 'oak_planks' },
-      crafting_table: { id: 4, name: 'crafting_table' }
-    }
-  }))
+      crafting_table: { id: 4, name: 'crafting_table' },
+    },
+  })),
 }));
 
 describe('CraftItemAction', () => {
@@ -93,30 +94,33 @@ describe('CraftItemAction', () => {
       (mockContext.bot.recipesFor as jest.Mock).mockReturnValue([
         {
           result: { id: 1, count: 1 },
-          ingredients: [{ id: 2, count: 2 }, { id: 3, count: 3 }],
-          requiresTable: true
-        }
+          ingredients: [
+            { id: 2, count: 2 },
+            { id: 3, count: 3 },
+          ],
+          requiresTable: true,
+        },
       ]);
 
       // 模拟库存检查
       (mockContext.bot.inventory.items as jest.Mock).mockReturnValue([
         { type: 2, count: 10 },
-        { type: 3, count: 15 }
+        { type: 3, count: 15 },
       ]);
 
       // 模拟找到工作台
       (mockContext.bot.findBlock as jest.Mock).mockReturnValue({
-        position: { x: 10, y: 64, z: 10 }
+        position: { x: 10, y: 64, z: 10 },
       });
 
       // 模拟移动成功
       (mockContext.movementUtils.moveToCoordinate as jest.Mock).mockResolvedValue({
-        success: true
+        success: true,
       });
 
       const params = {
         item: 'wooden_pickaxe',
-        count: 1
+        count: 1,
       };
 
       const result = await craftAction.execute(mockContext, params);
@@ -154,21 +158,24 @@ describe('CraftItemAction', () => {
       (mockContext.bot.recipesFor as jest.Mock).mockReturnValue([
         {
           result: { id: 1, count: 1 },
-          ingredients: [{ id: 3, count: 3 }, { id: 2, count: 2 }],
-          requiresTable: true
-        }
+          ingredients: [
+            { id: 3, count: 3 },
+            { id: 2, count: 2 },
+          ],
+          requiresTable: true,
+        },
       ]);
 
       // 模拟库存检查 - 模拟材料不足的情况
       (mockContext.bot.inventory.items as jest.Mock).mockReturnValue([
         { type: 2, count: 2 }, // 木棍足够
-        { type: 3, count: 1 }  // 木板不足
+        { type: 3, count: 1 }, // 木板不足
       ]);
 
       const params = {
         item: 'wooden_pickaxe',
         count: 1,
-        requiredMaterials: ['oak_planks', 'stick']
+        requiredMaterials: ['oak_planks', 'stick'],
       };
 
       const result = await craftAction.execute(mockContext, params);
@@ -181,7 +188,7 @@ describe('CraftItemAction', () => {
       const params = {
         item: 'complex_item',
         count: 1,
-        maxComplexity: 5
+        maxComplexity: 5,
       };
 
       // 由于没有配方，应该失败
@@ -190,9 +197,7 @@ describe('CraftItemAction', () => {
       const result = await craftAction.execute(mockContext, params);
 
       expect(result.success).toBe(false);
-      expect(mockContext.logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('最大复杂度: 5')
-      );
+      expect(mockContext.logger.info).toHaveBeenCalledWith(expect.stringContaining('最大复杂度: 5'));
     });
   });
 
@@ -201,22 +206,23 @@ describe('CraftItemAction', () => {
       (mockContext.bot.recipesFor as jest.Mock).mockReturnValue([
         {
           result: { id: 1, count: 1 },
-          ingredients: [{ id: 2, count: 2 }, { id: 3, count: 3 }],
-          requiresTable: true
-        }
+          ingredients: [
+            { id: 2, count: 2 },
+            { id: 3, count: 3 },
+          ],
+          requiresTable: true,
+        },
       ]);
 
       const params = {
         item: '木镐', // 中文名称
-        count: 1
+        count: 1,
       };
 
       await craftAction.execute(mockContext, params);
 
       // 验证调用时使用了标准化后的名称
-      expect(mockContext.logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('木镐')
-      );
+      expect(mockContext.logger.info).toHaveBeenCalledWith(expect.stringContaining('木镐'));
     });
   });
 });

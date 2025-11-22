@@ -70,24 +70,27 @@
 **描述**: 在指定三维坐标位置精准挖掘方块，名称明确表示"在位置"挖掘
 
 **使用场景**:
+
 - 挖掘特定位置的矿物（钻石矿、铁矿等）
 - 清理建筑中的特定方块
 - 精准破坏障碍物
 - 测试和调试特定坐标
 
 **参数**:
+
 ```typescript
 interface MineAtPositionParams {
-  x: number;                    // 目标X坐标（必需）
-  y: number;                    // 目标Y坐标（必需）
-  z: number;                    // 目标Z坐标（必需）
-  count?: number;               // 挖掘数量（默认1，可选）
-  force?: boolean;              // 强制挖掘，绕过安全检查（默认false，可选）
-  collect?: boolean;            // 是否收集掉落物（默认true，可选）
+  x: number; // 目标X坐标（必需）
+  y: number; // 目标Y坐标（必需）
+  z: number; // 目标Z坐标（必需）
+  count?: number; // 挖掘数量（默认1，可选）
+  force?: boolean; // 强制挖掘，绕过安全检查（默认false，可选）
+  collect?: boolean; // 是否收集掉落物（默认true，可选）
 }
 ```
 
 **示例**:
+
 ```json
 {
   "action_type": "MINE_AT_POSITION",
@@ -109,6 +112,7 @@ interface MineAtPositionParams {
 ```
 
 **实现要点**:
+
 - **坐标验证**: 检查坐标的有效性和方块存在性
 - **安全检查**: 简化的安全检查，支持force参数强制绕过
 - **工具选择**: 自动装备最合适的挖掘工具
@@ -124,6 +128,7 @@ interface MineAtPositionParams {
 **描述**: 按方块类型搜索并挖掘方块，支持附近搜索和方向性挖掘
 
 **使用场景**:
+
 - 批量收集矿物资源（铁矿、煤矿等）
 - 清理指定类型的方块（清理圆石、泥土等）
 - 收集建筑材料（木头、石头等）
@@ -131,18 +136,20 @@ interface MineAtPositionParams {
 - 定向资源收集
 
 **参数**:
+
 ```typescript
 interface MineByTypeParams {
-  blockType: string;            // 方块类型名称（必需）
-  count?: number;               // 挖掘数量（默认1，可选）
-  radius?: number;              // 搜索半径（默认32，可选）
-  direction?: string;           // 挖掘方向（可选，支持"+x","-x","+y","-y","+z","-z"）
-  force?: boolean;              // 强制挖掘，绕过安全检查（默认false，可选）
-  collect?: boolean;            // 是否收集掉落物（默认true，可选）
+  blockType: string; // 方块类型名称（必需）
+  count?: number; // 挖掘数量（默认1，可选）
+  radius?: number; // 搜索半径（默认32，可选）
+  direction?: string; // 挖掘方向（可选，支持"+x","-x","+y","-y","+z","-z"）
+  force?: boolean; // 强制挖掘，绕过安全检查（默认false，可选）
+  collect?: boolean; // 是否收集掉落物（默认true，可选）
 }
 ```
 
 **参数说明**:
+
 - `blockType`: 方块类型名称，支持中文和英文名称（如"钻石矿"、"diamond_ore"）
 - `count`: 挖掘数量，默认为1，支持批量挖掘
 - `radius`: 搜索半径，默认32格，限制搜索范围提高效率
@@ -151,6 +158,7 @@ interface MineByTypeParams {
 - `collect`: 是否收集掉落物，默认true
 
 **示例**:
+
 ```json
 {
   "action_type": "MINE_BY_TYPE",
@@ -178,6 +186,7 @@ interface MineByTypeParams {
 ```
 
 **实现要点**:
+
 - **智能搜索**: 在指定半径内高效搜索目标方块
 - **方向支持**: 支持沿指定方向进行定向挖掘
 - **批量优化**: 优化挖掘路径，提高批量挖掘效率
@@ -192,22 +201,25 @@ interface MineByTypeParams {
 **描述**: 沿指定方向连续挖掘，创建隧道或矿井
 
 **使用场景**:
+
 - 开采水平隧道（+x, -x, +z, -z方向）
 - 挖掘垂直矿井（+y向上, -y向下）
 - 大规模地形改造
 - 创建建筑空间
 
 **参数**:
+
 ```typescript
 interface MineInDirectionParams {
-  direction: string;            // 挖掘方向（必需，支持"+x","-x","+y","-y","+z","-z"）
-  count?: number;               // 挖掘数量（默认10，可选）
-  force?: boolean;              // 强制挖掘，绕过安全检查（默认false，可选）
-  collect?: boolean;            // 是否收集掉落物（默认true，可选）
+  direction: string; // 挖掘方向（必需，支持"+x","-x","+y","-y","+z","-z"）
+  count?: number; // 挖掘数量（默认10，可选）
+  force?: boolean; // 强制挖掘，绕过安全检查（默认false，可选）
+  collect?: boolean; // 是否收集掉落物（默认true，可选）
 }
 ```
 
 **示例**:
+
 ```json
 {
   "action_type": "MINE_IN_DIRECTION",
@@ -226,6 +238,7 @@ interface MineInDirectionParams {
 ```
 
 **实现要点**:
+
 - **方向计算**: 精确计算六轴方向的挖掘路径
 - **连续挖掘**: 沿方向逐个挖掘，支持大量连续操作
 - **智能跳过**: 自动跳过空气、流体等无需挖掘的方块
@@ -236,11 +249,13 @@ interface MineInDirectionParams {
 ## 简化的安全检查系统
 
 ### 核心安全原则
+
 1. **默认最安全**: 默认启用完整安全检查，适合生产环境
 2. **简单控制**: 通过`force`参数提供绕过机制，给LLM二次确认机会
 3. **明确风险**: 绕过安全检查时提供明确的警告信息
 
 ### 安全检查内容
+
 - **流体检查**: 防止挖掘水、岩浆等流体方块
 - **掉落物检查**: 防止被上方掉落的方块砸伤
 - **工具检查**: 确保有合适的挖掘工具
@@ -248,21 +263,24 @@ interface MineInDirectionParams {
 - **可见性检查**: 防止挖掘不可见的方块
 
 ### 简化参数设计
+
 ```typescript
 interface MineSafetyOptions {
-  force?: boolean;     // 强制挖掘，绕过所有安全检查（默认false）
-  collect?: boolean;   // 是否收集掉落物（默认true）
+  force?: boolean; // 强制挖掘，绕过所有安全检查（默认false）
+  collect?: boolean; // 是否收集掉落物（默认true）
 }
 ```
 
 ### 安全级别
 
 #### 1. 标准模式（force: false，默认）
+
 - **完整安全检查**: 所有安全检查都启用
 - **推荐场景**: 生产环境、自动挖掘、未知环境
 - **安全性**: 高风险防护，适合AI自主操作
 
 #### 2. 强制模式（force: true）
+
 - **绕过所有检查**: 仅保留最基本的验证
 - **使用场景**: 明确知道需要绕过检查的特殊情况
 - **安全警告**: 系统会记录并警告强制模式的使用
@@ -345,7 +363,7 @@ export class MineUtils {
 
       return this.createSuccessResult(`成功挖掘 ${block.name}`, {
         blockType: block.name,
-        position: position
+        position: position,
       });
     } catch (error) {
       const err = error as Error;
@@ -359,7 +377,7 @@ export class MineUtils {
     const positions = this.bot.findBlocks({
       matching: this.bot.registry.blocksByName[normalizedType]?.id,
       maxDistance: radius,
-      count: 100
+      count: 100,
     });
 
     return positions.map(pos => new Vec3(pos.x, pos.y, pos.z));
@@ -374,8 +392,8 @@ export class MineUtils {
 
 // 挖掘选项接口
 interface MineOptions {
-  force?: boolean;     // 强制挖掘，绕过安全检查
-  collect?: boolean;   // 是否收集掉落物
+  force?: boolean; // 强制挖掘，绕过安全检查
+  collect?: boolean; // 是否收集掉落物
 }
 ```
 
@@ -395,7 +413,7 @@ class MineSafetyChecker {
       () => this.checkUnbreakableBlock(block),
       () => this.checkFallingBlock(position),
       () => this.checkToolAvailability(block),
-      () => this.checkVisibility(block)
+      () => this.checkVisibility(block),
     ];
 
     for (const check of checks) {
@@ -413,7 +431,7 @@ class MineSafetyChecker {
       return {
         safe: false,
         reason: `无法挖掘流体方块: ${block.name}`,
-        suggestion: '请先处理流体，或使用force参数强制挖掘'
+        suggestion: '请先处理流体，或使用force参数强制挖掘',
       };
     }
     return { safe: true };
@@ -424,7 +442,7 @@ class MineSafetyChecker {
       return {
         safe: false,
         reason: `无法破坏的方块: ${block.name}`,
-        suggestion: '此方块无法被破坏，请选择其他目标'
+        suggestion: '此方块无法被破坏，请选择其他目标',
       };
     }
     return { safe: true };
@@ -436,7 +454,7 @@ class MineSafetyChecker {
       return {
         safe: false,
         reason: `上方有掉落方块: ${aboveBlock.name}`,
-        suggestion: '请先清理上方掉落物，或使用force参数强制挖掘'
+        suggestion: '请先清理上方掉落物，或使用force参数强制挖掘',
       };
     }
     return { safe: true };
@@ -448,7 +466,7 @@ class MineSafetyChecker {
       return {
         safe: false,
         reason: `需要合适工具挖掘: ${block.name}`,
-        suggestion: '请装备合适的工具，或使用force参数强制挖掘'
+        suggestion: '请装备合适的工具，或使用force参数强制挖掘',
       };
     }
     return { safe: true };
@@ -459,7 +477,7 @@ class MineSafetyChecker {
       return {
         safe: false,
         reason: '目标方块不可见',
-        suggestion: '请移动到可见位置，或使用force参数强制挖掘'
+        suggestion: '请移动到可见位置，或使用force参数强制挖掘',
       };
     }
     return { safe: true };
@@ -502,14 +520,17 @@ export class BlockAnalyzer {
 ## 简化后的设计优势
 
 ### 1. **参数大幅简化**
+
 - **原设计**: 14个复杂参数，多层嵌套选项
 - **新设计**: 最多6个简单参数，见名知义
 
 ### 2. **安全检查简化**
+
 - **原设计**: 3个安全级别 × 6个绕过选项 = 18种组合
 - **新设计**: 1个`force`参数，0或1的简单选择
 
 ### 3. **语义更清晰**
+
 ```typescript
 // 原设计 - 复杂难懂
 {
@@ -526,11 +547,13 @@ export class BlockAnalyzer {
 ```
 
 ### 4. **LLM友好**
+
 - **参数数量减少**: 降低LLM理解难度
 - **命名更直观**: `force`比`safetyLevel`更容易理解
 - **默认值合理**: 大多数情况下使用默认值即可
 
 ### 5. **实际使用场景覆盖**
+
 基于maicraft-mcp-server的实际使用分析，新设计覆盖了所有高频使用场景：
 
 ```typescript

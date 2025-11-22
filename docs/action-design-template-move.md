@@ -20,20 +20,23 @@
 **描述**: 移动到指定的三维坐标位置
 
 **使用场景**:
+
 - 移动到已知的精确位置
 - 基于计算结果的目标位置
 - 调试和测试特定坐标
 
 **参数**:
+
 ```typescript
 interface MoveParams {
-  x: number;           // 目标X坐标（必需）
-  y: number;           // 目标Y坐标（必需）
-  z: number;           // 目标Z坐标（必需）
+  x: number; // 目标X坐标（必需）
+  y: number; // 目标Y坐标（必需）
+  z: number; // 目标Z坐标（必需）
 }
 ```
 
 **示例**:
+
 ```json
 {
   "action_type": "MOVE",
@@ -44,6 +47,7 @@ interface MoveParams {
 ```
 
 **实现要点**:
+
 - 使用MovementUtils.moveToCoordinate()
 - 验证坐标参数完整性
 - 支持超时控制
@@ -57,19 +61,22 @@ interface MoveParams {
 **描述**: 移动到预先保存的命名位置
 
 **使用场景**:
+
 - 移动到基地、家、农场等已知位置
 - 导航到已标记的重要地点
 - 位置间的快速移动
 
 **参数**:
+
 ```typescript
 interface MoveToLocationParams {
-  locationName: string;     // 位置名称（必需）
-  reachDistance?: number;   // 到达距离（默认1，可选）
+  locationName: string; // 位置名称（必需）
+  reachDistance?: number; // 到达距离（默认1，可选）
 }
 ```
 
 **示例**:
+
 ```json
 {
   "action_type": "MOVE_TO_LOCATION",
@@ -79,6 +86,7 @@ interface MoveToLocationParams {
 ```
 
 **实现要点**:
+
 - 通过LocationManager查找位置坐标
 - 位置不存在时返回错误
 - 支持自定义到达距离
@@ -92,22 +100,25 @@ interface MoveToLocationParams {
 **描述**: 移动到指定类型的实体附近或跟随实体
 
 **使用场景**:
+
 - 跟随其他玩家
 - 接近动物、怪物等生物
 - 与实体交互前的接近
 
 **参数**:
+
 ```typescript
 interface MoveToEntityParams {
-  entityName: string;       // 实体名称或类型（必需）
+  entityName: string; // 实体名称或类型（必需）
   entityType: 'player' | 'mob' | 'animal' | 'hostile' | 'passive' | 'any'; // 实体类型（必需）
-  followDistance?: number;  // 跟随距离（默认3，可选）
-  maxDistance?: number;     // 最大搜索距离（默认100，可选）
-  continuous?: boolean;     // 是否持续跟随（默认false，可选）
+  followDistance?: number; // 跟随距离（默认3，可选）
+  maxDistance?: number; // 最大搜索距离（默认100，可选）
+  continuous?: boolean; // 是否持续跟随（默认false，可选）
 }
 ```
 
 **示例**:
+
 ```json
 {
   "action_type": "MOVE_TO_ENTITY",
@@ -119,6 +130,7 @@ interface MoveToEntityParams {
 ```
 
 **实现要点**:
+
 - 通过MovementUtils.moveToEntity()实现
 - 支持不同实体类型的过滤
 - 持续跟随模式需要额外处理
@@ -132,20 +144,23 @@ interface MoveToEntityParams {
 **描述**: 移动到指定类型的方块附近，便于交互
 
 **使用场景**:
+
 - 接近矿物进行挖掘
 - 靠近箱子、熔炉等交互方块
 - 寻找特定资源方块
 
 **参数**:
+
 ```typescript
 interface MoveToBlockParams {
-  blockType: string;        // 方块类型名称（必需）
-  reachDistance?: number;   // 交互距离（默认4，可选）
-  searchRadius?: number;    // 搜索半径（默认64，可选）
+  blockType: string; // 方块类型名称（必需）
+  reachDistance?: number; // 交互距离（默认4，可选）
+  searchRadius?: number; // 搜索半径（默认64，可选）
 }
 ```
 
 **示例**:
+
 ```json
 {
   "action_type": "MOVE_TO_BLOCK",
@@ -156,6 +171,7 @@ interface MoveToBlockParams {
 ```
 
 **实现要点**:
+
 - 通过MovementUtils.moveToBlock()实现
 - 使用bot.findBlocks()查找目标方块
 - 方块不存在时返回错误

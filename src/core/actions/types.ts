@@ -40,8 +40,6 @@ export interface FindBlockParams {
   count?: number;
 }
 
-
-
 /**
  * PlaceBlock 动作参数
  */
@@ -56,10 +54,10 @@ export interface PlaceBlockParams {
  * Craft 动作参数
  */
 export interface CraftParams {
-  item: string;                    // 物品名称（必需）
-  count?: number;                  // 合成数量（默认1，可选）
-  requiredMaterials?: string[];    // 指定优先使用的材料类型（可选，会自动去重）。例如：["oak_planks"] 而非 ["oak_planks", "oak_planks", "oak_planks", "oak_planks"]
-  maxComplexity?: number;          // 最大合成复杂度（默认10，可选）
+  item: string; // 物品名称（必需）
+  count?: number; // 合成数量（默认1，可选）
+  requiredMaterials?: string[]; // 指定优先使用的材料类型（可选，会自动去重）。例如：["oak_planks"] 而非 ["oak_planks", "oak_planks", "oak_planks", "oak_planks"]
+  maxComplexity?: number; // 最大合成复杂度（默认10，可选）
 }
 
 /**
@@ -137,34 +135,34 @@ export interface SwimToLandParams {
  * MineAtPosition 动作参数
  */
 export interface MineAtPositionParams {
-  x: number;                    // 目标X坐标（必需）
-  y: number;                    // 目标Y坐标（必需）
-  z: number;                    // 目标Z坐标（必需）
-  count?: number;               // 挖掘数量（默认1，可选）
-  force?: boolean;              // 强制挖掘，绕过安全检查（默认false，可选）
-  collect?: boolean;            // 是否收集掉落物（默认true，可选）
+  x: number; // 目标X坐标（必需）
+  y: number; // 目标Y坐标（必需）
+  z: number; // 目标Z坐标（必需）
+  count?: number; // 挖掘数量（默认1，可选）
+  force?: boolean; // 强制挖掘，绕过安全检查（默认false，可选）
+  collect?: boolean; // 是否收集掉落物（默认true，可选）
 }
 
 /**
  * MineByType 动作参数
  */
 export interface MineByTypeParams {
-  blockType: string;            // 方块类型名称（必需）
-  count?: number;               // 挖掘数量（默认1，可选）
-  radius?: number;              // 搜索半径（默认32，可选）
-  direction?: string;           // 挖掘方向（可选，支持"+x","-x","+y","-y","+z","-z"）
-  force?: boolean;              // 强制挖掘，绕过安全检查（默认false，可选）
-  collect?: boolean;            // 是否收集掉落物（默认true，可选）
+  blockType: string; // 方块类型名称（必需）
+  count?: number; // 挖掘数量（默认1，可选）
+  radius?: number; // 搜索半径（默认32，可选）
+  direction?: string; // 挖掘方向（可选，支持"+x","-x","+y","-y","+z","-z"）
+  force?: boolean; // 强制挖掘，绕过安全检查（默认false，可选）
+  collect?: boolean; // 是否收集掉落物（默认true，可选）
 }
 
 /**
  * MineInDirection 动作参数（新版本）
  */
 export interface MineInDirectionNewParams {
-  direction: string;            // 挖掘方向（必需，支持"+x","-x","+y","-y","+z","-z"）
-  count?: number;               // 挖掘数量（默认10，可选）
-  force?: boolean;              // 强制挖掘，绕过安全检查（默认false，可选）
-  collect?: boolean;            // 是否收集掉落物（默认true，可选）
+  direction: string; // 挖掘方向（必需，支持"+x","-x","+y","-y","+z","-z"）
+  count?: number; // 挖掘数量（默认10，可选）
+  force?: boolean; // 强制挖掘，绕过安全检查（默认false，可选）
+  collect?: boolean; // 是否收集掉落物（默认true，可选）
 }
 
 /**

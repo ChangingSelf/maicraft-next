@@ -15,24 +15,13 @@ export class MoveToEntityAction extends BaseAction<MoveToEntityParams> {
   readonly description = '移动到指定类型的实体附近或跟随实体';
 
   async execute(context: RuntimeContext, params: MoveToEntityParams): Promise<ActionResult> {
-    const {
-      entityName,
-      entityType,
-      followDistance = 3,
-      maxDistance = 100,
-      continuous = false,
-    } = params;
+    const { entityName, entityType, followDistance = 3, maxDistance = 100, continuous = false } = params;
 
     try {
       context.logger.info(`开始移动到 ${entityType} "${entityName}" 附近，跟随距离: ${followDistance}`);
 
       // 使用 MovementUtils 移动到实体
-      const moveResult = await context.movementUtils.moveToEntity(
-        context.bot,
-        entityName,
-        followDistance,
-        maxDistance,
-      );
+      const moveResult = await context.movementUtils.moveToEntity(context.bot, entityName, followDistance, maxDistance);
 
       if (moveResult.success) {
         const message = continuous

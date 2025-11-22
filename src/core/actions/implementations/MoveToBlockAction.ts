@@ -15,28 +15,19 @@ export class MoveToBlockAction extends BaseAction<MoveToBlockParams> {
   readonly description = '移动到指定类型的方块附近，便于交互';
 
   async execute(context: RuntimeContext, params: MoveToBlockParams): Promise<ActionResult> {
-    const {
-      blockType,
-      reachDistance = 4,
-      searchRadius = 64,
-      allowPartial = false,
-    } = params;
+    const { blockType, reachDistance = 4, searchRadius = 64, allowPartial = false } = params;
 
     try {
       context.logger.info(`开始寻找并移动到 ${blockType} 方块附近，搜索半径: ${searchRadius}，到达距离: ${reachDistance}`);
 
       // 使用 MovementUtils 进行移动
-      const moveResult = await context.movementUtils.moveToBlock(
-        context.bot,
-        blockType,
-        reachDistance,
-        searchRadius,
-      );
+      const moveResult = await context.movementUtils.moveToBlock(context.bot, blockType, reachDistance, searchRadius);
 
       if (moveResult.success) {
-        const message = allowPartial && !moveResult.status.reached
-          ? `部分完成移动到 ${blockType} 方块附近，距离 ${moveResult.distance.toFixed(2)} 格`
-          : `成功移动到 ${blockType} 方块附近，距离 ${moveResult.distance.toFixed(2)} 格`;
+        const message =
+          allowPartial && !moveResult.status.reached
+            ? `部分完成移动到 ${blockType} 方块附近，距离 ${moveResult.distance.toFixed(2)} 格`
+            : `成功移动到 ${blockType} 方块附近，距离 ${moveResult.distance.toFixed(2)} 格`;
 
         context.logger.info(message);
 
