@@ -28,10 +28,10 @@ export function initTaskEvaluationTemplate(): void {
 物品栏: {inventory}
 状态: {health}
 
-# 周围环境
+# 周围{block_search_distance}格内环境
 {nearby_block_info}
 
-# 周围实体
+# 周围{entity_search_distance}格内实体
 {nearby_entities_info}
 
 # 已知容器
@@ -59,7 +59,9 @@ export function initTaskEvaluationTemplate(): void {
         'position',
         'inventory',
         'health',
+        'block_search_distance',
         'nearby_block_info',
+        'entity_search_distance',
         'nearby_entities_info',
         'container_cache_info',
         'chat_str',

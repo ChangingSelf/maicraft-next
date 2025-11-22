@@ -18,8 +18,11 @@ export interface BasicInfoData {
   self_status_info: string;
   inventory_info: string;
   position: string;
+  block_search_distance: number;
   nearby_block_info: string;
+  container_search_distance: number;
   container_cache_info: string;
+  entity_search_distance: number;
   nearby_entities_info: string;
   chat_str: string;
   mode: string;
@@ -59,9 +62,12 @@ export interface MainThinkingData {
   to_do_list: string;
   self_status_info: string;
   inventory_info: string;
-  nearby_block_info: string;
   position: string;
+  block_search_distance: number;
+  nearby_block_info: string;
+  container_search_distance: number;
   container_cache_info: string;
+  entity_search_distance: number;
   nearby_entities_info: string;
   chat_str: string;
 }
@@ -92,8 +98,11 @@ export class PromptDataCollector {
       self_status_info: this.formatStatusInfo(gameState),
       inventory_info: gameState.getInventoryDescription?.() || '空',
       position: this.formatPosition(gameState.blockPosition),
+      block_search_distance: 50, // 方块搜索距离
       nearby_block_info: this.getNearbyBlocksInfo(),
+      container_search_distance: 32, // 容器搜索距离
       container_cache_info: this.getContainerCacheInfo(),
+      entity_search_distance: gameState.entitySearchDistance || 16, // 实体搜索距离
       nearby_entities_info: gameState.getNearbyEntitiesDescription?.() || '无',
       chat_str: this.getChatHistory(),
       mode: this.state.modeManager.getCurrentMode(),
@@ -162,9 +171,12 @@ export class PromptDataCollector {
       to_do_list: basicInfo.to_do_list,
       self_status_info: basicInfo.self_status_info,
       inventory_info: basicInfo.inventory_info,
-      nearby_block_info: basicInfo.nearby_block_info,
       position: basicInfo.position,
+      block_search_distance: basicInfo.block_search_distance,
+      nearby_block_info: basicInfo.nearby_block_info,
+      container_search_distance: basicInfo.container_search_distance,
       container_cache_info: basicInfo.container_cache_info,
+      entity_search_distance: basicInfo.entity_search_distance,
       nearby_entities_info: basicInfo.nearby_entities_info,
       chat_str: basicInfo.chat_str,
     };

@@ -86,6 +86,7 @@ export class GameState {
 
   // 周围实体（定期更新）
   nearbyEntities: EntityInfo[] = [];
+  entitySearchDistance: number = 16; // 实体搜索距离
 
   // 视角信息
   yaw: number = 0;
@@ -436,12 +437,12 @@ export class GameState {
    */
   getNearbyEntitiesDescription(): string {
     if (this.nearbyEntities.length === 0) {
-      return '周围没有实体';
+      return `周围${this.entitySearchDistance}格内没有实体`;
     }
 
     const lines = this.nearbyEntities.map((e, i) => `  ${i + 1}. ${e.name} (距离: ${e.distance?.toFixed(1)}格)`);
 
-    return `周围实体 (${this.nearbyEntities.length}):\n${lines.join('\n')}`;
+    return `周围${this.entitySearchDistance}格内实体 (${this.nearbyEntities.length}):\n${lines.join('\n')}`;
   }
 
   /**

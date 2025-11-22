@@ -27,13 +27,13 @@ export function initBasicInfoTemplate(): void {
 # 位置信息
 {position}
 
-# 周围方块
+# 周围{block_search_distance}格内方块
 {nearby_block_info}
 
-# 周围箱子
+# 周围{container_search_distance}格内箱子
 {container_cache_info}
 
-# 周围实体
+# 周围{entity_search_distance}格内实体
 {nearby_entities_info}
 
 # 玩家聊天记录
@@ -46,8 +46,11 @@ export function initBasicInfoTemplate(): void {
         'self_status_info',
         'inventory_info',
         'position',
+        'block_search_distance',
         'nearby_block_info',
+        'container_search_distance',
         'container_cache_info',
+        'entity_search_distance',
         'nearby_entities_info',
         'chat_str',
       ],

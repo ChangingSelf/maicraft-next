@@ -43,10 +43,10 @@ export class CacheManager {
   ) {
     this.logger = getLogger('CacheManager');
     this.config = {
-      blockScanInterval: 10 * 1000, // 10秒
-      blockScanRadius: 8, // 8格半径
-      containerUpdateInterval: 30 * 1000, // 30秒
-      autoSaveInterval: 5 * 60 * 1000, // 5分钟
+      blockScanInterval: 1 * 1000, // 1秒
+      blockScanRadius: 50, // 50格半径，确保能检测到容器
+      containerUpdateInterval: 10 * 1000, // 10秒
+      autoSaveInterval: 1 * 60 * 1000, // 1分钟
       enableAutoScan: true,
       enableAutoSave: true,
       performanceMode: 'balanced' as const,
@@ -182,11 +182,6 @@ export class CacheManager {
     this.isScanning = true;
     this.lastScanPosition = currentPosition.clone();
 
-    const currentPosInt = currentPosition.floored();
-    // this.logger.debug(
-    //   // `🔍 [实时扫描开始] 位置:(${currentPosInt.x},${currentPosInt.y},${currentPosInt.z}) 半径:${this.config.blockScanRadius} Y范围:[${Math.max(0, currentPosInt.y - this.config.blockScanRadius)}~${Math.min(255, currentPosInt.y + this.config.blockScanRadius)}]`,
-    // );
-
     try {
       const blocks: Array<{ x: number; y: number; z: number; block: any }> = [];
       const radius = this.config.blockScanRadius;
@@ -274,6 +269,10 @@ export class CacheManager {
           .join(', ');
 
         this.blockCache.setBlocks(blocks);
+
+        // 🔧 修复：扫描方块的同时，立即同步更新容器缓存
+        // 这样可以确保BlockCache和ContainerCache同步，bot不会"看不到"面前的箱子
+        this.syncContainersFromBlocks(blocks, centerPos);
       } else {
         this.logger.error(`⚠️ 扫描完成但未缓存任何方块! 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 总检查:${totalBlocks}`);
       }
@@ -332,6 +331,48 @@ export class CacheManager {
   }
 
   /**
+   * 从方块列表中同步容器到ContainerCache
+   * 🔧 修复：确保BlockCache和ContainerCache实时同步
+   */
+  private syncContainersFromBlocks(blocks: Array<{ x: number; y: number; z: number; block: any }>, centerPos: Vec3): void {
+    if (!this.containerCache) return;
+
+    const containerTypes = ['chest', 'furnace', 'brewing_stand', 'dispenser', 'hopper', 'shulker_box'];
+    let syncedCount = 0;
+
+    for (const { x, y, z, block } of blocks) {
+      const blockName = block.name;
+
+      // 检查是否是容器类型
+      if (containerTypes.some(type => blockName.includes(type))) {
+        const containerType = this.getContainerType({ name: blockName });
+
+        if (containerType) {
+          // 计算距离
+          const distance = Math.sqrt(Math.pow(x - centerPos.x, 2) + Math.pow(y - centerPos.y, 2) + Math.pow(z - centerPos.z, 2));
+
+          // 同步到ContainerCache
+          this.containerCache.setContainer(x, y, z, containerType, {
+            type: containerType as any,
+            position: new Vec3(x, y, z),
+            items: [], // 空物品列表，需要实际打开才能获取
+            lastAccessed: Date.now(),
+            size: this.getContainerSize(containerType),
+          });
+
+          syncedCount++;
+
+          this.logger.debug(`✅ 同步容器到缓存: ${containerType} at (${x},${y},${z}), 距离${distance.toFixed(1)}格`);
+        }
+      }
+    }
+
+    if (syncedCount > 0) {
+      this.logger.info(`📦 方块扫描同步: 发现并缓存了 ${syncedCount} 个容器`);
+    }
+  }
+
+  /**
    * 更新附近容器信息
    */
   private async updateNearbyContainers(): Promise<void> {
@@ -341,20 +382,33 @@ export class CacheManager {
 
     try {
       const centerPos = this.bot.entity.position;
-      const radius = 16; // 容器搜索半径
+      const radius = 32; // 增加容器搜索半径到32格
       const containerPositions = this.findContainerBlocks(centerPos, radius);
 
+      this.logger.debug(
+        `🔍 开始容器更新: 中心位置(${Math.floor(centerPos.x)}, ${Math.floor(centerPos.y)}, ${Math.floor(centerPos.z)}), 搜索半径${radius}, 找到${containerPositions.length}个候选位置`,
+      );
+
+      let updatedCount = 0;
       for (const pos of containerPositions) {
         try {
           // 尝试打开容器获取信息
           const containerBlock = this.bot.blockAt(pos);
-          if (!containerBlock) continue;
+          if (!containerBlock) {
+            this.logger.debug(`❌ 位置(${pos.x},${pos.y},${pos.z})没有方块，跳过`);
+            continue;
+          }
 
           const containerType = this.getContainerType(containerBlock);
-          if (!containerType) continue;
+          if (!containerType) {
+            this.logger.debug(`❌ 位置(${pos.x},${pos.y},${pos.z})的方块${containerBlock.name}不是容器，跳过`);
+            continue;
+          }
+
+          // 计算距离
+          const distance = Math.sqrt(Math.pow(pos.x - centerPos.x, 2) + Math.pow(pos.y - centerPos.y, 2) + Math.pow(pos.z - centerPos.z, 2));
 
           // 记录容器位置，但不实际打开（避免干扰游戏）
-          // 这里可以后续实现更智能的容器更新策略
           this.containerCache.setContainer(pos.x, pos.y, pos.z, containerType, {
             type: containerType as any,
             position: pos,
@@ -362,12 +416,15 @@ export class CacheManager {
             lastAccessed: Date.now(),
             size: this.getContainerSize(containerType),
           });
+
+          updatedCount++;
+          this.logger.debug(`✅ 更新容器: ${containerType} at (${pos.x},${pos.y},${pos.z}), 距离${distance.toFixed(1)}格`);
         } catch (error) {
-          // 忽略单个容器的错误
+          this.logger.warn(`⚠️ 更新容器位置(${pos.x},${pos.y},${pos.z})失败: ${error}`);
         }
       }
 
-      this.logger.debug(`更新了 ${containerPositions.length} 个容器的位置信息`);
+      this.logger.info(`📦 容器更新完成: 更新了 ${updatedCount}/${containerPositions.length} 个容器的位置信息`);
     } catch (error) {
       this.logger.error('容器更新失败', undefined, error as Error);
     }
@@ -378,25 +435,72 @@ export class CacheManager {
    */
   private findContainerBlocks(centerPos: Vec3, radius: number): Vec3[] {
     const containers: Vec3[] = [];
-    const containerTypes = ['chest', 'furnace', 'brewing_stand', 'dispenser', 'hopper'];
+    const containerTypes = ['chest', 'furnace', 'brewing_stand', 'dispenser', 'hopper', 'shulker_box'];
 
-    // 使用 bot.findBlocks 查找容器方块
+    this.logger.debug(`🔍 开始查找容器: 中心位置(${Math.floor(centerPos.x)}, ${Math.floor(centerPos.y)}, ${Math.floor(centerPos.z)}), 半径${radius}`);
+
+    // 方法1: 使用 bot.findBlocks 查找容器方块
+    let findBlocksCount = 0;
     for (const type of containerTypes) {
       try {
+        const blockId = this.bot.registry.blocksByName[type]?.id;
+        if (!blockId) {
+          this.logger.warn(`⚠️ 找不到方块ID: ${type}`);
+          continue;
+        }
+
         const blocks = this.bot.findBlocks({
-          matching: this.bot.registry.blocksByName[type]?.id || 0,
+          point: centerPos, // 明确指定搜索中心位置
+          matching: blockId,
           maxDistance: radius,
-          count: 10, // 最多找10个
+          count: 50, // 增加查找数量到50个
         });
 
         for (const blockPos of blocks) {
           containers.push(blockPos);
+          findBlocksCount++;
+        }
+
+        if (blocks.length > 0) {
+          this.logger.debug(`📦 findBlocks找到 ${blocks.length} 个 ${type}`);
         }
       } catch (error) {
-        // 忽略查找错误
+        this.logger.warn(`⚠️ findBlocks查找 ${type} 失败: ${error}`);
       }
     }
 
+    // 方法2: 如果findBlocks没有找到足够多的容器，使用BlockCache作为备用
+    if (containers.length < 5 && this.blockCache) {
+      this.logger.debug(`🔄 findBlocks只找到${containers.length}个容器，尝试使用BlockCache备用查找`);
+
+      const centerX = Math.floor(centerPos.x);
+      const centerY = Math.floor(centerPos.y);
+      const centerZ = Math.floor(centerPos.z);
+
+      // 从BlockCache中查找容器
+      for (let x = -radius; x <= radius; x++) {
+        for (let y = -radius; y <= radius; y++) {
+          for (let z = -radius; z <= radius; z++) {
+            const worldX = centerX + x;
+            const worldY = centerY + y;
+            const worldZ = centerZ + z;
+
+            const blockInfo = this.blockCache.getBlock(worldX, worldY, worldZ);
+            if (blockInfo && containerTypes.includes(blockInfo.name)) {
+              // 检查是否已经添加过
+              const alreadyExists = containers.some(pos => pos.x === worldX && pos.y === worldY && pos.z === worldZ);
+
+              if (!alreadyExists) {
+                containers.push(new Vec3(worldX, worldY, worldZ));
+                this.logger.debug(`📦 BlockCache找到额外容器: ${blockInfo.name} at (${worldX},${worldY},${worldZ})`);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    this.logger.debug(`📦 容器查找完成: findBlocks找到${findBlocksCount}个, 总共${containers.length}个容器`);
     return containers;
   }
 
