@@ -248,6 +248,21 @@ export class Agent {
    */
   private async generateNewGoalAfterCompletion(completedGoal: Goal): Promise<void> {
     try {
+      // 🔧 关键修复：检查中断标志，如果正在执行 GUI 模式，延迟生成新目标
+      if (this.state.interrupt.isInterrupted()) {
+        const reason = this.state.interrupt.getReason();
+        this.logger.info(`⏸️ 检测到中断标志（${reason}），延迟生成新目标`);
+
+        // 等待中断解除后再生成新目标
+        setTimeout(() => {
+          if (!this.state.interrupt.isInterrupted()) {
+            this.generateNewGoalAfterCompletion(completedGoal);
+          }
+        }, 2000); // 2秒后重试
+
+        return;
+      }
+
       this.logger.info('🤖 正在分析环境，生成新目标...');
 
       // 记录思考过程

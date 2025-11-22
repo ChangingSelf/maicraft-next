@@ -32,6 +32,7 @@ export class CacheManager {
   private containerUpdateTimer?: NodeJS.Timeout;
   private autoSaveTimer?: NodeJS.Timeout;
   private isScanning: boolean = false;
+  private isPaused: boolean = false; // 🔧 新增：暂停扫描标志
   private lastScanPosition: Vec3 = new Vec3(0, 0, 0);
   private config: CacheManagerConfig;
 
@@ -80,10 +81,26 @@ export class CacheManager {
   }
 
   /**
+   * 暂停方块扫描（用于 GUI 模式等需要避免事件循环占用的场景）
+   */
+  pauseScanning(): void {
+    this.isPaused = true;
+    this.logger.debug('⏸️ 方块扫描已暂停');
+  }
+
+  /**
+   * 恢复方块扫描
+   */
+  resumeScanning(): void {
+    this.isPaused = false;
+    this.logger.debug('▶️ 方块扫描已恢复');
+  }
+
+  /**
    * 处理区块加载事件
    */
   private async onChunkLoad(chunkCorner: Vec3): Promise<void> {
-    if (!this.blockCache) return;
+    if (!this.blockCache || this.isPaused) return; // 🔧 检查暂停标志
 
     try {
       // 区块坐标（每个区块16×16）
@@ -403,8 +420,8 @@ export class CacheManager {
    * 🔧 优化：只扫描已加载的区块，避免大量null返回
    */
   private async scanNearbyBlocks(): Promise<void> {
-    if (!this.blockCache || !this.bot.entity || this.isScanning) {
-      return;
+    if (!this.blockCache || !this.bot.entity || this.isScanning || this.isPaused) {
+      return; // 🔧 添加暂停检查
     }
 
     const currentPosition = this.bot.entity.position;

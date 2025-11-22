@@ -838,9 +838,10 @@ export class StructuredOutputManager {
       return null;
     }
 
+    // 空的 actions 数组是合法的（例如箱子为空时不需要操作）
     if (response.actions.length === 0) {
-      logger.warn('actions数组为空');
-      return null;
+      logger.info('actions数组为空，这是合法的响应（不需要执行任何动作）');
+      return response as StructuredLLMResponse;
     }
 
     // 验证每个动作

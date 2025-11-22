@@ -92,8 +92,10 @@ export class ChestMode extends BaseMode {
       this.state.memory.recordThought(`📦 开始箱子操作: ${reason}`);
     }
 
-    // 初始化箱子状态
-    await this.initializeChestState();
+    // ⚠️ 不在 onActivate 中查询箱子！
+    // onActivate 期间主循环仍在运行，可能导致并发问题和事件循环阻塞
+    // 所有查询操作都在 execute() 中进行
+    this.logger.info(`📦 箱子模式已激活，将在 execute() 中查询箱子状态`);
   }
 
   /**
@@ -121,17 +123,34 @@ export class ChestMode extends BaseMode {
    * 模式主逻辑 - LLM决策
    */
   async execute(): Promise<void> {
+    this.logger.info('📦 [ChestMode] execute() 开始执行');
+
     if (!this.state || !this.position) {
       this.logger.warn('⚠️ 箱子模式缺少必要组件，无法执行');
       return;
     }
 
     try {
-      // 更新箱子状态
-      await this.updateChestState();
+      // 🔧 关键修复：等待一段时间，让主循环的其他任务（生成目标、扫描方块等）完成
+      // 避免在查询箱子时事件循环被阻塞
+      this.logger.info('📦 [ChestMode] 等待事件循环清空...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 只有当初始化失败（箱子状态为空）时才重新查询
+      const needQuery = Object.keys(this.chestInventory).length === 0 && Object.keys(this.initialChestInventory).length === 0;
+
+      if (needQuery) {
+        this.logger.info('📦 [ChestMode] 检测到箱子状态未初始化，开始查询...');
+        await this.updateChestState();
+        this.logger.info('📦 [ChestMode] 箱子状态查询完成');
+      } else {
+        this.logger.info('📦 [ChestMode] 箱子状态已初始化，跳过查询');
+      }
 
       // 执行LLM决策
+      this.logger.info('📦 [ChestMode] 开始执行LLM决策...');
       await this.executeLLMDecision();
+      this.logger.info('📦 [ChestMode] LLM决策执行完成');
     } catch (error) {
       this.logger.error('❌ 箱子模式执行异常:', undefined, error as Error);
 
@@ -139,6 +158,8 @@ export class ChestMode extends BaseMode {
         this.state.memory.recordThought(`❌ 箱子操作异常: ${error}`);
       }
     }
+
+    this.logger.info('📦 [ChestMode] execute() 执行结束');
   }
 
   /**
@@ -172,12 +193,26 @@ export class ChestMode extends BaseMode {
         this.initialChestInventory = { ...this.chestInventory };
         this.tempChestInventory = { ...this.chestInventory };
 
-        this.logger.debug('📦 箱子状态初始化完成', {
-          inventory: this.chestInventory,
-        });
+        this.logger.info('✅ 箱子状态初始化完成');
+      } else {
+        // 初始化失败时，使用空状态，稍后在execute时会重试
+        this.logger.warn('⚠️ 箱子状态初始化失败，将在执行时重试');
+        this.chestInventory = {};
+        this.initialChestInventory = {};
+        this.tempChestInventory = {};
+
+        // 清理可能打开的窗口，避免状态不一致
+        this.cleanupWindow();
       }
     } catch (error) {
-      this.logger.error('❌ 箱子状态初始化失败:', undefined, error as Error);
+      this.logger.warn('⚠️ 箱子状态初始化异常，将在执行时重试:', error);
+      // 初始化失败不应该阻止模式激活，稍后会重试
+      this.chestInventory = {};
+      this.initialChestInventory = {};
+      this.tempChestInventory = {};
+
+      // 清理可能打开的窗口，避免状态不一致
+      this.cleanupWindow();
     }
   }
 
@@ -195,9 +230,12 @@ export class ChestMode extends BaseMode {
       if (result.success && result.data) {
         this.tempChestInventory = this.chestInventory;
         this.chestInventory = result.data.inventory || {};
+        this.logger.info('✅ 箱子状态更新成功');
+      } else {
+        this.logger.warn('⚠️ 箱子状态更新失败，使用缓存状态');
       }
     } catch (error) {
-      this.logger.error('❌ 箱子状态更新失败:', undefined, error as Error);
+      this.logger.warn('⚠️ 箱子状态更新异常，使用缓存状态:', error);
     }
   }
 
@@ -205,6 +243,8 @@ export class ChestMode extends BaseMode {
    * 执行LLM决策（使用结构化输出）
    */
   private async executeLLMDecision(): Promise<void> {
+    this.logger.info('📦 [ChestMode] executeLLMDecision() 开始');
+
     if (!this.state || !this.structuredOutputManager) {
       this.logger.error('❌ 状态或结构化输出管理器未初始化');
       return;
@@ -212,6 +252,7 @@ export class ChestMode extends BaseMode {
 
     // 生成箱子状态描述
     const chestDescription = this.generateChestDescription();
+    this.logger.info(`📦 [ChestMode] 箱子状态描述: ${chestDescription}`);
 
     // 收集上下文信息（参考原maicraft的设计）
     const contextInfo = this.state.memory.buildContextSummary({
@@ -240,17 +281,18 @@ export class ChestMode extends BaseMode {
       player_name: this.state.context.gameState.playerName || 'Player',
     });
 
-    this.logger.debug('📦 生成箱子操作提示词完成（包含上下文）');
+    this.logger.info('📦 [ChestMode] 提示词生成完成，准备请求LLM...');
 
     // 使用结构化输出请求箱子操作
     const structuredResponse = await this.structuredOutputManager.requestChestOperations(prompt, systemPrompt);
 
     if (!structuredResponse) {
-      this.logger.warn('⚠️ 箱子LLM结构化输出获取失败');
+      this.logger.warn('⚠️ [ChestMode] 箱子LLM结构化输出获取失败');
+      // 🔧 不再自动退出，直接返回，让 MainMode 处理
       return;
     }
 
-    this.logger.info('📦 箱子LLM响应完成');
+    this.logger.info(`📦 [ChestMode] 箱子LLM响应完成，返回 ${structuredResponse.actions?.length || 0} 个动作`);
 
     // 记录思考过程
     if (structuredResponse.thinking && this.state.memory) {
@@ -258,7 +300,12 @@ export class ChestMode extends BaseMode {
     }
 
     // 执行结构化的箱子动作
+    this.logger.info('📦 [ChestMode] 开始执行箱子动作列表...');
     await this.executeStructuredChestActions(structuredResponse.actions);
+    this.logger.info('📦 [ChestMode] 箱子动作列表执行完成');
+
+    // 🔧 不再自动退出模式，由 MainMode.handleGUIAction 负责切换回主模式
+    this.logger.info('📦 [ChestMode] 箱子操作完成');
   }
 
   /**
@@ -281,7 +328,7 @@ export class ChestMode extends BaseMode {
    */
   private async executeStructuredChestActions(actions: any[]): Promise<void> {
     if (!actions || actions.length === 0) {
-      this.logger.warn('⚠️ 箱子动作列表为空');
+      this.logger.info('📦 箱子动作列表为空，无需执行任何操作');
       return;
     }
 
@@ -435,5 +482,21 @@ export class ChestMode extends BaseMode {
    */
   private async sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 清理可能打开的窗口
+   */
+  private cleanupWindow(): void {
+    if (!this.state?.context.bot.currentWindow) {
+      return;
+    }
+
+    try {
+      this.logger.warn('⚠️ 检测到未关闭的窗口，强制关闭');
+      this.state.context.bot.closeWindow(this.state.context.bot.currentWindow);
+    } catch (error) {
+      this.logger.error('❌ 关闭窗口失败:', undefined, error as Error);
+    }
   }
 }

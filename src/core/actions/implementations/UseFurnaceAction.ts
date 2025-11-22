@@ -28,6 +28,10 @@ export class UseFurnaceAction extends BaseAction<any> {
   // 常见的燃料物品列表
   private readonly fuelItems = ['coal', 'charcoal', 'coal_block', 'lava_bucket', 'blaze_rod', 'dried_kelp_block', 'bamboo', 'stick'];
 
+  shouldActivate(context: RuntimeContext): boolean {
+    return false;
+  }
+
   async execute(context: RuntimeContext, params: any): Promise<ActionResult> {
     try {
       const { action = 'view', items = [], x, y, z, container_type = 'furnace' } = params;

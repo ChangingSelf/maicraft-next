@@ -83,6 +83,32 @@ export interface UseFurnaceParams {
 }
 
 /**
+ * QueryContainer 动作参数
+ */
+export interface QueryContainerParams {
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+}
+
+/**
+ * ManageContainer 动作参数
+ */
+export interface ManageContainerParams {
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  action: 'take_items' | 'put_items';
+  item: string;
+  count: number;
+  slot?: string; // 可选，用于熔炉等有槽位的容器
+}
+
+/**
  * Eat 动作参数
  */
 export interface EatParams {
@@ -208,6 +234,8 @@ export interface ActionParamsMap {
   [ActionIds.CRAFT]: CraftParams;
   [ActionIds.USE_CHEST]: UseChestParams;
   [ActionIds.USE_FURNACE]: UseFurnaceParams;
+  [ActionIds.QUERY_CONTAINER]: QueryContainerParams;
+  [ActionIds.MANAGE_CONTAINER]: ManageContainerParams;
   [ActionIds.EAT]: EatParams;
   [ActionIds.TOSS_ITEM]: TossItemParams;
   [ActionIds.KILL_MOB]: KillMobParams;

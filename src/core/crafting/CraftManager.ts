@@ -660,6 +660,14 @@ export class CraftManager {
     try {
       logger.info(`开始合成: ${originalItemName} x${count}`);
 
+      // 检查是否已经有打开的窗口，如果有则先关闭
+      // 这可以防止窗口冲突导致的 updateSlot 超时错误
+      if (this.bot.currentWindow) {
+        logger.warn(`检测到已打开的窗口，先关闭: ${this.bot.currentWindow.type}`);
+        this.bot.closeWindow(this.bot.currentWindow);
+        await new Promise(resolve => setTimeout(resolve, 500)); // 等待窗口关闭
+      }
+
       await this.bot.craft(recipe, count, craftingTable);
 
       logger.info(`合成成功: ${originalItemName} x${count}`);

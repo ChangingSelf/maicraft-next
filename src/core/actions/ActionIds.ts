@@ -26,10 +26,12 @@ export const ActionIds = {
   CRAFT: 'craft',
 
   // 容器操作
-  USE_CHEST: 'use_chest',
-  USE_FURNACE: 'use_furnace',
-  QUERY_CONTAINER: 'query_container',
-  MANAGE_CONTAINER: 'manage_container',
+  USE_CHEST: 'use_chest', // 直接操作箱子（批量存取）
+  USE_FURNACE: 'use_furnace', // 直接操作熔炉
+  OPEN_CHEST_GUI: 'open_chest_gui', // 打开箱子GUI模式（触发器）
+  OPEN_FURNACE_GUI: 'open_furnace_gui', // 打开熔炉GUI模式（触发器）
+  QUERY_CONTAINER: 'query_container', // GUI模式内查询容器
+  MANAGE_CONTAINER: 'manage_container', // GUI模式内管理容器
 
   // 生存
   EAT: 'eat',

@@ -19,6 +19,10 @@ export * from './MineInDirectionAction';
 // 容器操作
 export * from './UseChestAction';
 export * from './UseFurnaceAction';
+export * from './OpenChestGUIAction';
+export * from './OpenFurnaceGUIAction';
+export * from './QueryContainerAction';
+export * from './ManageContainerAction';
 
 // 生存相关
 export * from './EatAction';

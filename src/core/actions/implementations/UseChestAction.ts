@@ -42,6 +42,10 @@ export class UseChestAction extends BaseAction<any> {
   readonly name = 'UseChestAction';
   readonly description = '使用指定位置的箱子。此动作会切换到箱子GUI模式，由LLM决策具体的存取操作';
 
+  shouldActivate(context: RuntimeContext): boolean {
+    return false;
+  }
+
   async execute(context: RuntimeContext, params: any): Promise<ActionResult> {
     try {
       const { action = 'store', items = [], x, y, z } = params;
@@ -373,6 +377,7 @@ export class UseChestAction extends BaseAction<any> {
         }
 
         // 打开箱子
+        await new Promise(resolve => setTimeout(resolve, 1000)); //等待1秒，确保箱子已经打开
         const chest = await context.bot.openContainer(chestBlock);
 
         try {

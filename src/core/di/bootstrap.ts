@@ -393,6 +393,10 @@ function registerActions(executor: any, logger: Logger): void {
     MineInDirectionAction,
     UseChestAction,
     UseFurnaceAction,
+    OpenChestGUIAction,
+    OpenFurnaceGUIAction,
+    QueryContainerAction,
+    ManageContainerAction,
     EatAction,
     TossItemAction,
     KillMobAction,
@@ -417,6 +421,10 @@ function registerActions(executor: any, logger: Logger): void {
     // 容器操作
     new UseChestAction(),
     new UseFurnaceAction(),
+    new OpenChestGUIAction(),
+    new OpenFurnaceGUIAction(),
+    new QueryContainerAction(),
+    new ManageContainerAction(),
 
     // 生存相关
     new EatAction(),

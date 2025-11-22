@@ -284,7 +284,7 @@ export class MainMode extends BaseMode {
    * 判断是否是GUI操作
    */
   private isGUIAction(actionName: string): boolean {
-    return actionName === 'use_furnace' || actionName === 'use_chest';
+    return actionName === 'open_furnace_gui' || actionName === 'open_chest_gui';
   }
 
   /**
@@ -300,10 +300,10 @@ export class MainMode extends BaseMode {
       let targetMode: string | null = null;
       let position: any = null;
 
-      if (actionName === 'use_furnace') {
+      if (actionName === 'open_furnace_gui') {
         targetMode = ModeManager.MODE_TYPES.FURNACE_GUI;
         position = actionJson.position || actionJson.params?.position;
-      } else if (actionName === 'use_chest') {
+      } else if (actionName === 'open_chest_gui') {
         targetMode = ModeManager.MODE_TYPES.CHEST_GUI;
         position = actionJson.position || actionJson.params?.position;
       }
@@ -327,10 +327,63 @@ export class MainMode extends BaseMode {
 
       // 切换到GUI模式
       try {
+        // 🔧 设置中断，让主循环暂停调度
+        if (this.state.interrupt) {
+          this.state.interrupt.trigger(`GUI模式执行中: ${targetMode}`);
+        }
+
+        // 🔧 暂停方块扫描，避免占用事件循环
+        const cacheManager = (this.state.context.gameState as any).cacheManager;
+        if (cacheManager && typeof cacheManager.pauseScanning === 'function') {
+          cacheManager.pauseScanning();
+          this.logger.debug('⏸️ 已暂停方块扫描');
+        }
+
         await this.state.modeManager.setMode(targetMode, `LLM决策使用${actionName}`);
+
+        // 🔧 关键修复：立即执行 GUI 模式，并等待完成
+        // 这样主循环就不会在 GUI 模式执行期间继续调度
+        this.logger.info(`🔄 开始执行 ${targetMode} 模式...`);
+
+        const guiMode = this.state.modeManager.getAllModes().find(mode => mode.type === targetMode);
+        if (guiMode) {
+          await guiMode.execute();
+          this.logger.info(`✅ ${targetMode} 模式执行完成`);
+        }
+
+        // GUI 模式执行完毕后，切换回主模式
+        await this.state.modeManager.setMode(ModeManager.MODE_TYPES.MAIN, `${targetMode}模式执行完成`);
+
+        // 清除中断标志并恢复扫描
+        if (this.state.interrupt) {
+          this.state.interrupt.clear();
+        }
+
+        // 🔧 恢复方块扫描
+        if (cacheManager && typeof cacheManager.resumeScanning === 'function') {
+          cacheManager.resumeScanning();
+          this.logger.debug('▶️ 已恢复方块扫描');
+        }
+
         return targetMode;
       } catch (error) {
         this.logger.warn(`⚠️ 切换到${targetMode}模式失败: ${(error as Error).message}`);
+
+        // 发生错误时也要切换回主模式并恢复扫描
+        await this.state.modeManager.setMode(ModeManager.MODE_TYPES.MAIN, `${targetMode}模式执行异常`);
+
+        // 清除中断标志
+        if (this.state.interrupt) {
+          this.state.interrupt.clear();
+        }
+
+        // 🔧 恢复方块扫描
+        const cacheManager = (this.state.context.gameState as any).cacheManager;
+        if (cacheManager && typeof cacheManager.resumeScanning === 'function') {
+          cacheManager.resumeScanning();
+          this.logger.debug('▶️ 已恢复方块扫描（错误恢复）');
+        }
+
         return null;
       }
     } catch (error) {
