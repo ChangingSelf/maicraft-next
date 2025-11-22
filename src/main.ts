@@ -16,6 +16,10 @@ import { plugin as pvpPlugin } from 'mineflayer-pvp';
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as collectBlock } from 'mineflayer-collectblock-colalab';
 
+// Node.js 模块
+import * as fs from 'fs';
+import * as path from 'path';
+
 // 依赖注入
 import { Container, ServiceKeys, configureServices } from '@/core/di';
 import type { Agent } from '@/core/agent/Agent';
@@ -371,6 +375,27 @@ class MaicraftNext {
  * 主函数
  */
 async function main(): Promise<void> {
+  // 检查命令行参数
+  const args = process.argv.slice(2);
+  const cleanData = args.includes('--clean-data');
+
+  // 如果指定了--clean-data参数，先清空data目录
+  if (cleanData) {
+    const dataDir = path.join(process.cwd(), 'data');
+    try {
+      if (fs.existsSync(dataDir)) {
+        console.log('🗑️ 正在清空data目录...');
+        fs.rmSync(dataDir, { recursive: true, force: true });
+        console.log('✅ 已清空data目录');
+      } else {
+        console.log('ℹ️ data目录不存在，跳过清空操作');
+      }
+    } catch (error) {
+      console.error('❌ 清空data目录时出错:', error);
+      process.exit(1);
+    }
+  }
+
   const app = new MaicraftNext();
 
   // 设置信号处理

@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/main.js",
     "dev": "tsx src/main.ts",
+    "dev:clean": "tsx src/main.ts --clean-data",
     "check": "tsx src/check-setup.ts",
     "test-bot": "tsx src/test-bot.ts",
     "test": "jest",
