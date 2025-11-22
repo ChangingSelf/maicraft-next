@@ -44,13 +44,16 @@ export class LocationManager {
   /**
    * 设置地标
    */
-  setLocation(name: string, position: Vec3, info: string, metadata?: any): Location {
+  setLocation(name: string, position: Vec3 | { x: number; y: number; z: number }, info: string, metadata?: any): Location {
     const existing = this.locations.get(name);
     const now = Date.now();
 
+    // 确保 position 是 Vec3 对象，如果不是则创建新的 Vec3 对象
+    const pos = position instanceof Vec3 ? position.clone() : new Vec3(position.x, position.y, position.z);
+
     const location: Location = {
       name,
-      position: position.clone(),
+      position: pos,
       info,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
@@ -259,14 +262,14 @@ export class LocationManager {
       clearTimeout(this.saveTimer);
     }
     this.saveTimer = setTimeout(() => {
-      this.save();
+      this.saveToFile();
     }, this.SAVE_INTERVAL);
   }
 
   /**
    * 保存地标数据到文件
    */
-  private async save(): Promise<void> {
+  private async saveToFile(): Promise<void> {
     try {
       // 确保目录存在
       const dir = this.persistPath.substring(0, this.persistPath.lastIndexOf('/'));
@@ -308,6 +311,6 @@ export class LocationManager {
       clearTimeout(this.saveTimer);
       this.saveTimer = undefined;
     }
-    await this.save();
+    await this.saveToFile();
   }
 }
