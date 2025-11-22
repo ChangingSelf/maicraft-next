@@ -26,7 +26,7 @@ export function initExperienceSummaryTemplate(): void {
 - 当前任务：{{current_task}}
 
 ## 总结要求
-请分析上述决策和思维记录，提取**多条**（建议3-10条）简短的经验教训：
+请分析上述决策和思维记录，提取多条（建议3-10条）简短的经验教训：
 
 ### 重点关注
 1. **物品名称错误**：如果多次尝试某个操作因为物品名称错误失败，最后发现正确名称，记录下来
@@ -65,7 +65,7 @@ export function initExperienceSummaryTemplate(): void {
       'experience_summary_system',
       `你是 {{bot_name}} 的经验总结助手。
 
-你的核心任务：分析AI最近的决策记录，提取**多条简短实用**的经验教训。
+你的核心任务：分析AI最近的决策记录，提取多条简短实用的经验教训。
 
 ## 核心原则
 1. **数据驱动**：只基于提供的决策记录总结，不臆造经验

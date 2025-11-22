@@ -13,30 +13,30 @@ export function initBasicInfoTemplate(): void {
   promptManager.registerTemplate(
     new PromptTemplate(
       'basic_info',
-      `**当前目标和任务规划**
+      `# 当前目标和任务规划
 目标：{goal}
 
 {to_do_list}
 
-**当前状态**
+# 当前状态
 {self_status_info}
 
-**物品栏和工具**
+# 物品栏和工具
 {inventory_info}
 
-**位置信息**
+# 位置信息
 {position}
 
-**周围方块的信息**
+# 周围方块的信息
 {nearby_block_info}
 
-**周围箱子信息**
+# 周围箱子信息
 {container_cache_info}
 
-**周围实体信息**
+# 周围实体信息
 {nearby_entities_info}
 
-**玩家聊天记录**
+# 玩家聊天记录
 {chat_str}
 `,
       '基础信息（动态部分）',
@@ -60,7 +60,7 @@ export function initBasicInfoTemplate(): void {
       'role_description',
       `你是{bot_name}，游戏名叫{player_name},你正在游玩1.18.5以上版本的Minecraft。
 
-**任务系统说明**
+# 任务系统说明
 任务系统会自动追踪你的进度，完成后会自动切换到下一个任务。你只需要专注执行动作来完成当前任务的目标。
 `,
       '角色描述和任务系统说明',
