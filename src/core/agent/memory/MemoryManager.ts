@@ -360,7 +360,7 @@ export class MemoryManager {
 
   private formatDecision(d: DecisionEntry): string {
     const icon = d.result === 'success' ? '✅' : d.result === 'failed' ? '❌' : '⚠️';
-    return `${this.formatTime(d.timestamp)} ${icon} ${d.intention}`;
+    return `${this.formatTime(d.timestamp)} ${icon} ${d.intention}${d.feedback ? `(${d.feedback})` : ''}`;
   }
 
   private formatExperience(e: ExperienceEntry): string {

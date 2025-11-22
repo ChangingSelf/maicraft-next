@@ -384,8 +384,8 @@ export class PromptDataCollector {
         const pos = container.position;
         const distance = pos.distanceTo(gameState.blockPosition);
 
-        let line = `  ${container.type}: ${container.name || '未命名'}`;
-        line += ` at (${pos.x}, ${pos.y}, ${pos.z})`;
+        let line = `  ${container.type}`;
+        line += `(${pos.x}, ${pos.y}, ${pos.z})`;
         line += ` [距离: ${distance.toFixed(1)}格]`;
 
         containerLines.push(line);
