@@ -18,8 +18,8 @@ export interface CacheManagerConfig {
   containerUpdateInterval: number;
   /** 自动保存间隔（毫秒） */
   autoSaveInterval: number;
-  /** 启用自动扫描 */
-  enableAutoScan: boolean;
+  /** 启用定期扫描（推荐关闭，区块事件已足够） */
+  enablePeriodicScan: boolean;
   /** 启用自动保存 */
   enableAutoSave: boolean;
   /** 性能模式 */
@@ -43,33 +43,247 @@ export class CacheManager {
   ) {
     this.logger = getLogger('CacheManager');
     this.config = {
-      blockScanInterval: 1 * 1000, // 1秒
-      blockScanRadius: 50, // 50格半径，确保能检测到容器
+      blockScanInterval: 5 * 1000, // 5秒（仅在启用定期扫描时使用）
+      blockScanRadius: 50, // 50格半径
       containerUpdateInterval: 10 * 1000, // 10秒
       autoSaveInterval: 1 * 60 * 1000, // 1分钟
-      enableAutoScan: true,
+      enablePeriodicScan: false, // 🔧 默认关闭定期扫描，使用区块事件
       enableAutoSave: true,
       performanceMode: 'balanced' as const,
       ...config,
     };
 
-    this.logger.info('缓存管理器初始化完成', { config: this.config });
+    this.logger.info('缓存管理器初始化完成', {
+      config: this.config,
+      scanMode: this.config.enablePeriodicScan ? '定期扫描+区块事件' : '仅区块事件（推荐）',
+    });
+
+    // 🔧 监听区块加载/卸载事件，实时扫描和清理
+    this.setupChunkListeners();
+  }
+
+  /**
+   * 设置区块监听器
+   */
+  private setupChunkListeners(): void {
+    // 监听区块加载事件
+    this.bot.on('chunkColumnLoad', (point: Vec3) => {
+      this.onChunkLoad(point);
+    });
+
+    // 监听区块卸载事件
+    this.bot.on('chunkColumnUnload', (point: Vec3) => {
+      this.onChunkUnload(point);
+    });
+
+    this.logger.info('✅ 区块监听器已设置（加载/卸载）');
+  }
+
+  /**
+   * 处理区块加载事件
+   */
+  private async onChunkLoad(chunkCorner: Vec3): Promise<void> {
+    if (!this.blockCache) return;
+
+    try {
+      // 区块坐标（每个区块16×16）
+      const chunkX = chunkCorner.x >> 4; //右移4位，相当于除以16
+      const chunkZ = chunkCorner.z >> 4; //右移4位，相当于除以16
+
+      this.logger.debug(`📦 区块加载: chunk(${chunkX}, ${chunkZ}) 开始扫描...`);
+
+      const blocks: Array<{ x: number; y: number; z: number; block: any }> = [];
+      let scannedCount = 0;
+      let skipCount = 0;
+
+      // 遍历区块内的所有方块（16×16×世界高度）
+      // 使用世界坐标，不是相对坐标
+      const startX = chunkX * 16;
+      const startZ = chunkZ * 16;
+
+      // 限制Y轴扫描范围（只扫描bot附近的高度层，避免扫描整个世界高度）
+      const botY = this.bot.entity?.position?.y || 64;
+      const minY = Math.max(-64, Math.floor(botY) - 16); // bot下方16格
+      const maxY = Math.min(320, Math.floor(botY) + 16); // bot上方16格
+
+      for (let x = startX; x < startX + 16; x++) {
+        for (let z = startZ; z < startZ + 16; z++) {
+          for (let y = minY; y <= maxY; y++) {
+            try {
+              scannedCount++;
+              const block = this.bot.blockAt(new Vec3(x, y, z));
+
+              if (block) {
+                blocks.push({
+                  x,
+                  y,
+                  z,
+                  block: {
+                    name: block.name || 'unknown',
+                    type: block.type,
+                    metadata: block.metadata,
+                    hardness: (block as any).hardness,
+                    lightLevel: (block as any).lightLevel,
+                    transparent: (block as any).transparent,
+                    state: this.getBlockState(block),
+                  },
+                });
+              } else {
+                skipCount++;
+              }
+            } catch (error) {
+              skipCount++;
+            }
+          }
+        }
+      }
+
+      // 批量更新缓存
+      if (blocks.length > 0) {
+        this.blockCache.setBlocks(blocks);
+
+        // 统计方块类型
+        const blockTypes = new Map<string, number>();
+        for (const b of blocks) {
+          const count = blockTypes.get(b.block.name) || 0;
+          blockTypes.set(b.block.name, count + 1);
+        }
+        const topTypes = Array.from(blockTypes.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name, count]) => `${name}:${count}`)
+          .join(', ');
+
+        this.logger.info(`✅ 区块加载扫描: chunk(${chunkX},${chunkZ}) 缓存${blocks.length}个方块 [${topTypes}]`);
+
+        // 同步容器
+        this.syncContainersFromBlocks(blocks, chunkCorner);
+      } else {
+        this.logger.warn(`⚠️ 区块扫描无结果: chunk(${chunkX},${chunkZ}) 扫描${scannedCount}个位置`);
+      }
+    } catch (error) {
+      this.logger.error('区块扫描失败', undefined, error as Error);
+    }
+  }
+
+  /**
+   * 处理区块卸载事件
+   */
+  private onChunkUnload(chunkCorner: Vec3): void {
+    if (!this.blockCache) return;
+
+    try {
+      // 区块坐标
+      const chunkX = chunkCorner.x >> 4;
+      const chunkZ = chunkCorner.z >> 4;
+
+      this.logger.debug(`📤 区块卸载: chunk(${chunkX}, ${chunkZ}) 开始清理缓存...`);
+
+      // 计算该区块的世界坐标范围
+      const startX = chunkX * 16;
+      const startZ = chunkZ * 16;
+      const endX = startX + 15;
+      const endZ = startZ + 15;
+
+      // 清理该区块范围内的所有缓存
+      let removedCount = 0;
+      let removedContainers = 0;
+
+      // 遍历整个Y轴范围（-64到320）
+      for (let x = startX; x <= endX; x++) {
+        for (let z = startZ; z <= endZ; z++) {
+          for (let y = -64; y <= 320; y++) {
+            // 删除方块缓存
+            if (this.blockCache.removeBlock(x, y, z)) {
+              removedCount++;
+            }
+
+            // 同时清理容器缓存
+            if (this.containerCache) {
+              const containerInfo = this.containerCache.getContainer(x, y, z);
+              if (containerInfo) {
+                this.containerCache.removeContainer(x, y, z, containerInfo.type);
+                removedContainers++;
+              }
+            }
+          }
+        }
+      }
+
+      if (removedCount > 0 || removedContainers > 0) {
+        this.logger.info(`🗑️ 区块卸载清理: chunk(${chunkX},${chunkZ}) 移除${removedCount}个方块, ${removedContainers}个容器`);
+      }
+    } catch (error) {
+      this.logger.error('区块卸载清理失败', undefined, error as Error);
+    }
   }
 
   /**
    * 启动缓存管理器
    */
   start(): void {
-    if (this.config.enableAutoScan) {
+    // 定期扫描（可选，默认关闭）
+    if (this.config.enablePeriodicScan) {
       this.startBlockScanning();
       this.startContainerUpdating();
+      this.logger.info('📊 定期扫描已启用（可在配置中关闭以节省性能）');
+    } else {
+      this.logger.info('✅ 定期扫描已禁用，完全依赖区块事件（推荐模式）');
     }
 
+    // 自动保存
     if (this.config.enableAutoSave) {
       this.startAutoSave();
     }
 
+    // 🔧 初始扫描：bot启动时周围区块可能已加载，主动扫描一次
+    setTimeout(() => {
+      this.performInitialScan();
+    }, 2000); // 等待2秒，确保bot完全初始化
+
     this.logger.info('缓存管理器已启动');
+  }
+
+  /**
+   * 执行初始扫描
+   * 扫描bot周围已加载的区块，避免错过已加载区块
+   */
+  private async performInitialScan(): Promise<void> {
+    if (!this.bot.entity || !this.blockCache) return;
+
+    try {
+      const botPos = this.bot.entity.position.floored();
+      const chunkRadiusX = 3; // 扫描bot周围±3个区块（约48格）
+      const chunkRadiusZ = 3;
+      const centerChunkX = botPos.x >> 4;
+      const centerChunkZ = botPos.z >> 4;
+
+      this.logger.info(`🔍 开始初始扫描: bot位置(${botPos.x},${botPos.y},${botPos.z}) 区块(${centerChunkX},${centerChunkZ})`);
+
+      let scannedChunks = 0;
+      let totalBlocks = 0;
+
+      for (let chunkX = centerChunkX - chunkRadiusX; chunkX <= centerChunkX + chunkRadiusX; chunkX++) {
+        for (let chunkZ = centerChunkZ - chunkRadiusZ; chunkZ <= centerChunkZ + chunkRadiusZ; chunkZ++) {
+          // 测试区块是否加载
+          const testX = chunkX * 16;
+          const testZ = chunkZ * 16;
+          const testBlock = this.bot.blockAt(new Vec3(testX, botPos.y, testZ));
+
+          if (testBlock) {
+            // 区块已加载，扫描它
+            const chunkCorner = new Vec3(chunkX * 16, 0, chunkZ * 16);
+            await this.onChunkLoad(chunkCorner);
+            scannedChunks++;
+            totalBlocks += 8448; // 估计值
+          }
+        }
+      }
+
+      this.logger.info(`✅ 初始扫描完成: 扫描${scannedChunks}个区块, 约${totalBlocks}个方块`);
+    } catch (error) {
+      this.logger.error('初始扫描失败', undefined, error as Error);
+    }
   }
 
   /**
@@ -169,16 +383,15 @@ export class CacheManager {
   }
 
   /**
-   * 扫描周围方块 - 实时模式，每次都扫描
+   * 扫描周围方块 - 基于区块的智能扫描
+   * 🔧 优化：只扫描已加载的区块，避免大量null返回
    */
   private async scanNearbyBlocks(): Promise<void> {
     if (!this.blockCache || !this.bot.entity || this.isScanning) {
       return;
     }
 
-    // 不检查移动阈值，每次都扫描（实时更新模式）
     const currentPosition = this.bot.entity.position;
-
     this.isScanning = true;
     this.lastScanPosition = currentPosition.clone();
 
@@ -186,69 +399,72 @@ export class CacheManager {
       const blocks: Array<{ x: number; y: number; z: number; block: any }> = [];
       const radius = this.config.blockScanRadius;
       const centerPos = currentPosition.floored();
-      let totalBlocks = 0;
 
-      // 性能控制：限制扫描时间和方块数量 (为AI决策优化)
-      const maxScanTime = 800; // 最大扫描时间800ms，允许扫描大范围
-      const maxBlocks = 10000; // 最多缓存10000个方块，50格半径需要更多容量
-      const scanStartTime = Date.now();
+      // 计算需要扫描的区块范围
+      const chunkRadiusX = Math.ceil(radius / 16);
+      const chunkRadiusZ = Math.ceil(radius / 16);
+      const centerChunkX = centerPos.x >> 4;
+      const centerChunkZ = centerPos.z >> 4;
 
-      // 扫描周围的方块（全范围Y轴扫描）
-      const scanStartY = Math.max(0, centerPos.y - radius); // 下方扫描半径格
-      const scanEndY = Math.min(centerPos.y + radius, 255); // 上方扫描半径格
+      this.logger.debug(`🔍 开始区块扫描: 中心区块(${centerChunkX},${centerChunkZ}) 范围±${chunkRadiusX}区块 (约${radius}格)`);
 
-      let airCount = 0;
-      let skipCount = 0;
+      let scannedChunks = 0;
+      let loadedChunks = 0;
+      let scannedBlocks = 0;
 
-      scanLoop: for (let x = -radius; x <= radius; x++) {
-        for (let z = -radius; z <= radius; z++) {
-          for (let y = scanStartY; y <= scanEndY; y++) {
-            // 性能控制：检查扫描时间
-            if (Date.now() - scanStartTime > maxScanTime) {
-              break scanLoop;
-            }
+      // 限制Y轴扫描范围（只扫描bot周围，不是整个世界高度）
+      const minY = Math.max(-64, centerPos.y - 32); // bot下方32格
+      const maxY = Math.min(320, centerPos.y + 32); // bot上方32格
 
-            // 性能控制：限制方块数量
-            if (blocks.length >= maxBlocks) {
-              break scanLoop;
-            }
+      // 按区块扫描
+      for (let chunkX = centerChunkX - chunkRadiusX; chunkX <= centerChunkX + chunkRadiusX; chunkX++) {
+        for (let chunkZ = centerChunkZ - chunkRadiusZ; chunkZ <= centerChunkZ + chunkRadiusZ; chunkZ++) {
+          scannedChunks++;
 
-            const worldX = centerPos.x + x;
-            const worldY = y; // 直接使用y，因为scanStartY和scanEndY已经是绝对坐标
-            const worldZ = centerPos.z + z;
+          // 检查区块是否加载（使用区块内的任意一个方块测试）
+          const testX = chunkX * 16;
+          const testZ = chunkZ * 16;
+          const testBlock = this.bot.blockAt(new Vec3(testX, centerPos.y, testZ));
 
-            try {
-              totalBlocks++;
-              const block = this.bot.blockAt(new Vec3(worldX, worldY, worldZ));
-              if (block) {
-                // 缓存所有方块（包括空气），这对环境感知至关重要
-                const blockName = block.name || 'unknown';
+          if (!testBlock) {
+            // 区块未加载，跳过
+            continue;
+          }
 
-                // 统计空气方块
-                if (blockName === 'air' || blockName === 'cave_air') {
-                  airCount++;
+          loadedChunks++;
+
+          // 扫描该区块内的方块
+          for (let x = chunkX * 16; x < (chunkX + 1) * 16; x++) {
+            for (let z = chunkZ * 16; z < (chunkZ + 1) * 16; z++) {
+              // 检查是否在圆形范围内（优化：避免扫描角落）
+              const distXZ = Math.sqrt(Math.pow(x - centerPos.x, 2) + Math.pow(z - centerPos.z, 2));
+              if (distXZ > radius) continue;
+
+              for (let y = minY; y <= maxY; y++) {
+                try {
+                  scannedBlocks++;
+                  const block = this.bot.blockAt(new Vec3(x, y, z));
+
+                  if (block) {
+                    blocks.push({
+                      x,
+                      y,
+                      z,
+                      block: {
+                        name: block.name || 'unknown',
+                        type: block.type,
+                        metadata: block.metadata,
+                        hardness: (block as any).hardness,
+                        lightLevel: (block as any).lightLevel,
+                        transparent: (block as any).transparent,
+                        state: this.getBlockState(block),
+                      },
+                    });
+                  }
+                } catch (error) {
+                  // 忽略单个方块的错误
                 }
-
-                blocks.push({
-                  x: worldX,
-                  y: worldY,
-                  z: worldZ,
-                  block: {
-                    name: blockName,
-                    type: block.type,
-                    metadata: block.metadata,
-                    hardness: (block as any).hardness,
-                    lightLevel: (block as any).lightLevel,
-                    transparent: (block as any).transparent,
-                    state: this.getBlockState(block),
-                  },
-                });
-              } else {
-                skipCount++;
               }
-            } catch (error) {
-              skipCount++;
-              // 忽略单个方块的错误
             }
           }
         }
@@ -256,6 +472,8 @@ export class CacheManager {
 
       // 批量更新缓存
       if (blocks.length > 0) {
+        this.blockCache.setBlocks(blocks);
+
         // 统计方块类型
         const blockTypes = new Map<string, number>();
         for (const b of blocks) {
@@ -268,13 +486,16 @@ export class CacheManager {
           .map(([name, count]) => `${name}:${count}`)
           .join(', ');
 
-        this.blockCache.setBlocks(blocks);
+        this.logger.info(
+          `✅ 定期扫描完成: ${loadedChunks}/${scannedChunks}区块已加载, 缓存${blocks.length}个方块 (检查${scannedBlocks}次) [${topTypes}]`,
+        );
 
-        // 🔧 修复：扫描方块的同时，立即同步更新容器缓存
-        // 这样可以确保BlockCache和ContainerCache同步，bot不会"看不到"面前的箱子
+        // 同步容器
         this.syncContainersFromBlocks(blocks, centerPos);
       } else {
-        this.logger.error(`⚠️ 扫描完成但未缓存任何方块! 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 总检查:${totalBlocks}`);
+        this.logger.warn(
+          `⚠️ 定期扫描无结果: 位置(${centerPos.x},${centerPos.y},${centerPos.z}) ${loadedChunks}/${scannedChunks}区块已加载, 检查${scannedBlocks}次`,
+        );
       }
     } catch (error) {
       this.logger.error('方块扫描失败', undefined, error as Error);

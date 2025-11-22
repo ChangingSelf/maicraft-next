@@ -249,7 +249,9 @@ export class MainDecisionLoop extends BaseLoop<AgentState> {
         health: basicInfo.self_status_info,
 
         // 环境信息（对任务评估很重要）
+        block_search_distance: basicInfo.block_search_distance || 50, // 方块搜索距离
         nearby_block_info: basicInfo.nearby_block_info, // 周围方块，对采集任务很重要
+        entity_search_distance: basicInfo.entity_search_distance || 16, // 实体搜索距离
         nearby_entities_info: basicInfo.nearby_entities_info, // 周围实体，对安全评估很重要
         container_cache_info: basicInfo.container_cache_info, // 容器信息，对存储任务很重要
 

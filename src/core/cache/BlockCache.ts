@@ -11,6 +11,7 @@ import type { BlockInfo, CacheConfig, CacheStats, BlockKeyGenerator } from './ty
 
 export class BlockCache {
   private cache: Map<string, BlockInfo> = new Map();
+  private chunkIndex: Map<string, Set<string>> = new Map(); // 🔧 区块索引：chunkKey -> Set<blockKey>
   private logger: Logger;
   private persistPath: string;
   private config: CacheConfig;
@@ -25,7 +26,7 @@ export class BlockCache {
 
     // 默认配置
     this.config = {
-      maxEntries: 10000,
+      maxEntries: 0, // 🔧 设为0表示无限制，完全依赖区块卸载事件清理
       expirationTime: 30 * 60 * 1000, // 30分钟
       autoSaveInterval: 5 * 60 * 1000, // 5分钟
       enabled: true,
@@ -57,6 +58,15 @@ export class BlockCache {
    */
   private defaultKeyGenerator(x: number, y: number, z: number): string {
     return `${x},${y},${z}`;
+  }
+
+  /**
+   * 生成区块键
+   */
+  private getChunkKey(x: number, z: number): string {
+    const chunkX = x >> 4; // 除以16
+    const chunkZ = z >> 4;
+    return `${chunkX},${chunkZ}`;
   }
 
   /**
@@ -95,8 +105,8 @@ export class BlockCache {
     const key = this.keyGenerator(x, y, z);
     const now = Date.now();
 
-    // 检查缓存大小限制
-    if (this.cache.size >= this.config.maxEntries) {
+    // 检查缓存大小限制（0表示无限制）
+    if (this.config.maxEntries > 0 && this.cache.size >= this.config.maxEntries) {
       this.evictOldestEntries();
     }
 
@@ -119,9 +129,39 @@ export class BlockCache {
   setBlocks(blocks: Array<{ x: number; y: number; z: number; block: Partial<BlockInfo> }>): void {
     if (!this.config.enabled) return;
 
-    for (const { x, y, z, block } of blocks) {
-      this.setBlock(x, y, z, block);
+    const now = Date.now();
+
+    // 🔧 优化：批量添加前检查一次容量，避免频繁驱逐（0表示无限制）
+    if (this.config.maxEntries > 0) {
+      const spaceNeeded = this.cache.size + blocks.length - this.config.maxEntries;
+      if (spaceNeeded > 0) {
+        // 一次性驱逐足够的空间
+        this.evictOldestEntries(Math.max(spaceNeeded, 5000));
+      }
     }
+
+    // 批量添加
+    for (const { x, y, z, block } of blocks) {
+      const key = this.keyGenerator(x, y, z);
+      const blockInfo: BlockInfo = {
+        name: block.name || 'unknown',
+        type: block.type || 0,
+        position: new Vec3(x, y, z),
+        timestamp: now,
+        ...block,
+      };
+      this.cache.set(key, blockInfo);
+
+      // 🔧 更新区块索引
+      const chunkKey = this.getChunkKey(x, z);
+      if (!this.chunkIndex.has(chunkKey)) {
+        this.chunkIndex.set(chunkKey, new Set());
+      }
+      this.chunkIndex.get(chunkKey)!.add(key);
+    }
+
+    this.stats.totalEntries = this.cache.size;
+    this.stats.lastUpdate = now;
   }
 
   /**
@@ -132,6 +172,17 @@ export class BlockCache {
     const deleted = this.cache.delete(key);
 
     if (deleted) {
+      // 🔧 更新区块索引
+      const chunkKey = this.getChunkKey(x, z);
+      const chunkSet = this.chunkIndex.get(chunkKey);
+      if (chunkSet) {
+        chunkSet.delete(key);
+        // 如果区块为空，删除区块索引
+        if (chunkSet.size === 0) {
+          this.chunkIndex.delete(chunkKey);
+        }
+      }
+
       this.stats.totalEntries = this.cache.size;
       this.logger.debug(`方块缓存已删除: ${key}`);
     }
@@ -141,43 +192,67 @@ export class BlockCache {
 
   /**
    * 获取指定范围内的方块
+   * 🔧 优化：使用区块索引，只查询附近区块，而不是遍历所有缓存
    */
   getBlocksInRadius(centerX: number, centerY: number, centerZ: number, radius: number): BlockInfo[] {
     const blocks: BlockInfo[] = [];
     let expired = 0;
     let outOfRange = 0;
+    let checkedBlocks = 0;
 
-    for (const [key, blockInfo] of this.cache) {
-      if (this.isExpired(blockInfo)) {
-        expired++;
-        continue;
-      }
+    // 计算需要检查的区块范围
+    const centerChunkX = Math.floor(centerX / 16);
+    const centerChunkZ = Math.floor(centerZ / 16);
+    const chunkRadius = Math.ceil(radius / 16) + 1; // 多查1个区块确保覆盖
 
-      const distance = Math.sqrt(
-        Math.pow(blockInfo.position.x - centerX, 2) + Math.pow(blockInfo.position.y - centerY, 2) + Math.pow(blockInfo.position.z - centerZ, 2),
-      );
+    // 只遍历附近的区块
+    for (let chunkX = centerChunkX - chunkRadius; chunkX <= centerChunkX + chunkRadius; chunkX++) {
+      for (let chunkZ = centerChunkZ - chunkRadius; chunkZ <= centerChunkZ + chunkRadius; chunkZ++) {
+        const chunkKey = `${chunkX},${chunkZ}`;
+        const chunkBlockKeys = this.chunkIndex.get(chunkKey);
 
-      if (distance <= radius) {
-        blocks.push(blockInfo);
-      } else {
-        outOfRange++;
+        if (!chunkBlockKeys) continue;
+
+        // 遍历该区块内的方块
+        for (const blockKey of chunkBlockKeys) {
+          const blockInfo = this.cache.get(blockKey);
+          if (!blockInfo) continue;
+
+          checkedBlocks++;
+
+          if (this.isExpired(blockInfo)) {
+            expired++;
+            continue;
+          }
+
+          const distance = Math.sqrt(
+            Math.pow(blockInfo.position.x - centerX, 2) + Math.pow(blockInfo.position.y - centerY, 2) + Math.pow(blockInfo.position.z - centerZ, 2),
+          );
+
+          if (distance <= radius) {
+            blocks.push(blockInfo);
+          } else {
+            outOfRange++;
+          }
+        }
       }
     }
 
     if (blocks.length < 100) {
       // 只有在结果很少时才记录，避免日志过多
       this.logger.warn(
-        `⚠️ getBlocksInRadius结果少: 中心(${centerX},${centerY},${centerZ}) 半径:${radius} 找到:${blocks.length} 过期:${expired} 超出范围:${outOfRange} 总缓存:${this.cache.size}`,
+        `⚠️ getBlocksInRadius结果少: 中心(${centerX},${centerY},${centerZ}) 半径:${radius} 找到:${blocks.length} 检查:${checkedBlocks} 过期:${expired} 超出范围:${outOfRange} 总缓存:${this.cache.size}`,
       );
 
       // 采样显示缓存中的方块位置
-      if (this.cache.size > 0) {
-        const samples = Array.from(this.cache.values())
-          .slice(0, 3)
-          .map(b => `(${b.position.x},${b.position.y},${b.position.z}):${b.name}`)
-          .join(', ');
-        this.logger.warn(`缓存示例: ${samples}`);
+      if (this.cache.size > 0 && checkedBlocks > 0) {
+        // 显示检查的区块范围
+        this.logger.warn(
+          `查询区块范围: chunk(${centerChunkX - chunkRadius},${centerChunkZ - chunkRadius}) 到 chunk(${centerChunkX + chunkRadius},${centerChunkZ + chunkRadius})`,
+        );
       }
+    } else {
+      this.logger.debug(`查询成功: 位置(${centerX},${centerY},${centerZ}) 半径${radius} 找到${blocks.length}个方块 (检查${checkedBlocks}个)`);
     }
 
     return blocks;
@@ -256,17 +331,21 @@ export class BlockCache {
   /**
    * 驱逐最旧的缓存条目
    */
-  private evictOldestEntries(): void {
+  private evictOldestEntries(count?: number): void {
     const entries = Array.from(this.cache.entries());
     entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
 
-    const evictCount = Math.floor(this.config.maxEntries * 0.1); // 驱逐10%的旧条目
+    const evictCount = count || Math.floor(this.config.maxEntries * 0.1); // 默认驱逐10%的旧条目
+    let actualEvicted = 0;
     for (let i = 0; i < evictCount && i < entries.length; i++) {
       this.cache.delete(entries[i][0]);
+      actualEvicted++;
     }
 
     this.stats.totalEntries = this.cache.size;
-    this.logger.info(`已驱逐 ${evictCount} 个最旧的方块缓存`);
+    if (actualEvicted > 0) {
+      this.logger.info(`已驱逐 ${actualEvicted} 个最旧的方块缓存`);
+    }
   }
 
   /**
@@ -336,7 +415,11 @@ export class BlockCache {
       }
 
       this.stats.totalEntries = this.cache.size;
-      this.logger.info(`BlockCache 加载完成，已加载 ${this.cache.size} 个方块缓存`);
+
+      // 🔧 重建区块索引
+      this.rebuildChunkIndex();
+
+      this.logger.info(`BlockCache 加载完成，已加载 ${this.cache.size} 个方块缓存，区块索引 ${this.chunkIndex.size} 个区块`);
     } catch (error: any) {
       if (error.code === 'ENOENT') {
         this.logger.info('BlockCache 文件不存在，跳过加载');
@@ -345,6 +428,24 @@ export class BlockCache {
         throw error;
       }
     }
+  }
+
+  /**
+   * 重建区块索引
+   * 在加载缓存或清理后需要调用
+   */
+  private rebuildChunkIndex(): void {
+    this.chunkIndex.clear();
+
+    for (const [key, blockInfo] of this.cache) {
+      const chunkKey = this.getChunkKey(blockInfo.position.x, blockInfo.position.z);
+      if (!this.chunkIndex.has(chunkKey)) {
+        this.chunkIndex.set(chunkKey, new Set());
+      }
+      this.chunkIndex.get(chunkKey)!.add(key);
+    }
+
+    this.logger.debug(`区块索引重建完成: ${this.chunkIndex.size} 个区块`);
   }
 
   /**

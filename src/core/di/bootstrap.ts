@@ -37,7 +37,7 @@ export function configureServices(container: Container): void {
   container.registerSingleton(ServiceKeys.BlockCache, c => {
     const { BlockCache } = require('@/core/cache/BlockCache');
     return new BlockCache({
-      maxEntries: 50000,
+      maxEntries: 0, // 🔧 设为0表示无限制，完全依赖区块卸载事件清理
       expirationTime: 60 * 1000,
       autoSaveInterval: 5 * 60 * 1000,
       enabled: true,
@@ -49,7 +49,7 @@ export function configureServices(container: Container): void {
   container.registerSingleton(ServiceKeys.ContainerCache, c => {
     const { ContainerCache } = require('@/core/cache/ContainerCache');
     return new ContainerCache({
-      maxEntries: 50000,
+      maxEntries: 0, // 🔧 设为0表示无限制，完全依赖区块卸载事件清理
       expirationTime: 60 * 1000,
       autoSaveInterval: 5 * 60 * 1000,
       enabled: true,
@@ -71,13 +71,13 @@ export function configureServices(container: Container): void {
     const containerCache = c.resolve(ServiceKeys.ContainerCache);
 
     const managerConfig = {
-      blockScanInterval: 500,
+      blockScanInterval: 5 * 1000, // 5秒（仅在启用定期扫描时使用）
       blockScanRadius: 50,
-      containerUpdateInterval: 60 * 1000,
-      autoSaveInterval: 5 * 60 * 1000,
-      enableAutoScan: true,
+      containerUpdateInterval: 10 * 1000, // 10秒
+      autoSaveInterval: 60 * 1000, // 1分钟
+      enablePeriodicScan: false, // 🔧 关闭定期扫描，完全使用区块事件
       enableAutoSave: true,
-      performanceMode: 'performance' as const,
+      performanceMode: 'balanced' as const,
     };
 
     return new CacheManager(bot, blockCache, containerCache, managerConfig);

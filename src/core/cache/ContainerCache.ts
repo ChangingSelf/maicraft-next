@@ -25,7 +25,7 @@ export class ContainerCache {
 
     // 默认配置
     this.config = {
-      maxEntries: 1000,
+      maxEntries: 0, // 🔧 设为0表示无限制，完全依赖区块卸载事件清理
       expirationTime: 60 * 60 * 1000, // 1小时
       autoSaveInterval: 10 * 60 * 1000, // 10分钟
       enabled: true,
@@ -111,8 +111,8 @@ export class ContainerCache {
     const key = this.keyGenerator(x, y, z, type);
     const now = Date.now();
 
-    // 检查缓存大小限制
-    if (this.cache.size >= this.config.maxEntries) {
+    // 检查缓存大小限制（0表示无限制）
+    if (this.config.maxEntries > 0 && this.cache.size >= this.config.maxEntries) {
       this.evictOldestEntries();
     }
 
