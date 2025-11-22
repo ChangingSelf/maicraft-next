@@ -147,13 +147,14 @@ export class CacheManager {
   private cleanupExpiredCache(): void {
     if (!this.blockCache || !this.bot.entity) return;
 
-    const currentPos = this.bot.entity.position;
+    // 使用与查询相同的坐标系（整数坐标），避免坐标系不一致问题
+    const currentPos = this.bot.entity.position.floored();
 
-    // 清除超过200格的缓存（比扫描保留范围150格更大一些）
-    const removed = this.blockCache.clearOutOfRange(currentPos.x, currentPos.y, currentPos.z, 200);
+    // 扩大清理范围到1000格，避免频繁清理影响缓存效果
+    const removed = this.blockCache.clearOutOfRange(currentPos.x, currentPos.y, currentPos.z, 1000);
 
     if (removed > 0) {
-      this.logger.info(`🧹 定期清理: 移除 ${removed} 个远距离方块缓存`);
+      this.logger.info(`🧹 定期清理: 移除 ${removed} 个超出范围(1000格)的方块缓存`);
     }
   }
 
@@ -191,7 +192,6 @@ export class CacheManager {
       const radius = this.config.blockScanRadius;
       const centerPos = currentPosition.floored();
       let totalBlocks = 0;
-      let importantBlocks = 0;
 
       // 性能控制：限制扫描时间和方块数量 (为AI决策优化)
       const maxScanTime = 800; // 最大扫描时间800ms，允许扫描大范围
@@ -234,11 +234,6 @@ export class CacheManager {
                   airCount++;
                 }
 
-                // 统计重要方块（用于日志）
-                if (this.isImportantBlock(block)) {
-                  importantBlocks++;
-                }
-
                 blocks.push({
                   x: worldX,
                   y: worldY,
@@ -279,80 +274,14 @@ export class CacheManager {
           .join(', ');
 
         this.blockCache.setBlocks(blocks);
-
-        // 清除超出范围的旧缓存（保留当前位置周围150格的数据，因为扫描半径是50格）
-        const removedCount = this.blockCache.clearOutOfRange(centerPos.x, centerPos.y, centerPos.z, 150);
-
-        // this.logger.info(
-        //   `✅ [扫描完成] 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 检查:${totalBlocks} 已缓存:${blocks.length} 清理:${removedCount} 总数:${this.blockCache.size()} 方块类型:[${topTypes}]`,
-        // );
       } else {
-        this.logger.error(
-          `⚠️ 扫描完成但未缓存任何方块! 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 总检查:${totalBlocks} 重要方块:${importantBlocks}`,
-        );
+        this.logger.error(`⚠️ 扫描完成但未缓存任何方块! 位置:(${centerPos.x},${centerPos.y},${centerPos.z}) 总检查:${totalBlocks}`);
       }
     } catch (error) {
       this.logger.error('方块扫描失败', undefined, error as Error);
     } finally {
       this.isScanning = false;
     }
-  }
-
-  /**
-   * 判断是否为重要方块
-   */
-  private isImportantBlock(block: any): boolean {
-    // 扩展重要方块列表，包含更多常见方块
-    const importantPatterns = [
-      'chest',
-      'furnace',
-      'crafting_table',
-      'workbench',
-      'bed',
-      'door',
-      'torch',
-      'lantern',
-      'ore',
-      'log',
-      'wood',
-      'sapling',
-      'diamond',
-      'emerald',
-      'gold',
-      'iron',
-      'coal',
-      'stone',
-      'crop',
-      'farm',
-      'flower',
-      'tree',
-      'leaves',
-      'grass',
-      'dirt',
-      'sand',
-      'gravel',
-      'water',
-      'lava',
-      'cobblestone',
-      'planks',
-      'glass',
-      'brick',
-      'wool',
-      'bookshelf',
-      'ender_chest',
-      'hopper',
-      'dispenser',
-      'dropper',
-      'brewing_stand',
-      'anvil',
-      'enchanting_table',
-      'beacon',
-      'jukebox',
-      'note_block',
-    ];
-
-    const blockName = block.name.toLowerCase();
-    return importantPatterns.some(pattern => blockName.includes(pattern));
   }
 
   /**

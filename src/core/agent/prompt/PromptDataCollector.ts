@@ -7,6 +7,7 @@ import { getLogger, type Logger } from '@/utils/Logger';
 import type { AgentState } from '@/core/agent/types';
 import type { ActionPromptGenerator } from '@/core/actions/ActionPromptGenerator';
 import { promptManager } from '@/core/agent/prompt';
+import type { EntityInfo, GameState } from '@/core/state/GameState';
 
 export interface BasicInfoData {
   bot_name: string;
@@ -179,11 +180,11 @@ export class PromptDataCollector {
 
   // 私有辅助方法
 
-  private formatSelfInfo(gameState: any): string {
+  private formatSelfInfo(gameState: GameState): string {
     return `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}`;
   }
 
-  private formatStatusInfo(gameState: any): string {
+  private formatStatusInfo(gameState: GameState): string {
     return `生命值: ${gameState.health}/${gameState.healthMax}, 饥饿值: ${gameState.food}/${gameState.foodMax}, 等级: ${gameState.level}`;
   }
 
@@ -191,13 +192,13 @@ export class PromptDataCollector {
     return `位置: (${pos.x}, ${pos.y}, ${pos.z})`;
   }
 
-  private shouldShowEatAction(gameState: any): boolean {
+  private shouldShowEatAction(gameState: GameState): boolean {
     return gameState.food / gameState.foodMax < 0.8;
   }
 
-  private shouldShowKillMobAction(gameState: any): boolean {
+  private shouldShowKillMobAction(gameState: GameState): boolean {
     const hostileMobs = ['zombie', 'skeleton', 'spider', 'creeper', 'enderman', 'witch'];
-    return gameState.nearbyEntities.some((e: any) => hostileMobs.includes(e.name.toLowerCase()));
+    return gameState.nearbyEntities.some((e: EntityInfo) => hostileMobs.includes(e.name.toLowerCase()));
   }
 
   private generateEatActionPrompt(): string {
@@ -232,10 +233,18 @@ export class PromptDataCollector {
 
   private getNearbyBlocksInfo(): string {
     try {
-      const { gameState } = this.state.context;
-      const blockPosition = gameState.blockPosition;
+      const { gameState, bot } = this.state.context;
 
-      if (!blockPosition) {
+      // 使用实时的玩家位置，而不是可能过时的gameState.blockPosition
+      // gameState.blockPosition只在玩家移动时更新，静止时是过时的
+      let currentPosition;
+      if (bot?.entity?.position) {
+        currentPosition = bot.entity.position.floored();
+      } else {
+        currentPosition = gameState.blockPosition;
+      }
+
+      if (!currentPosition) {
         return '位置信息不可用';
       }
 
@@ -244,14 +253,14 @@ export class PromptDataCollector {
       if (nearbyBlockManager) {
         const blockInfo = nearbyBlockManager.getVisibleBlocksInfo(
           {
-            x: blockPosition.x,
-            y: blockPosition.y,
-            z: blockPosition.z,
+            x: currentPosition.x,
+            y: currentPosition.y,
+            z: currentPosition.z,
           },
-          32, // 搜索距离32格（与扫描半径50格匹配，留一些余量）
+          50,
         );
 
-        this.logger.debug(`🔍 获取周围方块信息完成`);
+        this.logger.debug(`🔍 获取周围方块信息完成，使用实时位置 (${currentPosition.x}, ${currentPosition.y}, ${currentPosition.z})`);
         return blockInfo;
       }
 
